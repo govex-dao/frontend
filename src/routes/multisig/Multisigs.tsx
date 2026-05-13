@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Shield, Plus, ChevronLeft, ChevronRight, Loader2, Timer, Coins, WalletCards } from "lucide-react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClient } from "@mysten/dapp-kit";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
+import toast from "react-hot-toast";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { SidebarNav, type SidebarNavItem } from "@/components/navigation/SidebarNav";
 import { AccountCard } from "@/components/multisig/AccountCard";
@@ -11,7 +13,11 @@ import { StreamCard } from "@/components/multisig/StreamCard";
 import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
-import { useMyVestingsAndStreams } from "@/hooks/useMyVestingsAndStreams";
+import { myVestingsAndStreamsKeys, useMyVestingsAndStreams } from "@/hooks/useMyVestingsAndStreams";
+import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTransaction";
+import { buildCollectStreamTransaction } from "@/lib/sui/stream-tx";
+import { multisigRpcKeys } from "@/hooks/useMultisig";
+import type { VaultStreamInfo } from "@/lib/sui/multisig";
 
 const ITEMS_PER_PAGE = 6;
 type TabType = "multisigs" | "streams" | "spending_limits" | "vestings";
@@ -51,12 +57,16 @@ function Pagination({ page, totalPages, onPageChange }: { page: number; totalPag
 
 export function Multisigs() {
   const account = useCurrentAccount();
+  const client = useSuiClient();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: multisigs, isLoading } = useMyMultisigs();
   const { ids: savedIds, removeId } = useSavedMultisigIds();
   const { vestings, streams, spendingLimits, isLoading: vestingsStreamsLoading } = useMyVestingsAndStreams();
+  const { executeTransaction, isLoading: collectLoading } = useSuiTransaction();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [autoCreateDismissed, setAutoCreateDismissed] = useState(false);
+  const [collectingStreamCapId, setCollectingStreamCapId] = useState<string | null>(null);
   const [streamPage, setStreamPage] = useState(0);
   const [spendingLimitPage, setSpendingLimitPage] = useState(0);
   const [vestingPage, setVestingPage] = useState(0);
@@ -94,6 +104,37 @@ export function Multisigs() {
   const handleCloseCreateModal = () => {
     setAutoCreateDismissed(true);
     setShowCreateModal(false);
+  };
+
+  const handleCollectStream = async (stream: VaultStreamInfo) => {
+    if (!account) return;
+    setCollectingStreamCapId(stream.capId ?? stream.id);
+    try {
+      const tx = await buildCollectStreamTransaction(client, stream, account.address);
+      await executeTransaction(
+        tx,
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: myVestingsAndStreamsKeys.streams(account.address) });
+            if (stream.accountId) {
+              queryClient.invalidateQueries({ queryKey: multisigRpcKeys.streams(stream.accountId) });
+              queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vaultBalances(stream.accountId) });
+            }
+          },
+        },
+        {
+          loadingMessage: "Collecting stream...",
+          successMessage: "Stream collected",
+        },
+      );
+    } catch (error) {
+      console.error("Stream collection failed:", error);
+      if (!isNotifiedTransactionError(error)) {
+        toast.error(error instanceof Error ? error.message : "Stream collection failed");
+      }
+    } finally {
+      setCollectingStreamCapId(null);
+    }
   };
 
   return (
@@ -253,7 +294,12 @@ export function Multisigs() {
                       {streams
                         .slice(streamPage * ITEMS_PER_PAGE, (streamPage + 1) * ITEMS_PER_PAGE)
                         .map((stream) => (
-                          <StreamCard key={stream.capId} stream={stream} />
+                          <StreamCard
+                            key={stream.capId}
+                            stream={stream}
+                            onCollect={handleCollectStream}
+                            isCollecting={collectLoading && collectingStreamCapId === stream.capId}
+                          />
                         ))}
                     </div>
                     {streams.length > ITEMS_PER_PAGE && (

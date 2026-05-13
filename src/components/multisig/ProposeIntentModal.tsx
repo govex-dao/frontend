@@ -39,7 +39,7 @@ import { VaultOpsForm, addVaultOpsSpecs, validateVaultOps } from "./action-forms
 import type { VaultOpsData } from "./action-forms/VaultOpsForm";
 import { MemoForm, addMemoSpecs, validateMemo } from "./action-forms/MemoForm";
 import type { MemoData } from "./action-forms/MemoForm";
-import { StreamForm, addStreamSpecs, validateStream } from "./action-forms/StreamForm";
+import { StreamForm, addStreamSpecs, validateStream, getPastIterationsForStreamData } from "./action-forms/StreamForm";
 import type { StreamData } from "./action-forms/StreamForm";
 import { VestingForm, addVestingSpecs, validateVesting } from "./action-forms/VestingForm";
 import type { VestingData } from "./action-forms/VestingForm";
@@ -235,6 +235,7 @@ function getDefaultData(type: ActionType, config?: MultisigConfig): ActionData {
                 amountPerIteration: "",
                 iterationsTotal: "",
                 iterationPeriodDays: "",
+                startTime: "",
                 expiryTime: "",
                 whitelistedRecipients: "",
                 streamId: "",
@@ -363,10 +364,16 @@ function buildDescription(actionType: ActionType, data: ActionData): string {
             const coin = shortCoin(d.coinType);
             if (d.mode === "cancel") return `Cancel payment stream / preapproved spending ${shortAddr(d.streamId)}`;
             const total = parseFloat(d.amountPerIteration) * Number(d.iterationsTotal);
+            const pastIterations = getPastIterationsForStreamData(d);
+            const totalIterations = Number(d.iterationsTotal || "0");
+            const pastWarning =
+                pastIterations > 2 && totalIterations > 0
+                    ? `, ${pastIterations} out of ${totalIterations} iterations in the past`
+                    : "";
             if (d.mode === "create_spending_limit") {
-                return `Preapproved spending ${total || "?"} ${coin} for ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d)`;
+                return `Preapproved spending ${total || "?"} ${coin} for ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
             }
-            return `Payment stream ${total || "?"} ${coin} to ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d)`;
+            return `Payment stream ${total || "?"} ${coin} to ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
         }
         case "vesting": {
             const d = data as VestingData;

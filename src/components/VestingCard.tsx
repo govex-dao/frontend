@@ -48,6 +48,7 @@ function formatAmount(raw: bigint, symbol: string): string {
 }
 
 function formatDuration(ms: number): string {
+  if (ms <= 0) return "0m";
   const days = Math.floor(ms / 86_400_000);
   const hours = Math.floor((ms % 86_400_000) / 3_600_000);
   if (days > 0) return `${days}d ${hours}h`;
@@ -63,6 +64,7 @@ function vestingProgress(vesting: VestingDisplayInfo): {
   status: "pending" | "active" | "completed";
 } {
   const totalAmount = vesting.amountPerIteration * BigInt(vesting.iterationsTotal);
+  const firstVestingTimeMs = getFirstVestingTimeMs(vesting);
 
   if (vesting.iterationPeriodMs <= 0 || vesting.iterationsTotal <= 0) {
     return { percent: 100, totalAmount, elapsedIterations: vesting.iterationsTotal, status: "completed" };
@@ -70,7 +72,7 @@ function vestingProgress(vesting: VestingDisplayInfo): {
 
   const now = Date.now();
 
-  if (now < vesting.startTimeMs) {
+  if (now < firstVestingTimeMs) {
     return { percent: 0, totalAmount, elapsedIterations: 0, status: "pending" };
   }
 
@@ -88,13 +90,19 @@ function vestingProgress(vesting: VestingDisplayInfo): {
   return { percent, totalAmount, elapsedIterations, status: "active" };
 }
 
+function getFirstVestingTimeMs(vesting: VestingDisplayInfo): number {
+  if (vesting.iterationPeriodMs <= 0 || vesting.iterationsTotal <= 0) return vesting.startTimeMs;
+  return vesting.startTimeMs + vesting.iterationPeriodMs;
+}
+
 export function VestingCard({ vesting }: Props) {
   const coin = extractCoinSymbol(vesting.coinType);
   const { percent, totalAmount, status } = vestingProgress(vesting);
   const accountLabel = vesting.daoAddress ?? vesting.accountId ?? vesting.vestingId;
 
-  const totalDurationMs = vesting.iterationPeriodMs * vesting.iterationsTotal;
-  const endTimeMs = vesting.startTimeMs + totalDurationMs;
+  const firstVestingTimeMs = getFirstVestingTimeMs(vesting);
+  const endTimeMs = vesting.startTimeMs + vesting.iterationPeriodMs * vesting.iterationsTotal;
+  const visibleDurationMs = Math.max(endTimeMs - firstVestingTimeMs, 0);
 
   const statusColors = {
     pending: "bg-yellow-500/15 text-yellow-400",
@@ -173,10 +181,10 @@ export function VestingCard({ vesting }: Props) {
 
         <div className="flex items-center gap-1.5 text-text-muted">
           <Timer className="w-3 h-3" />
-          <span>Duration</span>
+          <span>Active span</span>
         </div>
         <span className="text-text-primary text-right">
-          {formatDuration(totalDurationMs)}
+          {formatDuration(visibleDurationMs)}
         </span>
 
         <div className="flex items-center gap-1.5 text-text-muted">
@@ -193,10 +201,16 @@ export function VestingCard({ vesting }: Props) {
       </div>
 
       {/* Timeline */}
-      <div className="flex items-center justify-between text-[10px] text-text-muted pt-2 border-t border-border-subtle">
-        <span>{new Date(vesting.startTimeMs).toLocaleDateString()}</span>
+      <div className="flex items-center justify-between gap-3 text-[10px] text-text-muted pt-2 border-t border-border-subtle">
+        <span className="flex flex-col">
+          <span>First vest</span>
+          <span>{new Date(firstVestingTimeMs).toLocaleDateString()}</span>
+        </span>
         <span className="text-text-lighter">→</span>
-        <span>{new Date(endTimeMs).toLocaleDateString()}</span>
+        <span className="flex flex-col text-right">
+          <span>Final vest</span>
+          <span>{new Date(endTimeMs).toLocaleDateString()}</span>
+        </span>
       </div>
     </div>
   );

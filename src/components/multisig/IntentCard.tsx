@@ -48,6 +48,7 @@ import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTra
 import { useMultisigOwnedObjects } from "@/hooks/useMultisig";
 import { cacheUpgradeBuildOutput, getCachedUpgradeBuildOutput, parseUpgradeBuildOutput } from "@/lib/upgradeBuildCache";
 import { getSDK } from "@/lib/sdk";
+import { decodeActionParams } from "@/lib/actionParams";
 import { Input } from "@/components/inputs/Input";
 import { Select } from "@/components/inputs/Select";
 import { Textarea } from "@/components/inputs/Textarea";
@@ -297,6 +298,62 @@ function getExecutionCandidateLabel(candidate: ExecutionObjectCandidate): string
     return parts.join(" — ");
 }
 
+function decodedParamValue(params: Array<{ name: string; value: string }>, name: string): string | null {
+    return params.find((param) => param.name === name)?.value ?? null;
+}
+
+function parseDecodedU64(value: string | null): number | null {
+    if (!value || value === "none") return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+}
+
+function decodedVectorLength(value: string | null): number {
+    if (!value || value === "none") return 0;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+        return 0;
+    }
+}
+
+interface StreamTimingWarning {
+    actionIndex: number;
+    kind: "payment stream" | "preapproved spending";
+    pastIterations: number;
+    totalIterations: number;
+}
+
+function getStreamTimingWarning(
+    actionType: string,
+    actionData: string | undefined,
+    actionIndex: number,
+    nowMs = Date.now()
+): StreamTimingWarning | null {
+    if (extractModuleType(actionType) !== "vault::CreateStream" || !actionData) return null;
+
+    const decoded = decodeActionParams({ fullType: actionType, actionData });
+    if (!decoded || decoded.params.length === 0) return null;
+
+    const startTimeMs = parseDecodedU64(decodedParamValue(decoded.params, "startTime"));
+    const totalIterations = parseDecodedU64(decodedParamValue(decoded.params, "iterationsTotal"));
+    const iterationPeriodMs = parseDecodedU64(decodedParamValue(decoded.params, "iterationPeriodMs"));
+    if (startTimeMs == null || !totalIterations || !iterationPeriodMs || nowMs < startTimeMs) return null;
+
+    const completedIterations = Math.floor((nowMs - startTimeMs) / iterationPeriodMs);
+    const pastIterations = Math.min(completedIterations, totalIterations);
+    if (pastIterations <= 2) return null;
+
+    const recipientCount = decodedVectorLength(decodedParamValue(decoded.params, "whitelistedRecipients"));
+    return {
+        actionIndex,
+        kind: recipientCount > 0 ? "preapproved spending" : "payment stream",
+        pastIterations,
+        totalIterations,
+    };
+}
+
 type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
 type MultisigTx = Parameters<MultisigService["approveIntent"]>[0];
 
@@ -341,6 +398,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
     const isActive = approvals.status === MULTISIG_INTENT_STATUS.ACTIVE;
     const isApproved = approvals.status === MULTISIG_INTENT_STATUS.APPROVED;
     const isExecuted = approvals.status === MULTISIG_INTENT_STATUS.EXECUTED;
+    const isDone = isClosedIntentStatus(approvals.status);
     const isStale = configNonce !== undefined && approvals.configNonce !== configNonce;
 
     const canVote = currentUserAddress && isAccountMember(config, currentUserAddress);
@@ -976,6 +1034,15 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         return { maxDelayMs: maxDelay, executableAt, isDelayElapsed: now >= executableAt };
     }, [hasUpgradeAction, intent.actionTypes, intent.createdAtMs, intent.upgradePackageNameByAction, packageInfoList]);
 
+    const streamTimingWarnings = useMemo(() => {
+        if (isDone) return [];
+        return intent.actionTypes
+            .map((actionType, actionIndex) =>
+                getStreamTimingWarning(actionType, intent.actionDataByAction?.[actionIndex], actionIndex)
+            )
+            .filter((warning): warning is StreamTimingWarning => warning !== null);
+    }, [intent.actionDataByAction, intent.actionTypes, isDone]);
+
     const hasActions =
         showApprove || showUndoApproval || showReject || showEvaluate || showExecute || showCancelPending;
 
@@ -987,7 +1054,6 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         (hasMissingInputs || hasUnsupported || hasUnknown || upgradeDelayBlocked)
     );
 
-    const isDone = isClosedIntentStatus(approvals.status);
     const primaryActionName = isConfig
         ? "Config Change"
         : actionDetails.length > 0
@@ -1107,6 +1173,19 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     <span>{expInfo.label}</span>
                 </div>
             )}
+
+            {streamTimingWarnings.map((warning) => (
+                <div
+                    key={`stream-timing-${warning.actionIndex}`}
+                    className="text-[10px] flex items-center gap-1 text-yellow-400"
+                >
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>
+                        Action {warning.actionIndex + 1}: {warning.pastIterations} out of{" "}
+                        {warning.totalIterations} {warning.kind} iterations are in the past.
+                    </span>
+                </div>
+            ))}
 
             {/* Time-band maturation preview */}
             {nextTimeBandInfo && (

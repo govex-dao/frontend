@@ -20,6 +20,8 @@ export interface MyVestingInfo {
   balance: bigint;
   amountPerIteration: bigint;
   claimedAmount: bigint;
+  firstUnclaimedIteration: bigint;
+  partialClaimedInIteration: bigint;
   startTimeMs: number;
   iterationsTotal: number;
   iterationPeriodMs: number;
@@ -96,6 +98,18 @@ function parseVaultName(value: unknown): string {
   return '';
 }
 
+function normalizeIdValue(value: unknown): string {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
+  }
+  const obj = value as Record<string, unknown>;
+  const fields = (obj?.fields || obj) as Record<string, unknown>;
+  return normalizeIdValue(fields?.id ?? fields?.bytes ?? fields?.value);
+}
+
 /**
  * Normalize a coin type from on-chain TypeName format to standard short-form.
  * "0000...0002::sui::SUI" -> "0x2::sui::SUI"
@@ -140,7 +154,7 @@ function get(obj: any, path: string, defaultValue: any = null): any {
 async function getAllOwnedObjects(
   client: SuiClient,
   owner: string,
-  structType: string,
+  structType?: string,
 ): Promise<SuiObjectResponse[]> {
   const all: SuiObjectResponse[] = [];
   let cursor: string | null | undefined = null;
@@ -148,8 +162,8 @@ async function getAllOwnedObjects(
   while (true) {
     const page = await client.getOwnedObjects({
       owner,
-      filter: { StructType: structType },
       options: { showContent: true, showType: true },
+      ...(structType ? { filter: { StructType: structType } } : {}),
       ...(cursor ? { cursor } : {}),
     });
     all.push(...page.data);
@@ -160,6 +174,28 @@ async function getAllOwnedObjects(
   return all;
 }
 
+function objectTypeHasStructSuffix(
+  objectType: string | null | undefined,
+  suffix: string,
+): boolean {
+  if (!objectType) return false;
+  const baseType = objectType.split('<')[0] ?? objectType;
+  return baseType.endsWith(suffix);
+}
+
+async function getOwnedObjectsByStructOrSuffix(
+  client: SuiClient,
+  owner: string,
+  structType: string,
+  suffix: string,
+): Promise<SuiObjectResponse[]> {
+  const exactMatches = await getAllOwnedObjects(client, owner, structType);
+  if (exactMatches.length > 0) return exactMatches;
+
+  const ownedObjects = await getAllOwnedObjects(client, owner);
+  return ownedObjects.filter((obj) => objectTypeHasStructSuffix(obj.data?.type, suffix));
+}
+
 // --- Fetchers ---
 
 async function fetchMyVestings(
@@ -168,10 +204,11 @@ async function fetchMyVestings(
   actionsPackageId: string,
 ): Promise<MyVestingInfo[]> {
   // 1. Get all VestingCap objects owned by user
-  const caps = await getAllOwnedObjects(
+  const caps = await getOwnedObjectsByStructOrSuffix(
     client,
     owner,
     `${actionsPackageId}::vesting::VestingCap`,
+    '::vesting::VestingCap',
   );
 
   if (caps.length === 0) return [];
@@ -185,9 +222,9 @@ async function fetchMyVestings(
         if (!capFields) return null;
 
         const capId = capObj.data?.objectId ?? '';
-        const vestingId: string = capFields.vesting_id;
-        const accountId: string = capFields.account_id;
-        const daoAddress: string = capFields.dao_address;
+        const vestingId = normalizeIdValue(capFields.vesting_id);
+        const accountId = normalizeIdValue(capFields.account_id);
+        const daoAddress = normalizeIdValue(capFields.dao_address);
 
         if (!vestingId) return null;
 
@@ -216,6 +253,8 @@ async function fetchMyVestings(
           balance: BigInt(get(fields, 'balance.fields.value', '0') || fields.balance?.value || '0'),
           amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
           claimedAmount: BigInt(fields.claimed_amount ?? 0),
+          firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
+          partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
           startTimeMs: Number(fields.start_time ?? 0),
           iterationsTotal: Number(fields.iterations_total ?? 0),
           iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
@@ -274,25 +313,26 @@ async function fetchOwnedVaultStreamCaps(
     isSpendingLimit: boolean;
   },
 ): Promise<OwnedVaultStreamCap[]> {
-  const caps = await getAllOwnedObjects(
+  const capObjects = await getOwnedObjectsByStructOrSuffix(
     client,
     owner,
     `${actionsPackageId}::vault::${config.structName}`,
+    `::vault::${config.structName}`,
   );
 
-  if (caps.length === 0) return [];
+  if (capObjects.length === 0) return [];
 
   const capInfos: OwnedVaultStreamCap[] = [];
-  for (const capObj of caps) {
+  for (const capObj of capObjects) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const capFields = (capObj.data?.content as any)?.fields;
     if (!capFields) continue;
 
     capInfos.push({
       capId: capObj.data?.objectId ?? '',
-      streamId: capFields[config.streamIdField] ?? '',
-      accountId: capFields.account_id ?? '',
-      accountAddr: capFields.account_addr ?? '',
+      streamId: normalizeIdValue(capFields[config.streamIdField]),
+      accountId: normalizeIdValue(capFields.account_id),
+      accountAddr: normalizeIdValue(capFields.account_addr),
       vaultName: parseVaultName(capFields.vault_name),
       capHolder: owner,
       isSpendingLimit: config.isSpendingLimit,
@@ -371,6 +411,29 @@ function createStreamsTableResolver(client: SuiClient) {
   return getStreamsTableId;
 }
 
+async function getVaultStreamDynamicField(
+  client: SuiClient,
+  streamsTableId: string,
+  streamId: string,
+): Promise<SuiObjectResponse | null> {
+  const names = [
+    { type: '0x2::object::ID', value: streamId },
+    { type: 'address', value: streamId },
+  ];
+
+  for (const name of names) {
+    try {
+      const streamObj = await client.getDynamicFieldObject({ parentId: streamsTableId, name });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((streamObj.data?.content as any)?.fields?.value?.fields) return streamObj;
+    } catch {
+      // Try the legacy address key shape next.
+    }
+  }
+
+  return null;
+}
+
 async function fetchOwnedVaultStreamDetails(
   client: SuiClient,
   capInfos: OwnedVaultStreamCap[],
@@ -384,10 +447,8 @@ async function fetchOwnedVaultStreamDetails(
         const streamsTableId = await getStreamsTableId(cap.accountId, cap.vaultName);
         if (!streamsTableId) return null;
 
-        const streamObj = await client.getDynamicFieldObject({
-          parentId: streamsTableId,
-          name: { type: 'address', value: cap.streamId },
-        });
+        const streamObj = await getVaultStreamDynamicField(client, streamsTableId, cap.streamId);
+        if (!streamObj) return null;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const streamFields = (streamObj.data?.content as any)?.fields?.value?.fields;
@@ -396,12 +457,14 @@ async function fetchOwnedVaultStreamDetails(
         const coinType = normalizeCoinType(parseTypeName(streamFields.coin_type) ?? 'unknown');
 
         return {
-          id: streamFields.id?.id || cap.streamId,
+          id: normalizeIdValue(streamFields.id) || cap.streamId,
           vaultName: cap.vaultName,
           coinType,
           capHolder: cap.capHolder,
           amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
           claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
+          firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
+          partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
           startTimeMs: Number(streamFields.start_time ?? 0),
           iterationsTotal: Number(streamFields.iterations_total ?? 0),
           iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),

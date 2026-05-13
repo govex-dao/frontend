@@ -23,6 +23,7 @@ export interface StreamData {
     amountPerIteration: string;
     iterationsTotal: string;
     iterationPeriodDays: string;
+    startTime: string; // datetime-local, actual first claim/spend date
     expiryTime: string; // datetime-local, preapproved spending only
     whitelistedRecipients: string;
     // Cancel fields
@@ -63,6 +64,21 @@ export function StreamForm({ accountId, data, onChange }: Props) {
     const { data: approvedCoinTypes } = useVaultApprovedCoinTypes(accountId, data.vaultName || undefined);
     const selectedStream = streams.find((stream) => stream.id === data.streamId);
     const whitelistedRecipients = parseRecipients(data.whitelistedRecipients ?? "");
+    const startTimeMs = dateTimeToMs(data.startTime ?? "");
+    const periodMs = daysToMs(data.iterationPeriodDays);
+    const pastIterations = getPastIterationsForStreamData(data);
+    const totalIterations = Number(data.iterationsTotal || "0");
+    const firstAvailableLabel = isSpendingLimitMode ? "First Spend Date (optional)" : "First Claim Date (optional)";
+    const startTimeError =
+        (data.startTime ?? "").length > 0 && (startTimeMs == null || BigInt(startTimeMs) < periodMs);
+    const hasPastIterationWarning = pastIterations > 2;
+    const expiryMs = dateTimeToMs(data.expiryTime ?? "");
+    const expiryReferenceMs =
+        startTimeMs ?? (periodMs > 0n ? Date.now() + Number(periodMs) : Date.now());
+    const expiryError =
+        isSpendingLimitMode &&
+        (data.expiryTime ?? "").length > 0 &&
+        (expiryMs == null || expiryMs <= Date.now() || expiryMs <= expiryReferenceMs);
     const hasInvalidWhitelist =
         isSpendingLimitMode &&
         (whitelistedRecipients.length === 0 ||
@@ -171,17 +187,30 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                         onChange={(v) => update({ iterationPeriodDays: v })}
                         placeholder="30"
                     />
+                    <Input
+                        label={firstAvailableLabel}
+                        type="datetime-local"
+                        value={data.startTime ?? ""}
+                        onChange={(v) => update({ startTime: v })}
+                        error={startTimeError}
+                        className={
+                            hasPastIterationWarning && !startTimeError
+                                ? "border-yellow-500/40 bg-yellow-500/5 focus-within:border-yellow-400/60 focus-within:bg-yellow-500/10"
+                                : ""
+                        }
+                    />
+                    {hasPastIterationWarning && (
+                        <p className="text-[11px] font-medium text-yellow-400">
+                            {pastIterations} out of {totalIterations} iterations are in the past.
+                        </p>
+                    )}
                     {isSpendingLimitMode && (
                         <Input
                             label="Expiry (optional)"
                             type="datetime-local"
                             value={data.expiryTime ?? ""}
                             onChange={(v) => update({ expiryTime: v })}
-                            error={
-                                (data.expiryTime ?? "").length > 0 &&
-                                (!Number.isFinite(new Date(data.expiryTime).getTime()) ||
-                                    new Date(data.expiryTime).getTime() <= Date.now())
-                            }
+                            error={expiryError}
                         />
                     )}
                 </>
@@ -267,10 +296,33 @@ function daysToMs(days: string): bigint {
     return BigInt(Math.round(d * 86_400_000));
 }
 
-function expiryTimeToMs(value: string): number | null {
+function dateTimeToMs(value: string): number | null {
     if (!value) return null;
     const ms = new Date(value).getTime();
     return Number.isFinite(ms) ? ms : null;
+}
+
+function firstAvailableTimeToStartTimeMs(value: string, iterationPeriodMs: bigint): bigint | null {
+    const firstAvailableMs = dateTimeToMs(value);
+    if (firstAvailableMs == null) return null;
+
+    const startTimeMs = BigInt(firstAvailableMs) - iterationPeriodMs;
+    if (startTimeMs < 0n) {
+        throw new Error("First claim/spend date is too early for this iteration period");
+    }
+    return startTimeMs;
+}
+
+export function getPastIterationsForStreamData(data: StreamData, nowMs = Date.now()): number {
+    const firstAvailableMs = dateTimeToMs(data.startTime ?? "");
+    const iterationPeriodMs = daysToMs(data.iterationPeriodDays);
+    if (firstAvailableMs == null || iterationPeriodMs <= 0n || nowMs < firstAvailableMs) return 0;
+
+    const periodMs = Number(iterationPeriodMs);
+    if (!Number.isFinite(periodMs) || periodMs <= 0) return 0;
+    const pastIterations = Math.floor((nowMs - firstAvailableMs) / periodMs) + 1;
+    const totalIterations = Number(data.iterationsTotal || "0");
+    return totalIterations > 0 ? Math.min(pastIterations, totalIterations) : pastIterations;
 }
 
 export function addStreamSpecs(tx: Transaction, builder: ActionSpecBuilder, data: StreamData) {
@@ -282,6 +334,7 @@ export function addStreamSpecs(tx: Transaction, builder: ActionSpecBuilder, data
     }
 
     const baseUnits = parseAmountToBigInt(data.amountPerIteration || "0", data.coinDecimals);
+    const iterationPeriodMs = daysToMs(data.iterationPeriodDays);
     addCreateStreamSpec(
         tx,
         builder,
@@ -289,11 +342,11 @@ export function addStreamSpecs(tx: Transaction, builder: ActionSpecBuilder, data
         data.vaultName,
         data.capRecipient,
         baseUnits,
-        null, // start_time: defaults to execution time onchain
+        firstAvailableTimeToStartTimeMs(data.startTime ?? "", iterationPeriodMs),
         BigInt(data.iterationsTotal || "0"),
-        daysToMs(data.iterationPeriodDays),
+        iterationPeriodMs,
         null, // claim_window: no limit
-        mode === "create_spending_limit" ? expiryTimeToMs(data.expiryTime ?? "") : null,
+        mode === "create_spending_limit" ? dateTimeToMs(data.expiryTime ?? "") : null,
         mode === "create_spending_limit" ? parseRecipients(data.whitelistedRecipients ?? "") : []
     );
 }
@@ -311,7 +364,8 @@ export function validateStream(data: StreamData): boolean {
         isValidSuiAddress(data.capRecipient) &&
         parseFloat(data.amountPerIteration) > 0 &&
         Number(data.iterationsTotal) > 0 &&
-        parseFloat(data.iterationPeriodDays) > 0;
+        parseFloat(data.iterationPeriodDays) > 0 &&
+        !startTimeErrorForValidation(data);
 
     if (!base) return false;
     if (mode !== "create_spending_limit") return true;
@@ -321,10 +375,20 @@ export function validateStream(data: StreamData): boolean {
     if (recipients.some((recipient) => !isValidSuiAddress(recipient))) return false;
     if (hasDuplicateRecipients(recipients)) return false;
 
-    const expiryMs = expiryTimeToMs(data.expiryTime ?? "");
-    if (data.expiryTime && (!expiryMs || expiryMs <= Date.now() + Number(daysToMs(data.iterationPeriodDays)))) {
+    const expiryMs = dateTimeToMs(data.expiryTime ?? "");
+    const periodMs = daysToMs(data.iterationPeriodDays);
+    const firstAvailableMs = dateTimeToMs(data.startTime ?? "");
+    const expiryReferenceMs = firstAvailableMs ?? Date.now() + Number(periodMs);
+    if (data.expiryTime && (!expiryMs || expiryMs <= Date.now() || expiryMs <= expiryReferenceMs)) {
         return false;
     }
 
     return true;
+}
+
+function startTimeErrorForValidation(data: StreamData): boolean {
+    const firstAvailableMs = dateTimeToMs(data.startTime ?? "");
+    if (!data.startTime) return false;
+    if (firstAvailableMs == null) return true;
+    return BigInt(firstAvailableMs) < daysToMs(data.iterationPeriodDays);
 }

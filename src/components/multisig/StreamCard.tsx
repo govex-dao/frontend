@@ -1,9 +1,12 @@
 import { formatAddress } from "@mysten/sui/utils";
-import { Timer, User, Coins, WalletCards, Users } from "lucide-react";
+import { calculateStreamAvailableWithTracking } from "@govex/futarchy-sdk";
+import { Download, Loader2, Timer, User, Coins, WalletCards, Users } from "lucide-react";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
 
 interface Props {
   stream: VaultStreamInfo;
+  onCollect?: (stream: VaultStreamInfo) => void;
+  isCollecting?: boolean;
 }
 
 function extractCoinSymbol(coinType: string): string {
@@ -35,6 +38,7 @@ function formatAmount(raw: bigint, symbol: string): string {
 }
 
 function formatDuration(ms: number): string {
+  if (ms <= 0) return "0m";
   const days = Math.floor(ms / 86_400_000);
   const hours = Math.floor((ms % 86_400_000) / 3_600_000);
   if (days > 0) return `${days}d ${hours}h`;
@@ -50,6 +54,7 @@ function streamProgress(stream: VaultStreamInfo): {
   status: "pending" | "active" | "completed";
 } {
   const totalAmount = stream.amountPerIteration * BigInt(stream.iterationsTotal);
+  const firstSpendTimeMs = getFirstSpendTimeMs(stream);
 
   if (stream.iterationPeriodMs <= 0 || stream.iterationsTotal <= 0) {
     return { percent: 100, totalAmount, elapsedIterations: stream.iterationsTotal, status: "completed" };
@@ -57,7 +62,7 @@ function streamProgress(stream: VaultStreamInfo): {
 
   const now = Date.now();
 
-  if (now < stream.startTimeMs) {
+  if (now < firstSpendTimeMs) {
     return { percent: 0, totalAmount, elapsedIterations: 0, status: "pending" };
   }
 
@@ -75,13 +80,41 @@ function streamProgress(stream: VaultStreamInfo): {
   return { percent, totalAmount, elapsedIterations, status: "active" };
 }
 
-export function StreamCard({ stream }: Props) {
+function getFirstSpendTimeMs(stream: VaultStreamInfo): number {
+  if (stream.iterationPeriodMs <= 0 || stream.iterationsTotal <= 0) return stream.startTimeMs;
+  return stream.startTimeMs + stream.iterationPeriodMs;
+}
+
+function streamClaimableAmount(stream: VaultStreamInfo): bigint {
+  if (stream.isSpendingLimit) return 0n;
+  try {
+    return calculateStreamAvailableWithTracking({
+      amountPerIteration: stream.amountPerIteration,
+      firstUnclaimedIteration: stream.firstUnclaimedIteration ?? 0n,
+      partialClaimedInIteration: stream.partialClaimedInIteration ?? 0n,
+      startTimeMs: BigInt(stream.startTimeMs),
+      iterationsTotal: BigInt(stream.iterationsTotal),
+      iterationPeriodMs: BigInt(stream.iterationPeriodMs),
+      currentTimeMs: BigInt(Date.now()),
+      claimWindowMs: stream.claimWindowMs != null ? BigInt(stream.claimWindowMs) : undefined,
+    });
+  } catch {
+    return 0n;
+  }
+}
+
+export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
   const coin = extractCoinSymbol(stream.coinType);
   const { percent, totalAmount, status } = streamProgress(stream);
   const isSpendingLimit = Boolean(stream.isSpendingLimit);
+  const claimableAmount = streamClaimableAmount(stream);
+  const canCollect = Boolean(onCollect && stream.capId && stream.accountId && !isSpendingLimit);
 
-  const totalDurationMs = stream.iterationPeriodMs * stream.iterationsTotal;
-  const endTimeMs = stream.startTimeMs + totalDurationMs;
+  const firstSpendTimeMs = getFirstSpendTimeMs(stream);
+  const endTimeMs = stream.startTimeMs + stream.iterationPeriodMs * stream.iterationsTotal;
+  const visibleDurationMs = Math.max(endTimeMs - firstSpendTimeMs, 0);
+  const firstDateLabel = isSpendingLimit ? "First spend" : "First claim";
+  const finalDateLabel = isSpendingLimit ? "Final spend" : "Final claim";
 
   const statusColors = {
     pending: "bg-yellow-500/15 text-yellow-400",
@@ -163,10 +196,10 @@ export function StreamCard({ stream }: Props) {
 
         <div className="flex items-center gap-1.5 text-text-muted">
           <Timer className="w-3 h-3" />
-          <span>Duration</span>
+          <span>Active span</span>
         </div>
         <span className="text-text-primary text-right">
-          {formatDuration(totalDurationMs)}
+          {formatDuration(visibleDurationMs)}
         </span>
 
         {isSpendingLimit && (
@@ -209,11 +242,31 @@ export function StreamCard({ stream }: Props) {
       )}
 
       {/* Timeline */}
-      <div className="flex items-center justify-between text-[10px] text-text-muted pt-2 border-t border-border-subtle">
-        <span>{new Date(stream.startTimeMs).toLocaleDateString()}</span>
+      <div className="flex items-center justify-between gap-3 text-[10px] text-text-muted pt-2 border-t border-border-subtle">
+        <span className="flex flex-col">
+          <span>{firstDateLabel}</span>
+          <span>{new Date(firstSpendTimeMs).toLocaleDateString()}</span>
+        </span>
         <span className="text-text-lighter">→</span>
-        <span>{new Date(endTimeMs).toLocaleDateString()}</span>
+        <span className="flex flex-col text-right">
+          <span>{finalDateLabel}</span>
+          <span>{new Date(endTimeMs).toLocaleDateString()}</span>
+        </span>
       </div>
+
+      {canCollect && (
+        <button
+          type="button"
+          onClick={() => onCollect?.(stream)}
+          disabled={isCollecting || claimableAmount <= 0n}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/15 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isCollecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {claimableAmount > 0n
+            ? `Collect ${formatAmount(claimableAmount, coin)} ${coin}`
+            : "Nothing claimable yet"}
+        </button>
+      )}
     </div>
   );
 }

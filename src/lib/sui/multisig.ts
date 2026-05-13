@@ -65,9 +65,15 @@ export interface VaultStreamInfo {
     id: string;
     vaultName: string;
     coinType: string;
+    capId?: string;
+    streamId?: string;
+    accountId?: string;
+    accountAddr?: string;
     capHolder?: string;
     amountPerIteration: bigint;
     claimedAmount: bigint;
+    firstUnclaimedIteration?: bigint;
+    partialClaimedInIteration?: bigint;
     startTimeMs: number;
     iterationsTotal: number;
     iterationPeriodMs: number;
@@ -108,6 +114,8 @@ export interface IntentSummary {
     upgradeDigestByAction?: Record<number, string>;
     /** Execution object IDs encoded directly in the action spec, keyed by action index. */
     fixedObjectIdByAction?: Record<number, string>;
+    /** Raw BCS action data hex, keyed by action index. Used for display-only decoding. */
+    actionDataByAction?: Record<number, string>;
     approvals: IntentApprovals;
 }
 
@@ -761,6 +769,13 @@ function asBytes(value: any): Uint8Array | null {
     return null;
 }
 
+function bytesToHex(bytes: Uint8Array | null): string | null {
+    if (!bytes) return null;
+    return `0x${Array.from(bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")}`;
+}
+
 function parseVaultDepositExternalExpectedAmount(actionData: any): string | null {
     const bytes = asBytes(actionData);
     if (!bytes) return null;
@@ -996,6 +1011,7 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                 const upgradePackageNameByAction: Record<number, string> = {};
                 const upgradeDigestByAction: Record<number, string> = {};
                 const fixedObjectIdByAction: Record<number, string> = {};
+                const actionDataByAction: Record<number, string> = {};
                 for (let i = 0; i < specsArray.length; i += 1) {
                     const spec = specsArray[i];
                     const sf = spec?.fields || spec;
@@ -1003,6 +1019,8 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                     if (!actionType) continue;
                     const modType = extractModuleType(actionType);
                     const actionData = sf?.action_data ?? sf?.actionData ?? sf?.data;
+                    const actionDataHex = bytesToHex(asBytes(actionData));
+                    if (actionDataHex) actionDataByAction[i] = actionDataHex;
 
                     if (modType === "vault::VaultDepositExternal") {
                         const expectedAmount = parseVaultDepositExternalExpectedAmount(actionData);
@@ -1065,6 +1083,8 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                         Object.keys(upgradeDigestByAction).length > 0 ? upgradeDigestByAction : undefined,
                     fixedObjectIdByAction:
                         Object.keys(fixedObjectIdByAction).length > 0 ? fixedObjectIdByAction : undefined,
+                    actionDataByAction:
+                        Object.keys(actionDataByAction).length > 0 ? actionDataByAction : undefined,
                     approvals: {
                         configNonce: Number(get(outcomeFields, "config_nonce") || 0),
                         status: Number(get(outcomeFields, "status") || 0),
@@ -1187,11 +1207,13 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
                             if (!streamFields) return null;
                             const whitelistedRecipients = parseAddressVector(streamFields.whitelisted_recipients);
                             return {
-                                id: streamFields.id?.id || (sf.name as any)?.value || "",
+                                id: normalizeIdString(streamFields.id) ?? normalizeIdString((sf.name as any)?.value) ?? "",
                                 vaultName,
-                                coinType: parseTypeName(streamFields.coin_type) || "unknown",
+                                coinType: normalizeCoinType(parseTypeName(streamFields.coin_type) || "unknown"),
                                 amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
                                 claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
+                                firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
+                                partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
                                 startTimeMs: Number(streamFields.start_time ?? 0),
                                 iterationsTotal: Number(streamFields.iterations_total ?? 0),
                                 iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),
@@ -1230,6 +1252,8 @@ export interface AccountVestingInfo {
     balance: bigint;
     amountPerIteration: bigint;
     claimedAmount: bigint;
+    firstUnclaimedIteration: bigint;
+    partialClaimedInIteration: bigint;
     startTimeMs: number;
     iterationsTotal: number;
     iterationPeriodMs: number;
@@ -1370,13 +1394,15 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
                     return {
                         vestingId: entry.vestingId,
                         accountId,
-                        daoAddress: fields.dao_address || accountId,
+                        daoAddress: normalizeIdString(fields.dao_address) ?? accountId,
                         coinType: normalizeCoinType(
                             parseTypeName(fields.coin_type) ?? extractCoinTypeFromObjectType(objectType) ?? entry.coinType
                         ),
                         balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
                         amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
                         claimedAmount: BigInt(fields.claimed_amount ?? 0),
+                        firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
+                        partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
                         startTimeMs: Number(fields.start_time ?? 0),
                         iterationsTotal: Number(fields.iterations_total ?? 0),
                         iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
