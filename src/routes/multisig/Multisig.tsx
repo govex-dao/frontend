@@ -648,7 +648,7 @@ export function Multisig() {
                         <div>
                             <div className="flex items-center justify-between mb-3 gap-3">
                                 <h2 className="text-lg font-semibold text-text-muted flex items-center gap-2">
-                                    <Archive className="w-5 h-5" />
+                                    <Archive className="w-5 h-5 text-primary" />
                                     {closedIntents.length > 0
                                         ? `Closed Intents (${closedIntents.length})`
                                         : "Intent Storage"}

@@ -14,6 +14,9 @@ See [TRADEMARKS.md](./TRADEMARKS.md).
 
 ## How to Run
 
+This frontend consumes the public SDK directly from
+[`govex-dao/sdk-v3`](https://github.com/govex-dao/sdk-v3).
+
 ```bash
 pnpm install
 pnpm dev
@@ -24,4 +27,17 @@ through your shell or hosting provider when needed:
 
 ```bash
 VITE_NETWORK=mainnet VITE_BACKEND_URL=https://api.govex.ai pnpm build
+```
+
+## Railway
+
+This repository includes `railway.toml` for a standalone Railway frontend
+service. The Railway build installs dependencies, builds the app, and serves
+`dist/` with the checked-in `serve.json` security headers.
+
+Recommended production variables:
+
+```bash
+VITE_NETWORK=mainnet
+VITE_BACKEND_URL=https://api.govex.ai
 ```

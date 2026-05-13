@@ -79,6 +79,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
     memo: FileText,
     package: Package,
     config: Settings,
+    unknown: FileText,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -90,6 +91,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     memo: "bg-gray-500/15 text-gray-400",
     package: "bg-teal-500/15 text-teal-400",
     config: "bg-orange-500/15 text-orange-400",
+    unknown: "bg-card-more-elevated border border-border-subtle text-text-muted",
 };
 
 function extractModuleType(fullType: string): string {
@@ -992,7 +994,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
           ? actionDetails.map((a) => a.name).join(", ")
           : `${intent.actionCount} action${intent.actionCount !== 1 ? "s" : ""}`;
     const primaryCategory = isConfig ? "config" : actionDetails[0]?.category || "unknown";
-    const PrimaryCategoryIcon = CATEGORY_ICONS[primaryCategory];
+    const PrimaryCategoryIcon = CATEGORY_ICONS[primaryCategory] || CATEGORY_ICONS.unknown;
 
     return (
         <div

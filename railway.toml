@@ -1,0 +1,5 @@
+[build]
+buildCommand = "pnpm install --frozen-lockfile --prod=false && VITE_NETWORK=${VITE_NETWORK:-mainnet} VITE_BACKEND_URL=${VITE_BACKEND_URL:-https://api.govex.ai} pnpm build"
+
+[deploy]
+startCommand = "pnpm start"
