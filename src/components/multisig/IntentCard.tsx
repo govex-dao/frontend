@@ -1,0 +1,1479 @@
+/* eslint-disable max-lines */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatAddress, isValidSuiObjectId, parseStructTag } from "@mysten/sui/utils";
+import { Transaction } from "@mysten/sui/transactions";
+import toast from "react-hot-toast";
+import {
+    Clock,
+    CheckCircle2,
+    XCircle,
+    AlertTriangle,
+    ChevronDown,
+    ArrowRightLeft,
+    Vault,
+    Coins,
+    Droplets,
+    Gift,
+    FileText,
+    Package,
+    Settings,
+    type LucideIcon,
+} from "lucide-react";
+import type { IntentSummary, MultisigConfig } from "@/lib/sui/multisig";
+import {
+    MULTISIG_INTENT_STATUS,
+    formatExpiration,
+    approvalProgressFor,
+    canAddressCancel,
+    canAddressExecute,
+    intentStatusLabel,
+    isClosedIntentStatus,
+    isAccountMember,
+    isMultisigConfigIntentSummary,
+    nextMaturingTimeBand,
+    policyLabel,
+    rejectionProgressFor,
+} from "@/lib/sui/multisig";
+import { useMultisigPackageInfo } from "@/hooks/useMultisig";
+import {
+    buildActionsExecution,
+    getActionExecInfo,
+    getActionExecutionRequirements,
+    getUnsupportedActions,
+    extractTypeArgs,
+    normalizeTypeAddresses,
+    type UpgradeExecutionInput,
+} from "@/lib/sui/multisig-tx";
+import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTransaction";
+import { useMultisigOwnedObjects } from "@/hooks/useMultisig";
+import { cacheUpgradeBuildOutput, getCachedUpgradeBuildOutput, parseUpgradeBuildOutput } from "@/lib/upgradeBuildCache";
+import { getSDK } from "@/lib/sdk";
+import { Input } from "@/components/inputs/Input";
+import { Select } from "@/components/inputs/Select";
+import { Textarea } from "@/components/inputs/Textarea";
+import { CoinTypePicker } from "./CoinTypePicker";
+import { UpgradeBuildCommand } from "./UpgradeBuildCommand";
+
+interface Props {
+    intent: IntentSummary;
+    config: MultisigConfig;
+    accountId: string;
+    configNonce?: number;
+    currentUserAddress?: string;
+    onActionComplete?: () => void;
+}
+
+const statusConfig: Record<number, { icon: typeof Clock; color: string }> = {
+    [MULTISIG_INTENT_STATUS.ACTIVE]: { icon: Clock, color: "text-yellow-400" },
+    [MULTISIG_INTENT_STATUS.APPROVED]: { icon: CheckCircle2, color: "text-green-400" },
+    [MULTISIG_INTENT_STATUS.REJECTED]: { icon: XCircle, color: "text-red-400" },
+    [MULTISIG_INTENT_STATUS.EXECUTED]: { icon: CheckCircle2, color: "text-blue-400" },
+};
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+    transfer: ArrowRightLeft,
+    vault: Vault,
+    currency: Coins,
+    stream: Droplets,
+    vesting: Gift,
+    memo: FileText,
+    package: Package,
+    config: Settings,
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+    transfer: "bg-green-500/15 text-green-400",
+    vault: "bg-blue-500/15 text-blue-400",
+    currency: "bg-yellow-500/15 text-yellow-400",
+    stream: "bg-cyan-500/15 text-cyan-400",
+    vesting: "bg-primary/15 text-primary",
+    memo: "bg-gray-500/15 text-gray-400",
+    package: "bg-teal-500/15 text-teal-400",
+    config: "bg-orange-500/15 text-orange-400",
+};
+
+function extractModuleType(fullType: string): string {
+    try {
+        const tag = parseStructTag(fullType);
+        return `${tag.module}::${tag.name}`;
+    } catch {
+        const base = fullType.split("<")[0];
+        const parts = base.split("::");
+        return parts.length >= 3 ? `${parts[parts.length - 2]}::${parts[parts.length - 1]}` : base;
+    }
+}
+
+const UPGRADE_CAP_OBJECT_TYPE = "0x2::package::UpgradeCap";
+
+function isUpgradeCapProvideAction(fullType: string): boolean {
+    return (
+        extractModuleType(fullType) === "owned::ProvideObjectToResources" &&
+        normalizeTypeAddresses(extractTypeArgs(fullType)[0]?.trim() || "") === UPGRADE_CAP_OBJECT_TYPE
+    );
+}
+
+function findPairedLockUpgradeCapActionIndex(actionTypes: string[], provideActionIndex: number): number | null {
+    if (!isUpgradeCapProvideAction(actionTypes[provideActionIndex])) return null;
+
+    for (let i = provideActionIndex + 1; i < actionTypes.length; i += 1) {
+        if (isUpgradeCapProvideAction(actionTypes[i])) return null;
+        if (extractModuleType(actionTypes[i]) === "package_upgrade::LockUpgradeCap") return i;
+    }
+
+    return null;
+}
+
+/** Check if intent has any unknown (unregistered) action types. */
+function getUnknownActions(actionTypes: string[]): string[] {
+    return actionTypes.filter((t) => !getActionExecInfo(t));
+}
+
+interface UpgradeInputDraft {
+    packageId: string;
+    modules: string;
+    dependencies: string;
+    buildOutputRaw?: string;
+}
+
+type ExecutionObjectSource = "wallet" | "account" | "registry" | "intent";
+
+interface ExecutionObjectCandidate {
+    objectId: string;
+    objectType: string;
+    source: ExecutionObjectSource;
+    balance?: string;
+}
+
+function parseListInput(raw: string): string[] {
+    return raw
+        .split(/[\n,]/g)
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
+}
+
+function formatTypeParam(param: unknown): string | null {
+    if (typeof param === "string") return normalizeTypeAddresses(param);
+    if (!param || typeof param !== "object") return null;
+
+    const tag = param as {
+        address?: string;
+        module?: string;
+        name?: string;
+        typeParams?: unknown[];
+    };
+    if (!tag.address || !tag.module || !tag.name) return null;
+
+    let typeName = `${tag.address}::${tag.module}::${tag.name}`;
+    if (Array.isArray(tag.typeParams) && tag.typeParams.length > 0) {
+        const nested = tag.typeParams
+            .map((value) => formatTypeParam(value))
+            .filter((value): value is string => !!value);
+        if (nested.length > 0) {
+            typeName += `<${nested.join(", ")}>`;
+        }
+    }
+
+    return normalizeTypeAddresses(typeName);
+}
+
+function getFirstTypeParam(typeStr: string): string | null {
+    try {
+        const tag = parseStructTag(typeStr);
+        if (tag.typeParams.length === 0) return null;
+        return formatTypeParam(tag.typeParams[0]);
+    } catch {
+        const match = typeStr.match(/<(.+)>$/);
+        return match?.[1] ? normalizeTypeAddresses(match[1].trim()) : null;
+    }
+}
+
+function shortObjectType(fullType: string): string {
+    if (!fullType) return "unknown type";
+
+    try {
+        const tag = parseStructTag(fullType);
+        const addr = formatAddress(tag.address);
+        let short = `${addr}::${tag.module}::${tag.name}`;
+        if (tag.typeParams.length > 0) {
+            const params = tag.typeParams
+                .map((param) => formatTypeParam(param))
+                .filter((param): param is string => !!param)
+                .map((param) => {
+                    const parts = param.split("::");
+                    return parts.length >= 3
+                        ? `${formatAddress(parts[0])}::${parts[1]}::${parts.slice(2).join("::")}`
+                        : param;
+                });
+            if (params.length > 0) {
+                short += `<${params.join(", ")}>`;
+            }
+        }
+        return short;
+    } catch {
+        return fullType.length > 72 ? `${fullType.slice(0, 69)}...` : fullType;
+    }
+}
+
+function makeExecutionCandidate(
+    objectId: string,
+    objectType: string,
+    source: ExecutionObjectSource,
+    balance?: string
+): ExecutionObjectCandidate {
+    return { objectId, objectType, source, balance };
+}
+
+function mergeExecutionCandidates(...lists: ExecutionObjectCandidate[][]): ExecutionObjectCandidate[] {
+    const merged = new Map<string, ExecutionObjectCandidate>();
+
+    for (const list of lists) {
+        for (const candidate of list) {
+            const existing = merged.get(candidate.objectId);
+            if (!existing) {
+                merged.set(candidate.objectId, candidate);
+                continue;
+            }
+
+            merged.set(candidate.objectId, {
+                objectId: candidate.objectId,
+                objectType: existing.objectType || candidate.objectType,
+                source:
+                    existing.source === "intent" && candidate.source !== "intent" ? candidate.source : existing.source,
+                balance: existing.balance || candidate.balance,
+            });
+        }
+    }
+
+    return Array.from(merged.values());
+}
+
+function isCoinObjectType(objectType: string, coinType?: string): boolean {
+    const normalizedObjectType = normalizeTypeAddresses(objectType);
+    if (!normalizedObjectType.includes("::coin::Coin<")) return false;
+    if (!coinType) return true;
+    return getFirstTypeParam(normalizedObjectType) === normalizeTypeAddresses(coinType);
+}
+
+function isVestingObjectType(objectType: string, coinType?: string): boolean {
+    const normalizedObjectType = normalizeTypeAddresses(objectType);
+    if (!normalizedObjectType.includes("::vesting::Vesting<")) return false;
+    if (!coinType) return true;
+    return getFirstTypeParam(normalizedObjectType) === normalizeTypeAddresses(coinType);
+}
+
+function isUpgradeCapObjectType(objectType: string): boolean {
+    return normalizeTypeAddresses(objectType) === UPGRADE_CAP_OBJECT_TYPE;
+}
+
+function getCoinTypeFromExecutionObject(objectType: string): string | null {
+    const normalizedObjectType = normalizeTypeAddresses(objectType);
+    if (
+        normalizedObjectType.includes("::coin::Coin<") ||
+        normalizedObjectType.includes("::coin::TreasuryCap<") ||
+        normalizedObjectType.includes("::coin_registry::MetadataCap<") ||
+        normalizedObjectType.includes("::currency::Currency<") ||
+        normalizedObjectType.includes("::vesting::Vesting<")
+    ) {
+        return getFirstTypeParam(normalizedObjectType);
+    }
+
+    return null;
+}
+
+function getExecutionCandidateLabel(candidate: ExecutionObjectCandidate): string {
+    const sourceLabel: Record<ExecutionObjectSource, string> = {
+        wallet: "wallet",
+        account: "account",
+        registry: "registry",
+        intent: "intent",
+    };
+
+    const parts = [formatAddress(candidate.objectId)];
+    if (candidate.objectType) parts.push(shortObjectType(candidate.objectType));
+    if (candidate.balance) parts.push(`balance ${candidate.balance}`);
+    parts.push(sourceLabel[candidate.source]);
+    return parts.join(" — ");
+}
+
+type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
+type MultisigTx = Parameters<MultisigService["approveIntent"]>[0];
+
+export function IntentCard({ intent, config, accountId, configNonce, currentUserAddress, onActionComplete }: Props) {
+    const { approvals } = intent;
+    const cfg = statusConfig[approvals.status] || statusConfig[MULTISIG_INTENT_STATUS.ACTIVE];
+    const StatusIcon = cfg.icon;
+    const { executeTransaction, isLoading } = useSuiTransaction();
+    const submittingRef = useRef(false);
+    const discoveryRequestKeyRef = useRef("");
+
+    const [actionsExpanded, setActionsExpanded] = useState(false);
+    const [executeCoinType, setExecuteCoinType] = useState("");
+    const [executeObjectTypes, setExecuteObjectTypes] = useState<Record<number, string>>({});
+    const [executeObjectIds, setExecuteObjectIds] = useState<Record<number, string>>({});
+    const [executeUpgradeInputs, setExecuteUpgradeInputs] = useState<Record<number, UpgradeInputDraft>>({});
+    const [discoveredObjectCandidates, setDiscoveredObjectCandidates] = useState<
+        Record<number, ExecutionObjectCandidate[]>
+    >({});
+
+    const { data: accountOwnedObjects = [] } = useMultisigOwnedObjects(accountId);
+    const { data: walletOwnedObjects = [] } = useMultisigOwnedObjects(currentUserAddress);
+
+    // Fetch package info for any package-related intent
+    const hasPackageAction = intent.actionTypes.some((t) => {
+        const mod = extractModuleType(t);
+        return mod.startsWith("package_upgrade::");
+    });
+    const hasUpgradeAction = intent.actionTypes.some((t) => extractModuleType(t) === "package_upgrade::PackageUpgrade");
+    const { data: packageInfoList = [] } = useMultisigPackageInfo(hasPackageAction ? accountId : undefined);
+
+    // Frontend and linked SDK can resolve distinct Transaction class instances.
+    // Cast through unknown to keep TS compatibility across package boundaries.
+    const asMultisigTx = useCallback((tx: Transaction): MultisigTx => tx as unknown as MultisigTx, []);
+
+    const elapsedMs = Math.max(0, Date.now() - intent.createdAtMs);
+    const approvalProgress = approvalProgressFor(config, approvals.approved, elapsedMs);
+    const rejectionProgress = rejectionProgressFor(config, approvals.rejected);
+
+    const expInfo = formatExpiration(intent.expirationMs);
+    const isExpired = expInfo.isExpired;
+    const isActive = approvals.status === MULTISIG_INTENT_STATUS.ACTIVE;
+    const isApproved = approvals.status === MULTISIG_INTENT_STATUS.APPROVED;
+    const isExecuted = approvals.status === MULTISIG_INTENT_STATUS.EXECUTED;
+    const isStale = configNonce !== undefined && approvals.configNonce !== configNonce;
+
+    const canVote = currentUserAddress && isAccountMember(config, currentUserAddress);
+    const canExecute = currentUserAddress && canAddressExecute(config, currentUserAddress);
+    const canCancel = currentUserAddress && canAddressCancel(config, currentUserAddress);
+
+    const normalizedCurrentUser = currentUserAddress?.toLowerCase();
+    const hasAlreadyApproved = normalizedCurrentUser
+        ? approvals.approved.some((address) => address.toLowerCase() === normalizedCurrentUser)
+        : false;
+    const hasAlreadyRejected = normalizedCurrentUser
+        ? approvals.rejected.some((address) => address.toLowerCase() === normalizedCurrentUser)
+        : false;
+
+    const showApprove = canVote && isActive && !hasAlreadyApproved && !isExpired && !isStale;
+    const showUndoApproval = canVote && isActive && hasAlreadyApproved && !isStale;
+    const showReject = canVote && (isActive || isApproved) && !hasAlreadyRejected && !isExpired && !isStale;
+    const showEvaluate = !!(
+        canExecute &&
+        isActive &&
+        (approvalProgress.satisfied || rejectionProgress.satisfied) &&
+        !isExpired &&
+        !isStale
+    );
+    const showExecute = canExecute && isApproved && !isExpired && !isStale;
+    const showCancelPending = !!(
+        canCancel &&
+        (isActive || isApproved) &&
+        rejectionProgress.satisfied &&
+        !isExpired &&
+        !isStale
+    );
+
+    const isConfig = isMultisigConfigIntentSummary(intent, getSDK().packages.accountMultisig);
+    const executionRequirements = !isConfig ? getActionExecutionRequirements(intent.actionTypes) : [];
+    const needsCoinType = executionRequirements.some((r) => r.kind === "coinType");
+    const objectTypeRequirements = executionRequirements.filter((r) => r.kind === "objectType");
+    const objectIdRequirements = executionRequirements.filter((r) => r.kind === "objectId");
+    const upgradeRequirements = executionRequirements.filter((r) => r.kind === "upgradeArtifacts");
+    const hasInputRequirements = executionRequirements.length > 0;
+    const unsupportedReasons = !isConfig ? getUnsupportedActions(intent.actionTypes) : [];
+    const hasUnsupported = unsupportedReasons.length > 0;
+    const unknownActions = !isConfig ? getUnknownActions(intent.actionTypes) : [];
+    const hasUnknown = unknownActions.length > 0;
+
+    const missingObjectTypeRequirements = objectTypeRequirements.filter((req) => {
+        return !executeObjectTypes[req.actionIndex]?.trim();
+    });
+    const missingObjectIdRequirements = objectIdRequirements.filter((req) => {
+        return !executeObjectIds[req.actionIndex]?.trim();
+    });
+    const missingObjectTypeSet = new Set(missingObjectTypeRequirements.map((r) => r.actionIndex));
+    const missingObjectIdSet = new Set(missingObjectIdRequirements.map((r) => r.actionIndex));
+
+    const { missingUpgradeRequirements, upgradeByAction } = useMemo(() => {
+        const nextUpgradeByAction: Record<number, UpgradeExecutionInput> = {};
+        const nextMissingUpgradeRequirements = upgradeRequirements.filter((req) => {
+            const draft = executeUpgradeInputs[req.actionIndex];
+            const packageId = draft?.packageId?.trim() || "";
+            const modules = parseListInput(draft?.modules || "");
+            const dependencies = parseListInput(draft?.dependencies || "");
+            if (!packageId || modules.length === 0 || dependencies.length === 0) return true;
+
+            nextUpgradeByAction[req.actionIndex] = {
+                packageId,
+                modules,
+                dependencies,
+            };
+            return false;
+        });
+
+        return {
+            missingUpgradeRequirements: nextMissingUpgradeRequirements,
+            upgradeByAction: nextUpgradeByAction,
+        };
+    }, [executeUpgradeInputs, upgradeRequirements]);
+    const missingCoinType = needsCoinType && !executeCoinType.trim();
+    const missingUpgradeSet = new Set(missingUpgradeRequirements.map((r) => r.actionIndex));
+    const hasMissingInputs =
+        missingCoinType ||
+        missingObjectTypeRequirements.length > 0 ||
+        missingObjectIdRequirements.length > 0 ||
+        missingUpgradeRequirements.length > 0;
+
+    const requiredInputByAction = new Set<number>(executionRequirements.map((r) => r.actionIndex));
+    const objectIdRequirementKey = objectIdRequirements.map((req) => `${req.actionIndex}:${req.actionType}`).join("|");
+    const executeCoinTypeTrimmed = executeCoinType.trim();
+
+    // Resolve action details for display using our own exec map
+    const actionDetails = intent.actionTypes.map((fullType, actionIndex) => {
+        const info = getActionExecInfo(fullType);
+        return {
+            fullType,
+            name: info?.name || fullType.split("::").pop() || "Unknown",
+            category: info?.category || "unknown",
+            requiresInput: requiredInputByAction.has(actionIndex),
+        };
+    });
+
+    const objectTypeRequirementSet = useMemo(
+        () => new Set(objectTypeRequirements.map((req) => req.actionIndex)),
+        [objectTypeRequirements]
+    );
+
+    const intentFixedObjectIdsByAction = useMemo(() => {
+        const fixedIds: Record<number, string> = { ...(intent.fixedObjectIdByAction || {}) };
+
+        for (const req of objectIdRequirements) {
+            const fullType = intent.actionTypes[req.actionIndex];
+            const modType = extractModuleType(fullType);
+
+            if (modType === "package_upgrade::LockUpgradeCap") {
+                const expectedCapId = intent.expectedCapIdByAction?.[req.actionIndex];
+                if (expectedCapId) fixedIds[req.actionIndex] = expectedCapId;
+                continue;
+            }
+
+            if (modType === "owned::ProvideObjectToResources") {
+                const pairedLockIndex = findPairedLockUpgradeCapActionIndex(intent.actionTypes, req.actionIndex);
+                const expectedCapId =
+                    pairedLockIndex !== null ? intent.expectedCapIdByAction?.[pairedLockIndex] : undefined;
+                if (expectedCapId) fixedIds[req.actionIndex] = expectedCapId;
+            }
+        }
+
+        return fixedIds;
+    }, [intent.actionTypes, intent.expectedCapIdByAction, intent.fixedObjectIdByAction, objectIdRequirements]);
+
+    const objectIdCandidatesByAction = useMemo(() => {
+        const next: Record<number, ExecutionObjectCandidate[]> = {};
+
+        for (const req of objectIdRequirements) {
+            const actionIndex = req.actionIndex;
+            const fullType = intent.actionTypes[actionIndex];
+            const modType = extractModuleType(fullType);
+            const actionTypeArg = extractTypeArgs(fullType)[0]?.trim();
+            const fixedObjectId = intentFixedObjectIdsByAction[actionIndex];
+            const resolvedObjectType = actionTypeArg
+                ? normalizeTypeAddresses(actionTypeArg)
+                : executeObjectTypes[actionIndex]?.trim()
+                  ? normalizeTypeAddresses(executeObjectTypes[actionIndex])
+                  : undefined;
+            const resolvedCoinType = actionTypeArg
+                ? normalizeTypeAddresses(actionTypeArg)
+                : executeCoinTypeTrimmed
+                  ? normalizeTypeAddresses(executeCoinTypeTrimmed)
+                  : undefined;
+
+            const fixedAccountObject = fixedObjectId
+                ? accountOwnedObjects.find((obj) => obj.objectId === fixedObjectId)
+                : undefined;
+            const fixedWalletObject = fixedObjectId
+                ? walletOwnedObjects.find((obj) => obj.objectId === fixedObjectId)
+                : undefined;
+
+            const fixedIntentCandidates = fixedObjectId
+                ? [
+                      makeExecutionCandidate(
+                          fixedObjectId,
+                          fixedWalletObject?.objectType ||
+                              fixedAccountObject?.objectType ||
+                              (modType === "package_upgrade::LockUpgradeCap" ||
+                              modType === "owned::ProvideObjectToResources"
+                                  ? UPGRADE_CAP_OBJECT_TYPE
+                                  : ""),
+                          "intent"
+                      ),
+                  ]
+                : [];
+
+            let localCandidates: ExecutionObjectCandidate[] = [];
+            if (modType === "owned::OwnedWithdrawObject") {
+                localCandidates = accountOwnedObjects
+                    .filter((obj) => {
+                        if (fixedObjectId) return obj.objectId === fixedObjectId;
+                        if (!resolvedObjectType) return true;
+                        return normalizeTypeAddresses(obj.objectType) === resolvedObjectType;
+                    })
+                    .map((obj) => makeExecutionCandidate(obj.objectId, obj.objectType, "account"));
+            } else if (modType === "owned::ProvideObjectToResources") {
+                localCandidates = walletOwnedObjects
+                    .filter((obj) => {
+                        if (fixedObjectId) return obj.objectId === fixedObjectId;
+                        if (!resolvedObjectType) return true;
+                        return normalizeTypeAddresses(obj.objectType) === resolvedObjectType;
+                    })
+                    .map((obj) => makeExecutionCandidate(obj.objectId, obj.objectType, "wallet"));
+            } else if (modType === "package_upgrade::LockUpgradeCap") {
+                localCandidates = walletOwnedObjects
+                    .filter((obj) => {
+                        if (fixedObjectId) return obj.objectId === fixedObjectId;
+                        return isUpgradeCapObjectType(obj.objectType);
+                    })
+                    .map((obj) => makeExecutionCandidate(obj.objectId, obj.objectType, "wallet"));
+            } else if (modType === "vault::VaultDepositExternal") {
+                localCandidates = walletOwnedObjects
+                    .filter((obj) => isCoinObjectType(obj.objectType, resolvedCoinType))
+                    .map((obj) => makeExecutionCandidate(obj.objectId, obj.objectType, "wallet"));
+            } else if (modType === "vesting::CancelVesting") {
+                localCandidates = walletOwnedObjects
+                    .filter((obj) => {
+                        if (fixedObjectId) return obj.objectId === fixedObjectId;
+                        return isVestingObjectType(obj.objectType, resolvedCoinType);
+                    })
+                    .map((obj) => makeExecutionCandidate(obj.objectId, obj.objectType, "wallet"));
+            }
+
+            const discovered = discoveredObjectCandidates[actionIndex] || [];
+            const prefersDiscovered =
+                modType === "currency::CurrencyUpdate" || modType === "vault::VaultDepositExternal";
+            next[actionIndex] =
+                prefersDiscovered && discovered.length > 0
+                    ? mergeExecutionCandidates(fixedIntentCandidates, discovered)
+                    : mergeExecutionCandidates(fixedIntentCandidates, localCandidates, discovered);
+        }
+
+        return next;
+    }, [
+        accountOwnedObjects,
+        discoveredObjectCandidates,
+        executeCoinTypeTrimmed,
+        executeObjectTypes,
+        intent.actionTypes,
+        intentFixedObjectIdsByAction,
+        objectIdRequirements,
+        walletOwnedObjects,
+    ]);
+
+    const selectedObjectCandidateByAction = useMemo(() => {
+        const next: Record<number, ExecutionObjectCandidate> = {};
+
+        for (const req of objectIdRequirements) {
+            const selectedId =
+                executeObjectIds[req.actionIndex]?.trim() || intentFixedObjectIdsByAction[req.actionIndex];
+            if (!selectedId) continue;
+
+            const candidate = objectIdCandidatesByAction[req.actionIndex]?.find(
+                (entry) => entry.objectId === selectedId
+            );
+            if (candidate) {
+                next[req.actionIndex] = candidate;
+            }
+        }
+
+        return next;
+    }, [executeObjectIds, intentFixedObjectIdsByAction, objectIdCandidatesByAction, objectIdRequirements]);
+
+    const objectIdOptionsByAction = useMemo(() => {
+        const next: Record<number, Array<{ value: string; label: string }>> = {};
+
+        for (const req of objectIdRequirements) {
+            const actionIndex = req.actionIndex;
+            const options = (objectIdCandidatesByAction[actionIndex] || []).map((candidate) => ({
+                value: candidate.objectId,
+                label: getExecutionCandidateLabel(candidate),
+            }));
+            const currentValue = executeObjectIds[actionIndex]?.trim();
+
+            if (currentValue && !options.some((option) => option.value === currentValue)) {
+                options.unshift({
+                    value: currentValue,
+                    label: `${formatAddress(currentValue)} — selected`,
+                });
+            }
+
+            next[actionIndex] = options;
+        }
+
+        return next;
+    }, [executeObjectIds, objectIdCandidatesByAction, objectIdRequirements]);
+
+    const handleExecutionObjectIdChange = useCallback(
+        (actionIndex: number, value: string) => {
+            setExecuteObjectIds((prev) => (prev[actionIndex] === value ? prev : { ...prev, [actionIndex]: value }));
+
+            const candidate = objectIdCandidatesByAction[actionIndex]?.find((entry) => entry.objectId === value);
+            if (!candidate?.objectType) return;
+
+            if (objectTypeRequirementSet.has(actionIndex)) {
+                setExecuteObjectTypes((prev) =>
+                    prev[actionIndex] === candidate.objectType ? prev : { ...prev, [actionIndex]: candidate.objectType }
+                );
+            }
+
+            const derivedCoinType = getCoinTypeFromExecutionObject(candidate.objectType);
+            if (derivedCoinType) {
+                setExecuteCoinType((prev) => (prev === derivedCoinType ? prev : derivedCoinType));
+            }
+        },
+        [objectIdCandidatesByAction, objectTypeRequirementSet]
+    );
+
+    useEffect(() => {
+        if (
+            !showExecute ||
+            isConfig ||
+            hasUnknown ||
+            hasUnsupported ||
+            !currentUserAddress ||
+            objectIdRequirements.length === 0
+        ) {
+            discoveryRequestKeyRef.current = "";
+            setDiscoveredObjectCandidates((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+            return;
+        }
+
+        const sdk = getSDK();
+        if (!sdk.multisig?.discoverExecutionInputs) {
+            discoveryRequestKeyRef.current = "";
+            setDiscoveredObjectCandidates((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+            return;
+        }
+
+        const requestKey = JSON.stringify({
+            owner: currentUserAddress,
+            actionTypes: intent.actionTypes,
+            coinType: executeCoinTypeTrimmed || undefined,
+            objectIdRequirementKey,
+            expectedAmountByAction: intent.expectedAmountByAction || undefined,
+        });
+        if (discoveryRequestKeyRef.current === requestKey) return;
+        discoveryRequestKeyRef.current = requestKey;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const discovered = await sdk.multisig!.discoverExecutionInputs({
+                    owner: currentUserAddress,
+                    actionTypes: intent.actionTypes,
+                    coinType: executeCoinTypeTrimmed || undefined,
+                    expectedAmountByAction: intent.expectedAmountByAction,
+                });
+                if (cancelled) return;
+
+                const next: Record<number, ExecutionObjectCandidate[]> = {};
+                for (const [idxStr, candidates] of Object.entries(discovered.candidatesByAction)) {
+                    const idx = Number(idxStr);
+                    const modType = extractModuleType(intent.actionTypes[idx] || "");
+                    const source: ExecutionObjectSource =
+                        modType === "currency::CurrencyUpdate" ? "registry" : "wallet";
+                    next[idx] = candidates.map((candidate) =>
+                        makeExecutionCandidate(candidate.objectId, candidate.type, source, candidate.balance)
+                    );
+                }
+                setDiscoveredObjectCandidates(next);
+            } catch (error) {
+                if (cancelled) return;
+                console.error("Auto-discovery of execution object candidates failed:", error);
+                setDiscoveredObjectCandidates((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        currentUserAddress,
+        executeCoinTypeTrimmed,
+        hasUnknown,
+        hasUnsupported,
+        intent.actionTypes,
+        intent.expectedAmountByAction,
+        isConfig,
+        objectIdRequirementKey,
+        objectIdRequirements.length,
+        showExecute,
+    ]);
+
+    useEffect(() => {
+        if (!showExecute || isConfig || objectIdRequirements.length === 0) return;
+
+        setExecuteObjectIds((prev) => {
+            let changed = false;
+            const next = { ...prev };
+
+            for (const req of objectIdRequirements) {
+                if (prev[req.actionIndex]?.trim()) continue;
+
+                const fixedId = intentFixedObjectIdsByAction[req.actionIndex];
+                if (fixedId) {
+                    next[req.actionIndex] = fixedId;
+                    changed = true;
+                    continue;
+                }
+
+                const candidates = objectIdCandidatesByAction[req.actionIndex] || [];
+                if (candidates.length === 1) {
+                    next[req.actionIndex] = candidates[0].objectId;
+                    changed = true;
+                }
+            }
+
+            return changed ? next : prev;
+        });
+    }, [intentFixedObjectIdsByAction, isConfig, objectIdCandidatesByAction, objectIdRequirements, showExecute]);
+
+    // Auto-fill upgrade package ID from the account's locked package info + intent's package name
+    useEffect(() => {
+        if (!showExecute || isConfig || upgradeRequirements.length === 0 || packageInfoList.length === 0) return;
+        if (!intent.upgradePackageNameByAction) return;
+
+        setExecuteUpgradeInputs((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            for (const req of upgradeRequirements) {
+                const pkgName = intent.upgradePackageNameByAction![req.actionIndex];
+                if (!pkgName) continue;
+                if (prev[req.actionIndex]?.packageId?.trim()) continue;
+                const info = packageInfoList.find((p) => p.name === pkgName);
+                if (!info) continue;
+                next[req.actionIndex] = {
+                    ...prev[req.actionIndex],
+                    packageId: info.packageAddress,
+                    modules: prev[req.actionIndex]?.modules || "",
+                    dependencies: prev[req.actionIndex]?.dependencies || "",
+                };
+                changed = true;
+            }
+            return changed ? next : prev;
+        });
+    }, [intent.upgradePackageNameByAction, isConfig, packageInfoList, showExecute, upgradeRequirements]);
+
+    useEffect(() => {
+        if (!showExecute || isConfig || upgradeRequirements.length === 0) return;
+        if (!intent.upgradeDigestByAction) return;
+
+        setExecuteUpgradeInputs((prev) => {
+            let changed = false;
+            const next = { ...prev };
+
+            for (const req of upgradeRequirements) {
+                const digest = intent.upgradeDigestByAction?.[req.actionIndex];
+                if (!digest) continue;
+
+                const draft = prev[req.actionIndex];
+                if (draft?.modules?.trim() && draft?.dependencies?.trim()) continue;
+
+                const cachedRaw = getCachedUpgradeBuildOutput(digest);
+                if (!cachedRaw) continue;
+
+                const parsed = parseUpgradeBuildOutput(cachedRaw);
+                if (!parsed) continue;
+
+                next[req.actionIndex] = {
+                    ...prev[req.actionIndex],
+                    packageId: prev[req.actionIndex]?.packageId || "",
+                    modules: parsed.modules.join("\n"),
+                    dependencies: parsed.dependencies.join("\n"),
+                    buildOutputRaw: cachedRaw,
+                };
+                changed = true;
+            }
+
+            return changed ? next : prev;
+        });
+    }, [intent.upgradeDigestByAction, isConfig, showExecute, upgradeRequirements]);
+
+    useEffect(() => {
+        if (!showExecute || isConfig) return;
+
+        setExecuteObjectTypes((prev) => {
+            let changed = false;
+            const next = { ...prev };
+
+            for (const req of objectTypeRequirements) {
+                if (prev[req.actionIndex]?.trim()) continue;
+
+                const candidate = selectedObjectCandidateByAction[req.actionIndex];
+                if (!candidate?.objectType) continue;
+
+                next[req.actionIndex] = candidate.objectType;
+                changed = true;
+            }
+
+            return changed ? next : prev;
+        });
+
+        if (!needsCoinType || executeCoinTypeTrimmed) return;
+
+        const derivedCoinTypes = new Set<string>();
+        for (const candidate of Object.values(selectedObjectCandidateByAction)) {
+            const coinType = getCoinTypeFromExecutionObject(candidate.objectType);
+            if (coinType) derivedCoinTypes.add(coinType);
+        }
+
+        if (derivedCoinTypes.size === 1) {
+            setExecuteCoinType(Array.from(derivedCoinTypes)[0]);
+        }
+    }, [
+        executeCoinTypeTrimmed,
+        isConfig,
+        needsCoinType,
+        objectTypeRequirements,
+        selectedObjectCandidateByAction,
+        showExecute,
+    ]);
+
+    const runAction = useCallback(
+        async (buildTx: (tx: Transaction) => void, label: string) => {
+            if (submittingRef.current) return;
+            submittingRef.current = true;
+            try {
+                const tx = new Transaction();
+                buildTx(tx);
+                await executeTransaction(
+                    tx,
+                    { onSuccess: () => onActionComplete?.() },
+                    {
+                        loadingMessage: `${label}...`,
+                        successMessage: label,
+                    }
+                );
+            } catch (error) {
+                console.error(`${label} failed:`, error);
+                if (!isNotifiedTransactionError(error)) {
+                    toast.error(error instanceof Error ? error.message : `${label} failed`);
+                }
+            } finally {
+                submittingRef.current = false;
+            }
+        },
+        [executeTransaction, onActionComplete]
+    );
+
+    const handleApprove = useCallback(() => {
+        const sdk = getSDK();
+        if (!sdk.multisig) return;
+        runAction((tx) => sdk.multisig!.approveIntent(asMultisigTx(tx), accountId, intent.key), "Intent approved");
+    }, [accountId, asMultisigTx, intent.key, runAction]);
+
+    const handleDisapprove = useCallback(() => {
+        const sdk = getSDK();
+        if (!sdk.multisig) return;
+        runAction((tx) => sdk.multisig!.disapproveIntent(asMultisigTx(tx), accountId, intent.key), "Approval removed");
+    }, [accountId, asMultisigTx, intent.key, runAction]);
+
+    const handleReject = useCallback(() => {
+        const sdk = getSDK();
+        if (!sdk.multisig) return;
+        runAction((tx) => sdk.multisig!.rejectIntent(asMultisigTx(tx), accountId, intent.key), "Intent rejected");
+    }, [accountId, asMultisigTx, intent.key, runAction]);
+
+    const handleEvaluate = useCallback(() => {
+        const sdk = getSDK();
+        if (!sdk.multisig) return;
+        // evaluate_intent can transition ACTIVE -> APPROVED (approve path satisfied
+        // via time-band maturity) or ACTIVE -> REJECTED (reject path satisfied
+        // first). Neutral toast because the winning path decides the outcome.
+        runAction((tx) => sdk.multisig!.evaluateIntent(asMultisigTx(tx), accountId, intent.key), "Intent re-evaluated");
+    }, [accountId, asMultisigTx, intent.key, runAction]);
+
+    const handleExecute = useCallback(() => {
+        if (isConfig) {
+            // Config intents: use existing SDK method
+            const sdk = getSDK();
+            if (!sdk.multisig) return;
+            runAction(
+                (tx) => sdk.multisig!.executeConfigChange(asMultisigTx(tx), accountId, intent.key),
+                "Config change executed"
+            );
+        } else {
+            // Action intents: use buildActionsExecution dispatch
+            runAction(
+                (tx) =>
+                    buildActionsExecution(tx, accountId, intent.key, intent.actionTypes, {
+                        coinType: needsCoinType ? executeCoinType : undefined,
+                        objectTypeByAction: executeObjectTypes,
+                        objectIdByAction: executeObjectIds,
+                        upgradeByAction,
+                    }),
+                "Intent executed"
+            );
+        }
+    }, [
+        accountId,
+        asMultisigTx,
+        intent.key,
+        intent.actionTypes,
+        isConfig,
+        needsCoinType,
+        executeCoinType,
+        executeObjectTypes,
+        executeObjectIds,
+        upgradeByAction,
+        runAction,
+    ]);
+
+    const handleCancelPending = useCallback(() => {
+        const sdk = getSDK();
+        if (!sdk.multisig) return;
+        runAction(
+            (tx) =>
+                isConfig
+                    ? sdk.multisig!.cancelPendingConfigChange(asMultisigTx(tx), accountId, intent.key)
+                    : sdk.multisig!.cancelPendingActions(asMultisigTx(tx), accountId, intent.key),
+            "Intent cancelled"
+        );
+    }, [accountId, asMultisigTx, intent.key, isConfig, runAction]);
+
+    // Earliest-future time-band maturation across any group used in the approve
+    // policy. Lets active intents preview when delayed-quorum approval becomes
+    // reachable without new votes.
+    const nextTimeBandInfo = useMemo(() => {
+        if (!isActive || intent.createdAtMs <= 0) return null;
+        const referencedGroups = new Set<number>();
+        for (const path of config.approvePolicy.paths) {
+            for (const req of path.requirements) referencedGroups.add(req.groupIndex);
+        }
+        const band = nextMaturingTimeBand(config, Array.from(referencedGroups), elapsedMs, approvals.approved);
+        if (!band) return null;
+        const maturesAtMs = Date.now() + band.etaMs;
+        return { ...band, maturesAtMs };
+    }, [approvals.approved, config, elapsedMs, intent.createdAtMs, isActive]);
+
+    const upgradeDelayInfo = useMemo(() => {
+        if (!hasUpgradeAction || packageInfoList.length === 0 || intent.createdAtMs <= 0) return null;
+
+        const relevantDelays = intent.actionTypes.flatMap((actionType, actionIndex) => {
+            if (extractModuleType(actionType) !== "package_upgrade::PackageUpgrade") return [];
+            const packageName = intent.upgradePackageNameByAction?.[actionIndex];
+            if (!packageName) return [];
+            const packageInfo = packageInfoList.find((pkg) => pkg.name === packageName);
+            return packageInfo ? [packageInfo.delayMs] : [];
+        });
+
+        if (relevantDelays.length === 0) return null;
+
+        const maxDelay = Math.max(...relevantDelays);
+        if (maxDelay <= 0) return null;
+
+        const executableAt = intent.createdAtMs + maxDelay;
+        const now = Date.now();
+        return { maxDelayMs: maxDelay, executableAt, isDelayElapsed: now >= executableAt };
+    }, [hasUpgradeAction, intent.actionTypes, intent.createdAtMs, intent.upgradePackageNameByAction, packageInfoList]);
+
+    const hasActions =
+        showApprove || showUndoApproval || showReject || showEvaluate || showExecute || showCancelPending;
+
+    // Execution is blocked if required inputs are missing, or if actions are unsupported/unknown.
+    const upgradeDelayBlocked = !!(upgradeDelayInfo && !upgradeDelayInfo.isDelayElapsed);
+    const executeBlocked = !!(
+        showExecute &&
+        !isConfig &&
+        (hasMissingInputs || hasUnsupported || hasUnknown || upgradeDelayBlocked)
+    );
+
+    const isDone = isClosedIntentStatus(approvals.status);
+    const primaryActionName = isConfig
+        ? "Config Change"
+        : actionDetails.length > 0
+          ? actionDetails.map((a) => a.name).join(", ")
+          : `${intent.actionCount} action${intent.actionCount !== 1 ? "s" : ""}`;
+    const primaryCategory = isConfig ? "config" : actionDetails[0]?.category || "unknown";
+    const PrimaryCategoryIcon = CATEGORY_ICONS[primaryCategory];
+
+    return (
+        <div
+            className={`bg-card-elevated border border-border-subtle rounded-xl p-4 flex flex-col gap-3 ${isDone ? "opacity-50" : ""}`}
+        >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        {PrimaryCategoryIcon && (
+                            <span
+                                className={`inline-flex items-center justify-center w-5 h-5 rounded ${CATEGORY_COLORS[primaryCategory] || "text-text-muted"}`}
+                            >
+                                <PrimaryCategoryIcon className="w-3.5 h-3.5" />
+                            </span>
+                        )}
+                        <h4 className="text-sm font-semibold text-text-primary truncate">{primaryActionName}</h4>
+                    </div>
+                    {intent.description && (
+                        <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{intent.description}</p>
+                    )}
+                </div>
+                <div className={`flex items-center gap-1.5 shrink-0 ${cfg.color}`}>
+                    <StatusIcon className="w-4 h-4" />
+                    <span className="text-xs font-medium">{intentStatusLabel(approvals.status)}</span>
+                </div>
+            </div>
+
+            {/* Meta row */}
+            {intent.createdAtMs > 0 && (
+                <div className="text-[10px] text-text-muted">{new Date(intent.createdAtMs).toLocaleDateString()}</div>
+            )}
+
+            {/* Approval audit trail: which approve_policy path matched, and when. */}
+            {(isApproved || isExecuted) && approvals.matchedVotePath !== null && (
+                <div className="text-[10px] flex items-center gap-1 text-green-400">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>
+                        Approved via path {approvals.matchedVotePath + 1}
+                        {approvals.approvedAtMs > 0 ? ` - ${new Date(approvals.approvedAtMs).toLocaleString()}` : ""}
+                    </span>
+                </div>
+            )}
+
+            {/* Expandable action details */}
+            {intent.actionTypes.length > 0 && (
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => setActionsExpanded(!actionsExpanded)}
+                        className="flex items-center gap-1.5 text-[10px] text-text-muted hover:text-text-secondary transition-colors"
+                    >
+                        <ChevronDown
+                            className={`w-3 h-3 transition-transform ${actionsExpanded ? "rotate-180" : ""}`}
+                        />
+                        <span>
+                            {intent.actionTypes.length} action{intent.actionTypes.length !== 1 ? "s" : ""}
+                        </span>
+                    </button>
+
+                    {actionsExpanded && (
+                        <div className="mt-2 space-y-1.5">
+                            {actionDetails.map((action, i) => {
+                                const CategoryIcon = CATEGORY_ICONS[action.category];
+                                return (
+                                    <div
+                                        key={`${action.fullType}-${i}`}
+                                        className="rounded-lg border border-border-subtle bg-card-more-elevated/40 p-2"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className={`text-[10px] px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 ${CATEGORY_COLORS[action.category] || "bg-card-more-elevated border border-border-subtle text-text-muted"}`}
+                                            >
+                                                {CategoryIcon && <CategoryIcon className="w-3 h-3" />}
+                                                {action.category}
+                                            </span>
+                                            <span className="text-xs text-text-secondary">{action.name}</span>
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-[10px] text-text-muted">
+                                            {action.fullType}
+                                        </div>
+                                        {action.requiresInput && (
+                                            <div className="mt-1 text-[9px] px-1 py-0.5 rounded bg-yellow-500/10 text-yellow-400 w-fit">
+                                                input required
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Fallback for intents without parsed action types */}
+            {intent.actionTypes.length === 0 && intent.actionCount > 0 && (
+                <div className="text-[10px] text-text-muted">
+                    {intent.actionCount} action{intent.actionCount !== 1 ? "s" : ""}
+                </div>
+            )}
+
+            {/* Expiration display */}
+            {intent.expirationMs > 0 && (
+                <div
+                    className={`text-[10px] flex items-center gap-1 ${
+                        expInfo.isExpired ? "text-red-400" : expInfo.isSoon ? "text-yellow-400" : "text-text-muted"
+                    }`}
+                >
+                    <Clock className="w-3 h-3" />
+                    <span>{expInfo.label}</span>
+                </div>
+            )}
+
+            {/* Time-band maturation preview */}
+            {nextTimeBandInfo && (
+                <div className="text-[10px] flex items-center gap-1 text-yellow-400/80">
+                    <Clock className="w-3 h-3" />
+                    <span>
+                        {nextTimeBandInfo.groupName || `Group ${nextTimeBandInfo.groupIndex + 1}`} weight rises +
+                        {nextTimeBandInfo.weight} at {new Date(nextTimeBandInfo.maturesAtMs).toLocaleString()}
+                    </span>
+                </div>
+            )}
+
+            {/* Upgrade delay display */}
+            {upgradeDelayInfo && (
+                <div
+                    className={`text-[10px] flex items-center gap-1 ${
+                        upgradeDelayInfo.isDelayElapsed ? "text-green-400" : "text-yellow-400"
+                    }`}
+                >
+                    <Clock className="w-3 h-3" />
+                    <span>
+                        {upgradeDelayInfo.isDelayElapsed
+                            ? `Upgrade delay elapsed (${Math.round(upgradeDelayInfo.maxDelayMs / 86_400_000)}d)`
+                            : `Executable after ${new Date(upgradeDelayInfo.executableAt).toLocaleString()} (${Math.round(upgradeDelayInfo.maxDelayMs / 86_400_000)}d delay)`}
+                    </span>
+                </div>
+            )}
+
+            {/* Package info for package-related intents */}
+            {hasPackageAction && packageInfoList.length > 0 && actionsExpanded && (
+                <div className="text-[10px] text-text-muted space-y-0.5 pl-1 border-l-2 border-border-subtle ml-1">
+                    {packageInfoList.map((pkg) => (
+                        <div key={pkg.name} className="flex items-center gap-2">
+                            <span className="font-medium">{pkg.name}</span>
+                            <span className="font-mono">{pkg.packageAddress.slice(0, 10)}...</span>
+                            <span className="text-text-muted">
+                                {policyLabel(pkg.policy)} |{" "}
+                                {pkg.delayMs > 0 ? `${Math.round(pkg.delayMs / 86_400_000)}d delay` : "no delay"}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Stale warning */}
+            {isStale && !isExpired && (isActive || isApproved) && (
+                <div className="text-[10px] flex items-center gap-1 text-orange-400">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>Stale — config has changed since this intent was created</span>
+                </div>
+            )}
+
+            {/* Unknown action type warning */}
+            {hasUnknown && (
+                <div className="text-[10px] flex items-center gap-1 text-red-400">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>
+                        Contains {unknownActions.length} unknown action type{unknownActions.length > 1 ? "s" : ""}{" "}
+                        (potentially malicious) — cannot auto-execute
+                    </span>
+                </div>
+            )}
+
+            {/* Unsupported action warning */}
+            {hasUnsupported && !hasUnknown && (
+                <div className="space-y-1">
+                    {unsupportedReasons.map((reason, i) => (
+                        <div key={i} className="text-[10px] flex items-center gap-1 text-yellow-400">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            <span>{reason}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Upgrade delay blocks execution */}
+            {showExecute && upgradeDelayBlocked && (
+                <div className="text-[10px] flex items-center gap-1 text-yellow-400">
+                    <Clock className="w-3 h-3" />
+                    <span>
+                        Upgrade delay has not elapsed — execution blocked until{" "}
+                        {new Date(upgradeDelayInfo!.executableAt).toLocaleString()}
+                    </span>
+                </div>
+            )}
+
+            {/* Missing required execution inputs */}
+            {showExecute && !isConfig && !hasUnknown && !hasUnsupported && hasMissingInputs && (
+                <div className="text-[10px] flex items-center gap-1 text-yellow-400">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>Fill required execution inputs to enable Execute</span>
+                </div>
+            )}
+
+            {/* Approvers */}
+            {approvals.approved.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                    {approvals.approved.map((addr) => (
+                        <span
+                            key={addr}
+                            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-500/10 text-green-400"
+                        >
+                            {formatAddress(addr)}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {/* Required execution inputs */}
+            {showExecute && !isConfig && !hasUnsupported && !hasUnknown && hasInputRequirements && (
+                <div className="border-t border-border-subtle pt-3 space-y-3">
+                    <p className="text-[10px] text-text-muted">Provide required execution inputs:</p>
+
+                    {needsCoinType && (
+                        <CoinTypePicker
+                            value={executeCoinType}
+                            onChange={(coinType) => setExecuteCoinType(coinType)}
+                            label="Coin Type"
+                        />
+                    )}
+
+                    {objectTypeRequirements.map((req) =>
+                        (objectIdCandidatesByAction[req.actionIndex] || []).some(
+                            (candidate) => candidate.objectType
+                        ) ? null : (
+                            <Input
+                                key={`object-type-${req.actionIndex}`}
+                                label={`${req.label} (Action ${req.actionIndex + 1}: ${req.actionName})`}
+                                value={executeObjectTypes[req.actionIndex] || ""}
+                                onChange={(value) => {
+                                    setExecuteObjectTypes((prev) => ({ ...prev, [req.actionIndex]: value }));
+                                }}
+                                placeholder={req.placeholder}
+                                error={missingObjectTypeSet.has(req.actionIndex)}
+                                size="sm"
+                            />
+                        )
+                    )}
+
+                    {objectIdRequirements.map((req) => {
+                        const actionIndex = req.actionIndex;
+                        const val = executeObjectIds[actionIndex] || "";
+                        const fixedIntentId = intentFixedObjectIdsByAction[actionIndex];
+                        const options = objectIdOptionsByAction[actionIndex] || [];
+
+                        if (fixedIntentId) return null;
+
+                        if (options.length > 0) {
+                            return (
+                                <Select
+                                    key={`object-id-${actionIndex}`}
+                                    label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
+                                    options={options}
+                                    value={val}
+                                    onChange={(value) => handleExecutionObjectIdChange(actionIndex, value)}
+                                    placeholder={req.placeholder || "Select an object..."}
+                                    allowSearch
+                                    allowClear={false}
+                                />
+                            );
+                        }
+
+                        return (
+                            <div key={`object-id-${actionIndex}`} className="space-y-1">
+                                <Input
+                                    label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
+                                    value={val}
+                                    onChange={(value) => {
+                                        setExecuteObjectIds((prev) => ({ ...prev, [actionIndex]: value }));
+                                    }}
+                                    placeholder={req.placeholder}
+                                    error={
+                                        missingObjectIdSet.has(actionIndex) ||
+                                        (val.length > 0 && !isValidSuiObjectId(val))
+                                    }
+                                    size="sm"
+                                />
+                                <p className="text-[11px] text-text-muted">
+                                    No matching derived objects found for this action. Paste the object ID manually.
+                                </p>
+                            </div>
+                        );
+                    })}
+
+                    {upgradeRequirements.map((req) => {
+                        const draft = executeUpgradeInputs[req.actionIndex] || {
+                            packageId: "",
+                            modules: "",
+                            dependencies: "",
+                        };
+                        const isMissing = missingUpgradeSet.has(req.actionIndex);
+                        const parsedModules = parseListInput(draft.modules);
+                        const parsedDeps = parseListInput(draft.dependencies);
+                        const isFilled = draft.packageId.trim() && parsedModules.length > 0 && parsedDeps.length > 0;
+
+                        return (
+                            <div
+                                key={`upgrade-${req.actionIndex}`}
+                                className="space-y-2 p-2.5 rounded-lg border border-border-subtle bg-card-more-elevated/40"
+                            >
+                                <p className="text-[10px] text-text-muted">
+                                    Action {req.actionIndex + 1}: {req.actionName}
+                                </p>
+                                <Textarea
+                                    label="Build output"
+                                    value={isFilled ? "" : (draft.buildOutputRaw ?? "")}
+                                    onChange={(raw) => {
+                                        const trimmed = raw.trim();
+                                        if (!trimmed) return;
+                                        const parsed = parseUpgradeBuildOutput(trimmed);
+                                        if (!parsed) return;
+
+                                        cacheUpgradeBuildOutput(trimmed);
+                                        setExecuteUpgradeInputs((prev) => ({
+                                            ...prev,
+                                            [req.actionIndex]: {
+                                                packageId: prev[req.actionIndex]?.packageId || "",
+                                                modules: parsed.modules.join("\n"),
+                                                dependencies: parsed.dependencies.join("\n"),
+                                                buildOutputRaw: raw,
+                                            },
+                                        }));
+                                    }}
+                                    placeholder="Paste output of: sui move build --dump-bytecode-as-base64"
+                                    rows={isFilled ? 1 : 3}
+                                    error={false}
+                                />
+                                {isFilled ? (
+                                    <div className="text-[10px] text-text-muted space-y-1 p-2 rounded bg-card-more-elevated/60 border border-border-subtle">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-green-400">Parsed</span>
+                                            <span>
+                                                {parsedModules.length} module{parsedModules.length !== 1 ? "s" : ""}
+                                            </span>
+                                            <span>
+                                                {parsedDeps.length} dep{parsedDeps.length !== 1 ? "s" : ""}
+                                            </span>
+                                        </div>
+                                        {draft.packageId.trim() && (
+                                            <div className="font-mono text-[9px] truncate">
+                                                pkg: {draft.packageId.trim()}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-[10px] text-text-muted p-2 rounded bg-card-more-elevated/60 border border-border-subtle space-y-1">
+                                        <p className="font-medium text-text-secondary">
+                                            Step 3 of 3: Provide build output to execute
+                                        </p>
+                                        <p>
+                                            If this browser has the proposal-time build cached it will auto-fill.
+                                            Otherwise re-run:
+                                        </p>
+                                        <UpgradeBuildCommand codeClassName="bg-card-more-elevated/80" />
+                                        <p>The on-chain digest will verify the bytecode matches what was approved.</p>
+                                    </div>
+                                )}
+                                {draft.packageId.trim() ? (
+                                    <div className="text-[10px] text-text-muted font-mono truncate">
+                                        Package: {draft.packageId.trim()}
+                                    </div>
+                                ) : (
+                                    <Input
+                                        label="Upgrade Package ID"
+                                        value={draft.packageId}
+                                        onChange={(value) => {
+                                            setExecuteUpgradeInputs((prev) => ({
+                                                ...prev,
+                                                [req.actionIndex]: {
+                                                    ...prev[req.actionIndex],
+                                                    packageId: value,
+                                                    modules: prev[req.actionIndex]?.modules || "",
+                                                    dependencies: prev[req.actionIndex]?.dependencies || "",
+                                                },
+                                            }));
+                                        }}
+                                        placeholder="0x... (auto-filled if package is locked in account)"
+                                        error={isMissing && !draft.packageId.trim()}
+                                        size="sm"
+                                    />
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Approval is final once status flips to APPROVED. Tell users who voted
+                that the "Undo Approval" path is gone; they can still Reject. */}
+            {isApproved && hasAlreadyApproved && (
+                <p className="text-[10px] text-text-muted">
+                    Your approval is locked in once status reaches Approved. You can still Reject to flip status.
+                </p>
+            )}
+
+            {/* Action buttons */}
+            {hasActions && (
+                <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
+                    {showApprove && (
+                        <button
+                            onClick={handleApprove}
+                            disabled={isLoading || submittingRef.current}
+                            title={
+                                hasAlreadyRejected
+                                    ? "Approving will clear your prior reject vote."
+                                    : "Cast an approval vote."
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Approve
+                        </button>
+                    )}
+                    {showUndoApproval && (
+                        <button
+                            onClick={handleDisapprove}
+                            disabled={isLoading || submittingRef.current}
+                            title="Remove your approval. Only available while the intent is still Active; once approved, you can only Reject to flip status."
+                            className="px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs font-medium hover:bg-yellow-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Undo Approval
+                        </button>
+                    )}
+                    {showReject && (
+                        <button
+                            onClick={handleReject}
+                            disabled={isLoading || submittingRef.current}
+                            title={
+                                hasAlreadyApproved
+                                    ? "Rejecting will clear your prior approval vote."
+                                    : isApproved
+                                      ? "Reject the already-approved intent. If the cancel quorum is met, cancellation unlocks."
+                                      : "Cast a reject vote. Reaches the cancel quorum and the intent can be cancelled."
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Reject
+                        </button>
+                    )}
+                    {showCancelPending && (
+                        <button
+                            onClick={handleCancelPending}
+                            disabled={isLoading || submittingRef.current}
+                            title="Cancel quorum has been reached. This cancels the live intent and removes it from on-chain storage."
+                            className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Cancel
+                        </button>
+                    )}
+                    {showEvaluate && (
+                        <button
+                            onClick={handleEvaluate}
+                            disabled={isLoading || submittingRef.current}
+                            title="Re-check the policy against current time and vote state. Approve path satisfied via time bands? Marks Approved. Reject quorum already met? Marks Rejected."
+                            className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Re-evaluate
+                        </button>
+                    )}
+                    {showExecute && (
+                        <button
+                            onClick={handleExecute}
+                            disabled={isLoading || submittingRef.current || executeBlocked}
+                            className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            Execute
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}

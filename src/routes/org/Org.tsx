@@ -1,0 +1,396 @@
+import { useParams, useSearchParams } from "react-router";
+import { Helmet } from "react-helmet-async";
+import { StarIcon, Loader2, Wallet, Coins } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { NotFound } from "@/components/navigation/NotFound";
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
+import { SidebarNav, type SidebarNavItem } from "@/components/navigation/SidebarNav";
+import { ProposalsTab } from "@/components/org/page/ProposalsTab";
+import { SpotSwapCard } from "@/components/org/page/SpotSwapCard";
+import { OrdersTab } from "@/components/org/page/OrdersTab";
+import { VerifiedBadge } from "@/components/badges/VerifiedBadge";
+import { Button } from "@/components/inputs/Button";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useSpotPrice } from "@/hooks/useSpotPrice";
+import { useDAO, useDAOProposalsDisplay, useCoins } from "@/hooks/api";
+import { useMultisigVaultBalances } from "@/hooks/useMultisig";
+import { DepositModal } from "@/components/multisig/DepositModal";
+import { CoinAvatar } from "@/components/CoinAvatar";
+import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
+import { formatNumberWithCommas } from "@/lib/formatNumber";
+import { getProtocolVersionForDAO } from "@/lib/sdk";
+import { toDAODisplay, type DAODisplay } from "@/types";
+import type { VaultCoinBalance } from "@/lib/sui/multisig";
+import type { CoinMetadata } from "@/lib/api/coins";
+
+interface OrgHeaderProps {
+    dao: DAODisplay;
+    isFavorited: boolean;
+    onToggleFavorite: () => void;
+}
+
+function OrgHeader({ dao, isFavorited, onToggleFavorite }: OrgHeaderProps) {
+    const [imgError, setImgError] = useState(false);
+
+    return (
+        <div className="p-4 space-y-3 relative">
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+                <Button variant="outline" square size="sm" onClick={onToggleFavorite} className="hover:bg-card-elevated">
+                    <StarIcon
+                        className={`w-4 h-4 transition-all ${isFavorited ? "text-yellow-400 fill-yellow-400" : "fill-none"}`}
+                    />
+                </Button>
+            </div>
+
+            <div className="flex items-center gap-3 pr-10">
+                <div className="size-14 shrink-0 rounded-xl overflow-hidden bg-background border border-border shadow-md">
+                    {dao.iconUrl && !imgError ? (
+                        <img
+                            src={dao.iconUrl}
+                            alt={`${dao.name} logo`}
+                            className="w-full h-full object-cover"
+                            onError={() => setImgError(true)}
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xl font-bold bg-gradient-to-br from-primary/80 to-primary text-white">
+                            {dao.name[0]}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <div className="flex flex-col items-start gap-1">
+                        <h1 className="text-2xl font-bold truncate">{dao.name}</h1>
+                        {dao.verified && <VerifiedBadge variant="full" />}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+type TabType = "overview" | "proposals" | "trade" | "orders";
+
+function OrgVaultHoldings({ balances, coins, isLoading }: {
+    balances?: VaultCoinBalance[];
+    coins?: CoinMetadata[];
+    isLoading: boolean;
+}) {
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!balances || balances.length === 0) {
+        return <p className="text-text-muted text-sm py-4">No coins in vaults.</p>;
+    }
+
+    // Aggregate by coinType across vaults
+    const map = new Map<string, { amount: bigint; vaults: Set<string> }>();
+    for (const b of balances) {
+        const entry = map.get(b.coinType) ?? { amount: 0n, vaults: new Set<string>() };
+        entry.amount += b.amount;
+        entry.vaults.add(b.vaultName);
+        map.set(b.coinType, entry);
+    }
+
+    const rows = Array.from(map.entries())
+        .map(([coinType, { amount, vaults }]) => {
+            const meta = coins?.find((c) => c.coin_type === coinType);
+            return {
+                coinType,
+                symbol: meta?.symbol ?? coinType.split("::").pop() ?? "???",
+                name: meta?.name ?? coinType.split("::").pop() ?? "Unknown",
+                iconUrl: meta?.icon_url ?? null,
+                decimals: meta?.decimals ?? 9,
+                amount,
+                vaults: Array.from(vaults).sort(),
+            };
+        })
+        .sort((a, b) => {
+            const aVal = Number(a.amount) / Math.pow(10, a.decimals);
+            const bVal = Number(b.amount) / Math.pow(10, b.decimals);
+            return bVal - aVal;
+        });
+
+    return (
+        <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full">
+                <thead>
+                    <tr className="border-b border-border bg-card-elevated">
+                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Asset</th>
+                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Vault</th>
+                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map((row) => {
+                        const formatted = Number(row.amount) / Math.pow(10, row.decimals);
+                        return (
+                            <tr key={row.coinType} className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors">
+                                <td className="py-3 px-4">
+                                    <div className="flex items-center gap-3">
+                                        <CoinAvatar
+                                            coinType={row.coinType}
+                                            symbol={row.symbol}
+                                            iconUrl={row.iconUrl}
+                                            size="lg"
+                                        />
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">{row.name}</p>
+                                            <p className="text-xs text-text-muted">{row.symbol}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {row.vaults.map((v) => (
+                                            <span key={v} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                {v}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                    <span className="font-mono font-medium text-text-primary">{formatNumberWithCommas(formatted)}</span>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export function Org() {
+    const { orgId } = useParams<{ orgId: string }>();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [showLeftFade, setShowLeftFade] = useState(false);
+    const [showRightFade, setShowRightFade] = useState(true);
+
+    const { data: daoRaw, isLoading: daoLoading, error: daoError } = useDAO(orgId);
+    const dao = useMemo(() => (daoRaw ? toDAODisplay(daoRaw) : undefined), [daoRaw]);
+    const effectiveOrgId = daoRaw?.id ?? orgId;
+    const canonicalOrgId = daoRaw?.canonical_uuid ?? null;
+    const { data: proposals, isLoading: proposalsLoading } = useDAOProposalsDisplay(effectiveOrgId, canonicalOrgId);
+
+    const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(effectiveOrgId);
+    const { data: backendCoins } = useCoins();
+    const vaultCoinTypes = useMemo(() => (vaultBalances ?? []).map((b) => b.coinType), [vaultBalances]);
+    const coinMetadata = useMergedCoinMetadata(vaultCoinTypes, backendCoins);
+    const [showDepositModal, setShowDepositModal] = useState(false);
+
+    // Reset ephemeral UI state when navigating between orgs
+    useEffect(() => {
+        setShowDepositModal(false);
+        setShowLeftFade(false);
+        setShowRightFade(true);
+    }, [orgId]);
+
+    const { data: spotPrice } = useSpotPrice(daoRaw);
+    const protocolVersion = getProtocolVersionForDAO(daoRaw);
+    const { isFavorited, toggleFavorite } = useFavorites();
+    const activeTab = (searchParams.get("tab") as TabType) || "overview";
+    const setActiveTab = (tab: TabType) => setSearchParams({ tab });
+
+    const mainNavItems: SidebarNavItem[] = useMemo(
+        () => [
+            { id: "overview", label: "Overview" },
+            { id: "proposals", label: "Decisions" },
+            { id: "trade", label: "Trade spot" },
+            { id: "orders", label: "Orders" },
+        ],
+        []
+    );
+
+    if (daoLoading) {
+        return (
+            <div className="route-container h-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (daoError || !dao || !daoRaw) {
+        return <NotFound name="Organization" />;
+    }
+
+    return (
+        <div className="route-container h-full flex flex-col gap-3 scrollbar-gutter-stable">
+            <Helmet>
+                <title>{dao.name}</title>
+            </Helmet>
+            <Breadcrumbs
+                items={[{ label: "Home", href: "/" }, { label: "Orgs", href: "/orgs" }, { label: dao.name }]}
+            />
+
+            <div className="flex flex-col md:flex-row md:bg-card rounded-xl -mx-2 md:mx-0 md:border border-border-light md:h-[calc(100vh-7rem)] overflow-hidden">
+                {/* Mobile Header */}
+                <div className="md:hidden border-b border-border-light shrink-0 bg-card">
+                    <OrgHeader
+                        dao={dao}
+                        isFavorited={isFavorited(dao.id)}
+                        onToggleFavorite={() => toggleFavorite(dao.id)}
+                    />
+
+                    <div className="relative border-t border-border">
+                        {showLeftFade && (
+                            <div className="absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-primary/20 to-transparent pointer-events-none z-10 transition-opacity duration-200" />
+                        )}
+                        {showRightFade && (
+                            <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-primary/20 to-transparent pointer-events-none z-10 transition-opacity duration-200" />
+                        )}
+
+                        <div
+                            className="flex py-2 px-1 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                            onScroll={(e) => {
+                                const target = e.currentTarget;
+                                const scrollLeft = target.scrollLeft;
+                                const maxScroll = target.scrollWidth - target.clientWidth;
+                                setShowLeftFade(scrollLeft > 5);
+                                setShowRightFade(scrollLeft < maxScroll - 5);
+                            }}
+                        >
+                            {mainNavItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id as TabType)}
+                                    className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors snap-center shrink-0 ${
+                                        activeTab === item.id
+                                            ? "bg-primary text-white"
+                                            : "text-text-muted hover:bg-card-elevated hover:text-text-light"
+                                    }`}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop Sidebar */}
+                <div className="hidden md:block md:w-72 shrink-0 h-full overflow-hidden">
+                    <div className="bg-linear-to-br from-card-elevated to-card-more-elevated border-r border-border-light rounded-l-xl shadow-lg overflow-hidden h-full flex flex-col">
+                        <OrgHeader
+                            dao={dao}
+                            isFavorited={isFavorited(dao.id)}
+                            onToggleFavorite={() => toggleFavorite(dao.id)}
+                        />
+
+                        <div className="border-t border-border-light shrink-0" />
+
+                        <div className="flex-1 overflow-y-auto">
+                            <SidebarNav
+                                className="bg-transparent"
+                                items={mainNavItems}
+                                activeItem={activeTab}
+                                onItemClick={(id) => setActiveTab(id as TabType)}
+                            />
+                        </div>
+
+                    </div>
+                </div>
+
+                <div className="flex flex-col flex-1 gap-3 min-w-0 p-4 md:p-8 lg:p-5 xl:p-8 2xl:p-10 relative h-full overflow-y-auto">
+                    {activeTab === "overview" && (
+                        <div className="flex flex-col gap-6">
+                            {/* Org Info */}
+                            <div className="bg-card-elevated rounded-xl p-6 border border-border-subtle">
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-semibold mb-1">{dao.name}</h3>
+                                    <p className="text-text-muted text-sm">{dao.description || "No description"}</p>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                                    {spotPrice?.formatted && (
+                                        <div>
+                                            <p className="text-text-muted">{dao.assetSymbol || "Asset"} Price</p>
+                                            <p className="font-medium tabular-nums">${spotPrice.formatted}</p>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-text-muted">Decisions</p>
+                                        <p className="font-medium">{dao.proposalCount}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-text-muted">Created</p>
+                                        <p className="font-medium">
+                                            {dao.createdAt.toLocaleDateString("en-US", {
+                                                month: "short",
+                                                day: "numeric",
+                                                year: "numeric",
+                                            })}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Vault Holdings */}
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                                        <Coins className="w-5 h-5 text-primary" />
+                                        Vault Holdings
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowDepositModal(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
+                                    >
+                                        <Wallet className="w-3.5 h-3.5" />
+                                        Deposit
+                                    </button>
+                                </div>
+                                <OrgVaultHoldings
+                                    balances={vaultBalances}
+                                    coins={coinMetadata}
+                                    isLoading={vaultBalancesLoading}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "proposals" && (
+                        <>
+                            {proposalsLoading ? (
+                                <div className="flex items-center justify-center py-24">
+                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                </div>
+                            ) : (
+                                <ProposalsTab proposals={proposals || []} />
+                            )}
+                        </>
+                    )}
+
+                    {activeTab === "trade" && (
+                        <div className="flex flex-col gap-4 max-w-lg">
+                            {spotPrice?.formatted && (
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold tabular-nums">${spotPrice.formatted}</span>
+                                    <span className="text-sm text-text-muted">per {dao.assetSymbol || "Asset"}</span>
+                                </div>
+                            )}
+                            <SpotSwapCard dao={daoRaw} />
+                        </div>
+                    )}
+
+                    {activeTab === "orders" && (
+                        <OrdersTab dao={daoRaw} />
+                    )}
+                </div>
+            </div>
+
+            {effectiveOrgId && (
+                <DepositModal
+                    isOpen={showDepositModal}
+                    onClose={() => setShowDepositModal(false)}
+                    accountId={effectiveOrgId}
+                    accountType="futarchy"
+                    protocolVersion={protocolVersion}
+                />
+            )}
+        </div>
+    );
+}
