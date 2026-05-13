@@ -19,7 +19,6 @@
   "dependencies": {
     "@govex/futarchy-sdk": "git+https://github.com/govex-dao/sdk-v3.git#33c29005cda826252a10464c2e66ed2b9e285e33",
     "@mysten/dapp-kit": "^0.19.8",
-    "@mysten/move-bytecode-template": "^0.3.0",
     "@mysten/sui": "^1.44.0",
     "@tailwindcss/vite": "^4.1.16",
     "@tanstack/react-query": "5.90.12",

@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { GitCommit, Github } from "lucide-react";
+import { GitCommit, Github, Send } from "lucide-react";
 
 import { buildInfo } from "@/lib/buildInfo";
 
@@ -13,6 +13,7 @@ const resourceLinks = [{ label: "Docs", to: "/docs" }];
 
 const socialLinks = [
     { label: "X", href: "https://x.com/govex_ai" },
+    { label: "Telegram", href: "https://t.me/govex_ai", icon: Send },
     { label: "GitHub", href: "https://github.com/govex-dao", icon: Github },
 ];
 
