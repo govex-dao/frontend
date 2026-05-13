@@ -13,7 +13,7 @@ const resourceLinks = [{ label: "Docs", to: "/docs" }];
 
 const socialLinks = [
     { label: "X", href: "https://x.com/govex_ai" },
-    { label: "Telegram", href: "https://t.me/govex_ai", icon: Send },
+    { label: "Telegram", href: "https://t.me/addlist/SxaUmsjNU1FjMDY0", icon: Send },
     { label: "GitHub", href: "https://github.com/govex-dao", icon: Github },
 ];
 
@@ -53,8 +53,7 @@ function BuildCommitLink() {
         buildInfo.sourceDirty ? "Built from a dirty working tree" : null,
     ].filter(Boolean);
     const commitUrl = buildInfo.repo ? `${buildInfo.repo}/commit/${buildInfo.commit}` : null;
-    const className =
-        "inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-primary";
+    const className = "inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-primary";
 
     if (!commitUrl) {
         return (
