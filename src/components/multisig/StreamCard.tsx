@@ -1,6 +1,6 @@
-import { formatAddress } from "@mysten/sui/utils";
 import { calculateStreamAvailableWithTracking } from "@govex/futarchy-sdk";
 import { Download, Loader2, Timer, User, Coins, WalletCards, Users } from "lucide-react";
+import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
 
 interface Props {
@@ -172,9 +172,13 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
               <User className="w-3 h-3" />
               <span>{isSpendingLimit ? "Delegate" : "Beneficiary"}</span>
             </div>
-            <span className="text-text-primary font-mono text-right">
-              {formatAddress(stream.capHolder)}
-            </span>
+            <CopyableAddress
+              address={stream.capHolder}
+              className="justify-end text-text-primary"
+              copyClassName="p-0.5"
+              copyLabel={`Copy ${isSpendingLimit ? "delegate" : "beneficiary"} address`}
+              toastMessage={`${isSpendingLimit ? "Delegate" : "Beneficiary"} address copied`}
+            />
           </>
         )}
 
@@ -226,12 +230,15 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
       {isSpendingLimit && stream.whitelistedRecipients.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-2 border-t border-border-subtle">
           {stream.whitelistedRecipients.slice(0, 4).map((recipient) => (
-            <span
+            <CopyableAddress
               key={recipient}
-              className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-card-more-elevated text-text-muted"
-            >
-              {formatAddress(recipient)}
-            </span>
+              address={recipient}
+              className="max-w-[140px] rounded-full bg-card-more-elevated px-2 py-0.5 text-[10px] text-text-muted"
+              copyClassName="p-0.5"
+              copyLabel="Copy recipient address"
+              textClassName="text-text-muted"
+              toastMessage="Recipient address copied"
+            />
           ))}
           {stream.whitelistedRecipients.length > 4 && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-card-more-elevated text-text-muted">

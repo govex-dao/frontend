@@ -1,5 +1,5 @@
-import { formatAddress } from "@mysten/sui/utils";
 import { Timer, Coins, Shield, ShieldOff, Building2 } from "lucide-react";
+import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 
 interface VestingDisplayInfo {
   vestingId: string;
@@ -120,10 +120,17 @@ export function VestingCard({ vesting }: Props) {
           </div>
           <div>
             <p className="text-sm font-semibold text-text-primary">{coin} Vesting</p>
-            <p className="text-[10px] text-text-muted flex items-center gap-1">
+            <div className="text-[10px] text-text-muted flex items-center gap-1">
               <Building2 className="w-2.5 h-2.5" />
-              {formatAddress(accountLabel)}
-            </p>
+              <CopyableAddress
+                address={accountLabel}
+                className="max-w-[160px]"
+                copyClassName="p-0.5"
+                copyLabel="Copy account address"
+                textClassName="text-text-muted"
+                toastMessage="Account address copied"
+              />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
