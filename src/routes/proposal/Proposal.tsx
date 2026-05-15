@@ -432,7 +432,11 @@ export function Proposal() {
                                         endTimestampMs={chartEndTimestampMs}
                                         className="bg-black/10 border border-border/50 rounded-lg overflow-hidden flex flex-col shrink-0 min-h-[280px] h-[280px] sm:h-[350px] md:h-[400px] lg:h-[500px]"
                                     />
-                                    <RecentTrades proposalId={resolvedId} proposer={apiProposal?.proposer} />
+                                    <RecentTrades
+                                        proposalId={resolvedId}
+                                        proposer={apiProposal?.proposer}
+                                        outcomeCount={proposal.outcomes.length}
+                                    />
                                 </Card>
                             </>
                         )}

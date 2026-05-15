@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type CSSProperties } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { ChevronDown } from "lucide-react";
 import { formatNumber } from "@/lib/formatNumber";
+import { getOutcomeColor, hexToRgba } from "@/lib/outcomes";
 import { useProposalTrades } from "@/hooks/api";
 import { ExplorerLink } from "../../ExplorerLink";
-import { Badge } from "../../Badge";
 import { Table, TableBody, TableRow, TableCell } from "../../Table";
 import { Input } from "../../inputs/Input";
 import { FilterGroup } from "../FilterButtons";
@@ -15,12 +15,29 @@ type SortField = "time" | "price" | "volume" | "priceImpact";
 interface RecentTradesProps {
     proposalId: string;
     proposer?: string | null;
+    outcomeCount?: number;
 }
 
-export function RecentTrades({ proposalId, proposer }: RecentTradesProps) {
+function getTradeOutcomeStyle(outcomeIndex: number, totalOutcomes: number): CSSProperties {
+    const normalizedOutcomeCount = Math.max(totalOutcomes, outcomeIndex + 1, 1);
+    const color = getOutcomeColor(outcomeIndex, normalizedOutcomeCount, "normal");
+    const lightColor = getOutcomeColor(outcomeIndex, normalizedOutcomeCount, "light");
+
+    return {
+        backgroundColor: hexToRgba(color, 0.16),
+        borderColor: hexToRgba(color, 0.36),
+        color: lightColor,
+    };
+}
+
+export function RecentTrades({ proposalId, proposer, outcomeCount }: RecentTradesProps) {
     const account = useCurrentAccount();
     const { data, isLoading } = useProposalTrades(proposalId, 100, 0);
     const trades = useMemo(() => data?.trades ?? [], [data?.trades]);
+    const totalOutcomes = useMemo(() => {
+        const highestTradeOutcome = trades.reduce((max, trade) => Math.max(max, trade.outcome_index), -1);
+        return Math.max(outcomeCount ?? 0, highestTradeOutcome + 1);
+    }, [outcomeCount, trades]);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [accountFilter, setAccountFilter] = useState<"All" | "My Trades" | "Proposer">("All");
@@ -225,17 +242,12 @@ export function RecentTrades({ proposalId, proposer }: RecentTradesProps) {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge
-                                        variant={
-                                            trade.outcome.toLowerCase().includes("reject")
-                                                ? "red"
-                                                : trade.outcome_index === 0
-                                                  ? "red"
-                                                  : "green"
-                                        }
+                                    <span
+                                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium"
+                                        style={getTradeOutcomeStyle(trade.outcome_index, totalOutcomes)}
                                     >
                                         {trade.outcome}
-                                    </Badge>
+                                    </span>
                                 </TableCell>
                                 <TableCell align="right" className="text-text-primary">
                                     ${formatNumber(trade.price)}

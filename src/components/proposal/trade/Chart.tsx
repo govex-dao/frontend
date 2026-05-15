@@ -6,6 +6,7 @@ import { useChartInstance } from "@/hooks/chart/useChartInstance";
 import { useChartSeries } from "@/hooks/chart/useChartSeries";
 import { useChartTooltip } from "@/hooks/chart/useChartTooltip";
 import { useChartTimeRange, type TimeRange } from "@/hooks/chart/useChartTimeRange";
+import { useChartResize } from "@/hooks/chart/useChartResize";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useProposalPriceHistory, useProposalTwapHistory } from "@/hooks/api";
 import type { ConditionalPricePoint, TwapSnapshot } from "@/lib/api";
@@ -364,6 +365,8 @@ export function Chart({
         dataVersion: timeScaleDataKey,
         initialRange: "MAX",
     });
+
+    useChartResize({ chart, containerRef: chartContainerRef });
 
     // Handle fullscreen with chart resize callback
     const handleChartResize = useCallback(() => {

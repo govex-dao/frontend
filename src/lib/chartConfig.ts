@@ -41,7 +41,8 @@ export function getChartConfig(width: number, height: number): DeepPartial<Chart
             secondsVisible: false,
             borderColor: "transparent",
             rightOffset: 0,
-            fixLeftEdge: false,
+            // Keeping both edges fixed lets lightweight-charts compress MAX data onto narrow mobile screens.
+            fixLeftEdge: true,
             fixRightEdge: true,
             lockVisibleTimeRangeOnResize: true,
             rightBarStaysOnScroll: false,
