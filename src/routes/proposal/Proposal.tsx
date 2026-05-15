@@ -22,6 +22,7 @@ import { getOutcomeClass } from "@/lib/outcomes";
 import { OutcomeDetailsModal } from "@/components/proposal/OutcomeDetailsModal";
 import { ActionCard } from "@/components/proposal/actions/Card";
 import { TwapHeader, type OutcomeWithIndex } from "@/components/proposal/TwapHeader";
+import { withEffectiveProposalState } from "@/lib/proposalState";
 
 function parseMs(raw: string | null | undefined): number | null {
     if (raw == null) return null;
@@ -179,15 +180,19 @@ export function Proposal() {
     // Fetch proposal from API
     const { data: apiProposal, isLoading, error } = useProposal(resolvedId);
 
-    // Transform API proposal to page format
-    const proposal = useMemo(() => {
-        if (!apiProposal) return null;
-        return toPageProposal(apiProposal);
+    const effectiveApiProposal = useMemo(() => {
+        return apiProposal ? withEffectiveProposalState(apiProposal) : undefined;
     }, [apiProposal]);
 
+    // Transform API proposal to page format
+    const proposal = useMemo(() => {
+        if (!effectiveApiProposal) return null;
+        return toPageProposal(effectiveApiProposal);
+    }, [effectiveApiProposal]);
+
     // Gate trading UI off the indexed proposal state (matches on-chain TradingStarted/Finalized events).
-    const state = apiProposal?.state;
-    const isLegacyV1 = apiProposal?.version?.trim().toLowerCase() === "v1";
+    const state = effectiveApiProposal?.state;
+    const isLegacyV1 = effectiveApiProposal?.version?.trim().toLowerCase() === "v1";
     const isActive = !isLegacyV1 && state === "active";
     const isAwaitingExecution = !isLegacyV1 && state === "awaiting_execution";
     const isExecuted = state === "executed";
@@ -198,12 +203,12 @@ export function Proposal() {
     const timeUntilEnd = proposal ? getTimeRemaining(proposal.end) : undefined;
     const proposalEndMs = proposal?.end.getTime() ?? null;
     const chartEndTimestampMs = useMemo(() => {
-        const actualTradingEndMs = parseMs(apiProposal?.trading_ended_at ?? null);
+        const actualTradingEndMs = parseMs(effectiveApiProposal?.trading_ended_at ?? null);
         if (actualTradingEndMs != null) return actualTradingEndMs;
         if (proposalEndMs == null) return null;
         if (isAwaitingExecution || isEnded) return proposalEndMs;
         return null;
-    }, [apiProposal?.trading_ended_at, isAwaitingExecution, isEnded, proposalEndMs]);
+    }, [effectiveApiProposal?.trading_ended_at, isAwaitingExecution, isEnded, proposalEndMs]);
     // Execution window is 30 minutes after trading ends (fixed by protocol)
     const EXECUTION_WINDOW_MS = 30 * 60 * 1000;
     const executionEndMs = proposal ? proposal.end.getTime() + EXECUTION_WINDOW_MS : null;
@@ -219,24 +224,24 @@ export function Proposal() {
         [proposal]
     );
     const twapThresholdLabel = useMemo(
-        () => formatThresholdPercent(apiProposal?.dao_twap_threshold ?? null),
-        [apiProposal?.dao_twap_threshold]
+        () => formatThresholdPercent(effectiveApiProposal?.dao_twap_threshold ?? null),
+        [effectiveApiProposal?.dao_twap_threshold]
     );
     const sponsoredThresholdLabel = useMemo(
-        () => formatSponsoredThresholdPercent(apiProposal?.dao_sponsored_threshold ?? null),
-        [apiProposal?.dao_sponsored_threshold]
+        () => formatSponsoredThresholdPercent(effectiveApiProposal?.dao_sponsored_threshold ?? null),
+        [effectiveApiProposal?.dao_sponsored_threshold]
     );
     const sponsorshipTypes = useMemo(
-        () => parseSponsorshipTypes(apiProposal?.sponsorship_types, proposal?.outcomes.length ?? 0),
-        [apiProposal?.sponsorship_types, proposal?.outcomes.length]
+        () => parseSponsorshipTypes(effectiveApiProposal?.sponsorship_types, proposal?.outcomes.length ?? 0),
+        [effectiveApiProposal?.sponsorship_types, proposal?.outcomes.length]
     );
     const twapDelayEndMs = useMemo(() => {
-        const tradingStartedAtMs = parseMs(apiProposal?.trading_started_at ?? null);
+        const tradingStartedAtMs = parseMs(effectiveApiProposal?.trading_started_at ?? null);
         if (tradingStartedAtMs == null) return null;
-        const delayMs = parseMs(apiProposal?.dao_twap_start_delay ?? null);
+        const delayMs = parseMs(effectiveApiProposal?.dao_twap_start_delay ?? null);
         if (delayMs == null) return null;
         return tradingStartedAtMs + delayMs;
-    }, [apiProposal?.dao_twap_start_delay, apiProposal?.trading_started_at]);
+    }, [effectiveApiProposal?.dao_twap_start_delay, effectiveApiProposal?.trading_started_at]);
     const twapDelayRemainingMs = twapDelayEndMs != null ? twapDelayEndMs - nowMs : null;
     const twapDelayLabel = useMemo(() => {
         if (twapDelayRemainingMs == null) return "N/A";
@@ -335,7 +340,7 @@ export function Proposal() {
                     {isTradingOpen && (
                         <>
                             <TradeForm
-                                proposal={apiProposal}
+                                proposal={effectiveApiProposal}
                                 selectedOutcome={selectedOutcome}
                                 onOutcomeChange={setSelectedOutcome}
                                 assetSymbol={proposal.assetSymbol}
@@ -349,14 +354,14 @@ export function Proposal() {
                 {isPreTrading ? (
                     <div className="flex flex-col gap-2 flex-1 min-w-0 scrollbar-gutter-stable order-1 lg:order-1">
                         <Card className="flex-1">
-                            <ProposalDetails proposal={proposal} apiProposal={apiProposal} />
+                            <ProposalDetails proposal={proposal} apiProposal={effectiveApiProposal} />
                         </Card>
                     </div>
                 ) : (
                     <div className="flex flex-col flex-1 min-w-0 scrollbar-gutter-stable lg:border-r border-border/30 order-1 lg:order-1 pb-4">
-                        {(isAwaitingExecution || isEnded) && apiProposal && (
+                        {(isAwaitingExecution || isEnded) && effectiveApiProposal && (
                             <div className="mb-2 sm:mb-3 shrink-0">
-                                <ProposalFinalResults proposal={proposal} apiProposal={apiProposal} />
+                                <ProposalFinalResults proposal={proposal} apiProposal={effectiveApiProposal} />
                             </div>
                         )}
 
@@ -434,7 +439,7 @@ export function Proposal() {
                                     />
                                     <RecentTrades
                                         proposalId={resolvedId}
-                                        proposer={apiProposal?.proposer}
+                                        proposer={effectiveApiProposal?.proposer}
                                         outcomeCount={proposal.outcomes.length}
                                     />
                                 </Card>
@@ -446,7 +451,7 @@ export function Proposal() {
                         )}
 
                         {activeTab === "advanced" && (
-                            <ProposalAdvancedDetails proposal={proposal} apiProposal={apiProposal} />
+                            <ProposalAdvancedDetails proposal={proposal} apiProposal={effectiveApiProposal} />
                         )}
                     </div>
                 )}
@@ -455,7 +460,7 @@ export function Proposal() {
             {/* Details Modal */}
             <Modal isOpen={showDetailsDrawer} onClose={() => setShowDetailsDrawer(false)} title={proposal.title}>
                 <div className="flex h-[60vh] w-full max-w-[900px] min-w-full sm:min-w-[60vw]">
-                    <ProposalDetails proposal={proposal} apiProposal={apiProposal} />
+                    <ProposalDetails proposal={proposal} apiProposal={effectiveApiProposal} />
                 </div>
             </Modal>
 
@@ -464,7 +469,7 @@ export function Proposal() {
                 <Modal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} title="Trade">
                     <div className="w-full max-w-[500px]">
                         <TradeForm
-                            proposal={apiProposal}
+                            proposal={effectiveApiProposal}
                             selectedOutcome={selectedOutcome}
                             onOutcomeChange={setSelectedOutcome}
                             assetSymbol={proposal.assetSymbol}

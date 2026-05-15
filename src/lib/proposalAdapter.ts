@@ -5,6 +5,7 @@
 import type { Proposal, StagedAction, ActionType, ActionData, ProposalAction } from "@/types/Proposal";
 import { parseOutcomeMessages, parseStagedActions } from "@/types/Proposal";
 import { proposalMetadataDescription } from "@/lib/proposalMetadata";
+import { getEffectiveProposalState } from "@/lib/proposalState";
 
 /**
  * Outcome format for the proposal page
@@ -268,7 +269,7 @@ export function toPageProposal(proposal: Proposal): PageProposal {
         description: proposalMetadataDescription(proposal.metadata),
         start,
         end,
-        status: mapState(proposal.state, proposal.winning_outcome),
+        status: mapState(getEffectiveProposalState(proposal), proposal.winning_outcome),
         volume: totalVolume / Math.pow(10, stableDecimals),
         traderCount: proposal.trader_count || 0,
         tradedByMe: false, // Would need wallet connection to determine

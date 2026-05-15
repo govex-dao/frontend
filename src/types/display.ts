@@ -4,6 +4,7 @@
  */
 
 import { proposalMetadataDescription } from "@/lib/proposalMetadata";
+import { getEffectiveProposalState } from "@/lib/proposalState";
 import type { DAO, Proposal } from "./index";
 import { parseOutcomeMessages } from "./Proposal";
 
@@ -122,7 +123,7 @@ export function toProposalDisplay(proposal: Proposal): ProposalDisplay {
         daoIconUrl: proposal.dao_icon_url || null,
         title: proposal.title,
         description: proposalMetadataDescription(proposal.metadata),
-        status: mapProposalState(proposal.state, proposal.winning_outcome),
+        status: mapProposalState(getEffectiveProposalState(proposal), proposal.winning_outcome),
         outcomes,
         winningOutcome: proposal.winning_outcome,
         timestamp: new Date(parseInt(proposal.timestamp)),

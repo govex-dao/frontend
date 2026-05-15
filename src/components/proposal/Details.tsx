@@ -4,6 +4,7 @@ import type { Proposal as ApiProposal, ProposalState } from "@/types/Proposal";
 import { formatUnits } from "@/lib/units";
 import type { PageProposal } from "@/lib/proposalAdapter";
 import { getOutcomeClass } from "@/lib/outcomes";
+import { getEffectiveProposalState } from "@/lib/proposalState";
 import { formatDateTime } from "@/lib/time";
 import { formatNumber } from "@/lib/formatNumber";
 import { ExplorerLink } from "../ExplorerLink";
@@ -133,22 +134,24 @@ function StateHistoryItem({ title, value }: { title: string; value: string }) {
 function ProposalAdvancedPanel({ proposal, apiProposal }: Props) {
     const createdAtMs = parseMs(apiProposal?.timestamp);
     const tradingStartMs = parseMs(apiProposal?.trading_started_at);
+    const tradingEndMs = parseMs(apiProposal?.trading_ended_at);
     const executedAtMs = parseMs(apiProposal?.execution_at);
 
-    const currentState = toDisplayProposalState(apiProposal?.state);
+    const currentState = apiProposal ? toDisplayProposalState(getEffectiveProposalState(apiProposal)) : undefined;
+    const finalizedAtMs = executedAtMs ?? tradingEndMs;
 
     const stateRows = useMemo(() => {
         const rowValues: Record<(typeof LIFECYCLE_STAGE_ORDER)[number], string> = {
             created: formatStageDate(createdAtMs),
             active: formatStageDate(tradingStartMs),
-            finalized: "N/A",
+            finalized: formatStageDate(finalizedAtMs),
             executed: formatStageDate(executedAtMs),
         };
         return LIFECYCLE_STAGE_ORDER.map((state) => ({
             title: STAGE_TITLES[state],
             value: rowValues[state],
         }));
-    }, [createdAtMs, executedAtMs, tradingStartMs]);
+    }, [createdAtMs, executedAtMs, finalizedAtMs, tradingStartMs]);
 
     const currentStage = currentState ? STAGE_TITLES[currentState] : "N/A";
 
