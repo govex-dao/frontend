@@ -73,7 +73,7 @@ export function useFormValidation<TFormData, TRules extends ValidationRules>(
     };
 
     // Get all validation errors
-    const getValidationErrors = (): ValidationError[] => {
+    const getValidationErrors = useCallback((): ValidationError[] => {
         const errors: ValidationError[] = [];
 
         Object.entries(validationRules).forEach(([fieldName, rule]) => {
@@ -90,14 +90,14 @@ export function useFormValidation<TFormData, TRules extends ValidationRules>(
         });
 
         return errors;
-    };
+    }, [formData, validationRules]);
 
     // Validate and return whether the form is valid
-    const validate = (): boolean => {
+    const validate = useCallback((): boolean => {
         setAttemptedSubmit(true);
         const errors = getValidationErrors();
         return errors.length === 0;
-    };
+    }, [getValidationErrors]);
 
     // Calculate tab completion state
     const tabCompletionState = getTabCompletionState ? getTabCompletionState(formData, attemptedSubmit) : [];
@@ -145,7 +145,7 @@ export function useFormValidation<TFormData, TRules extends ValidationRules>(
 
         // Open submit modal
         setShowSubmitModal(true);
-    }, [additionalValidation, onValidSubmit, formData]);
+    }, [additionalValidation, onValidSubmit, formData, getValidationErrors, validate]);
 
     // Submit success handler
     const handleSubmitSuccess = useCallback(() => {

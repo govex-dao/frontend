@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 interface Props {
     trigger: ReactNode;
@@ -38,12 +38,15 @@ export function Popover(props: Props) {
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : internalOpen;
 
-    const setOpen = (value: boolean) => {
-        if (!isControlled) {
-            setInternalOpen(value);
-        }
-        onOpenChange?.(value);
-    };
+    const setOpen = useCallback(
+        (value: boolean) => {
+            if (!isControlled) {
+                setInternalOpen(value);
+            }
+            onOpenChange?.(value);
+        },
+        [isControlled, onOpenChange]
+    );
 
     // Calculate optimal side based on viewport position
     useEffect(() => {
@@ -96,7 +99,7 @@ export function Popover(props: Props) {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [open]);
+    }, [open, setOpen]);
 
     // Handle escape key
     useEffect(() => {
@@ -113,14 +116,14 @@ export function Popover(props: Props) {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [open]);
+    }, [open, setOpen]);
 
     // Handle click inside content
-    const handleContentClick = () => {
+    const handleContentClick = useCallback(() => {
         if (closeOnClick) {
             setOpen(false);
         }
-    };
+    }, [closeOnClick, setOpen]);
 
     // Calculate alignment classes
     const alignmentClasses = {

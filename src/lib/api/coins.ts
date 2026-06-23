@@ -2,7 +2,7 @@
  * Coin metadata API functions
  */
 
-import { api } from './client';
+import { api, type ApiRequestOptions } from "./client";
 
 export interface CoinMetadata {
     coin_type: string;
@@ -17,13 +17,13 @@ export interface CoinMetadata {
 /**
  * Fetch all coin metadata
  */
-export async function fetchCoins(): Promise<CoinMetadata[]> {
-    return api.get<CoinMetadata[]>('/api/coins');
+export async function fetchCoins(options?: ApiRequestOptions): Promise<CoinMetadata[]> {
+    return api.get<CoinMetadata[]>("/api/coins", options);
 }
 
 /**
  * Fetch single coin metadata by type
  */
-export async function fetchCoin(coinType: string): Promise<CoinMetadata> {
-    return api.get<CoinMetadata>(`/api/coins/${encodeURIComponent(coinType)}`);
+export async function fetchCoin(coinType: string, options?: ApiRequestOptions): Promise<CoinMetadata> {
+    return api.get<CoinMetadata>(`/api/coins/${encodeURIComponent(coinType)}`, options);
 }

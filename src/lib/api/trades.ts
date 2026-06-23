@@ -2,7 +2,7 @@
  * Trades API functions
  */
 
-import { api } from './client';
+import { api, type ApiRequestOptions } from "./client";
 
 export interface Trade {
     id: string;
@@ -33,7 +33,9 @@ export interface TradesResponse {
 export async function fetchProposalTrades(
     proposalId: string,
     limit = 100,
-    offset = 0
+    offset = 0,
+    options?: ApiRequestOptions
 ): Promise<TradesResponse> {
-    return api.get<TradesResponse>(`/api/proposals/${proposalId}/trades?limit=${limit}&offset=${offset}`);
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    return api.get<TradesResponse>(`/api/proposals/${encodeURIComponent(proposalId)}/trades?${params}`, options);
 }

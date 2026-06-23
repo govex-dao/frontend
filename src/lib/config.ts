@@ -8,7 +8,7 @@ export const network: NetworkName = (import.meta.env.VITE_NETWORK || 'localnet')
 
 // Backend API URL - defaults based on network
 const defaultBackendUrls: Record<NetworkName, string> = {
-  mainnet: 'https://api.govex.ai',
+  mainnet: 'https://backend-api-v2-mainnet.up.railway.app',
   testnet: 'https://backend-api-v2-testnet-ed82.up.railway.app',
   devnet: 'http://localhost:3000',
   localnet: 'http://localhost:3000',

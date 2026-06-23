@@ -1,8 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface Props {
     content: string;
@@ -71,27 +69,21 @@ export function MarkdownRenderer(props: Props) {
                         const match = /language-(\w+)/.exec(className || "");
                         const inline = !match;
 
-                        try {
-                            return !inline ? (
-                                <SyntaxHighlighter
-                                    style={vscDarkPlus as Record<string, React.CSSProperties>}
-                                    language={match[1]}
-                                    PreTag="div"
-                                >
-                                    {String(children).replace(/\n$/, "")}
-                                </SyntaxHighlighter>
-                            ) : (
-                                <code className={className} {...rest}>
-                                    {children}
-                                </code>
-                            );
-                        } catch {
+                        if (!inline) {
                             return (
                                 <pre className="bg-gray-900 p-4 rounded overflow-x-auto">
-                                    <code className="text-gray-300">{children}</code>
+                                    <code className={`text-gray-300 ${className || ""}`} {...rest}>
+                                        {String(children).replace(/\n$/, "")}
+                                    </code>
                                 </pre>
                             );
                         }
+
+                        return (
+                            <code className={className} {...rest}>
+                                {children}
+                            </code>
+                        );
                     },
                     p: ({ children, ...props }) => {
                         return (

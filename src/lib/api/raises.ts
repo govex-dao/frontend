@@ -2,34 +2,48 @@
  * Raise/Launchpad API queries
  */
 
-import type { Raise } from '../../types';
-import { api } from './client';
+import type { Raise } from "../../types";
+import { api, type ApiRequestOptions } from "./client";
 
 export interface UserContribution {
-  hasInvested: boolean;
-  amount: string;
-  percentage: string;
-  rank: number;
+    hasInvested: boolean;
+    amount: string;
+    percentage: string;
+    rank: number;
 }
 
-export async function fetchRaises(): Promise<Raise[]> {
-  return api.get<Raise[]>('/api/raises');
+export async function fetchRaises(options?: ApiRequestOptions): Promise<Raise[]> {
+    return api.get<Raise[]>("/api/raises", options);
 }
 
-export async function fetchRaise(id: string): Promise<Raise> {
-  return api.get<Raise>(`/api/launchpads/${id}`);
+export async function fetchRaise(id: string, options?: ApiRequestOptions): Promise<Raise> {
+    return api.get<Raise>(`/api/launchpads/${encodeURIComponent(id)}`, options);
 }
 
-export async function fetchUserContribution(raiseId: string, address: string): Promise<UserContribution> {
-  return api.get<UserContribution>(`/api/launchpads/${raiseId}/contribution?address=${address}`);
+export async function fetchUserContribution(
+    raiseId: string,
+    address: string,
+    options?: ApiRequestOptions
+): Promise<UserContribution> {
+    return api.get<UserContribution>(
+        `/api/launchpads/${encodeURIComponent(raiseId)}/contribution?address=${encodeURIComponent(address)}`,
+        options
+    );
 }
 
 export interface UserReservation {
-  hasReservation: boolean;
-  amount: string;
-  accepted: boolean;
+    hasReservation: boolean;
+    amount: string;
+    accepted: boolean;
 }
 
-export async function fetchUserReservation(raiseId: string, address: string): Promise<UserReservation> {
-  return api.get<UserReservation>(`/api/launchpads/${raiseId}/reservation?address=${address}`);
+export async function fetchUserReservation(
+    raiseId: string,
+    address: string,
+    options?: ApiRequestOptions
+): Promise<UserReservation> {
+    return api.get<UserReservation>(
+        `/api/launchpads/${encodeURIComponent(raiseId)}/reservation?address=${encodeURIComponent(address)}`,
+        options
+    );
 }

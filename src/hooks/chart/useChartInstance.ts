@@ -56,7 +56,7 @@ export function useChartInstance(containerRef: React.RefObject<HTMLDivElement | 
                 setChart(null);
             }
         };
-    }, [createChartInstance]);
+    }, [containerRef, createChartInstance]);
 
     return chart;
 }

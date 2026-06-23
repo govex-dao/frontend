@@ -2,15 +2,16 @@
  * Hooks for coin metadata
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { fetchCoins, fetchCoin } from '@/lib/api';
+import { useQuery } from "@tanstack/react-query";
+import { fetchCoins, fetchCoin } from "@/lib/api";
+import { REFRESH_INTERVALS } from "./refresh";
 
 // Query keys
 export const coinKeys = {
-    all: ['coins'] as const,
-    lists: () => [...coinKeys.all, 'list'] as const,
+    all: ["coins"] as const,
+    lists: () => [...coinKeys.all, "list"] as const,
     list: () => [...coinKeys.lists()] as const,
-    details: () => [...coinKeys.all, 'detail'] as const,
+    details: () => [...coinKeys.all, "detail"] as const,
     detail: (coinType: string) => [...coinKeys.details(), coinType] as const,
 };
 
@@ -20,8 +21,8 @@ export const coinKeys = {
 export function useCoins() {
     return useQuery({
         queryKey: coinKeys.list(),
-        queryFn: fetchCoins,
-        staleTime: 5 * 60 * 1000, // Coin metadata is fairly static
+        queryFn: ({ signal }) => fetchCoins({ signal }),
+        staleTime: REFRESH_INTERVALS.STATIC, // Coin metadata is fairly static
     });
 }
 
@@ -31,9 +32,9 @@ export function useCoins() {
 export function useCoin(coinType: string | undefined) {
     return useQuery({
         queryKey: coinKeys.detail(coinType!),
-        queryFn: () => fetchCoin(coinType!),
+        queryFn: ({ signal }) => fetchCoin(coinType!, { signal }),
         enabled: !!coinType,
-        staleTime: 5 * 60 * 1000,
+        staleTime: REFRESH_INTERVALS.STATIC,
     });
 }
 

@@ -26,7 +26,7 @@ No `.env` files are included in this public copy. Configure Vite variables
 through your shell or hosting provider when needed:
 
 ```bash
-VITE_NETWORK=mainnet VITE_BACKEND_URL=https://api.govex.ai pnpm build
+VITE_NETWORK=mainnet VITE_BACKEND_URL=https://backend-api-v2-mainnet.up.railway.app pnpm build
 ```
 
 ## Railway
@@ -39,5 +39,5 @@ Recommended production variables:
 
 ```bash
 VITE_NETWORK=mainnet
-VITE_BACKEND_URL=https://api.govex.ai
+VITE_BACKEND_URL=https://backend-api-v2-mainnet.up.railway.app
 ```

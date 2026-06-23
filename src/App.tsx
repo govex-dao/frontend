@@ -1,28 +1,38 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router";
 import { Toaster } from "react-hot-toast";
 
 import { Navbar } from "./components/navigation/navbar";
 import { SiteFooter } from "./components/navigation/Footer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Home } from "./routes/Home";
-import { CreateOrg } from "./routes/org/Create";
-import { Org } from "./routes/org/Org";
-import { Orgs } from "./routes/org/Orgs";
-import { Proposal } from "./routes/proposal/Proposal";
-import { Proposals } from "./routes/proposal/Proposals";
-import { Raise } from "./routes/raise/Raise";
-import { Raises } from "./routes/raise/Raises";
-import { Multisigs } from "./routes/multisig/Multisigs";
-import { Multisig } from "./routes/multisig/Multisig";
-import { Docs } from "./routes/docs/Docs";
-import { NotFoundPage } from "./routes/NotFound";
 
-function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
+const Home = lazy(() => import("./routes/Home").then(({ Home }) => ({ default: Home })));
+const CreateOrg = lazy(() => import("./routes/org/Create").then(({ CreateOrg }) => ({ default: CreateOrg })));
+const Org = lazy(() => import("./routes/org/Org").then(({ Org }) => ({ default: Org })));
+const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ default: Orgs })));
+const Proposal = lazy(() => import("./routes/proposal/Proposal").then(({ Proposal }) => ({ default: Proposal })));
+const Proposals = lazy(() => import("./routes/proposal/Proposals").then(({ Proposals }) => ({ default: Proposals })));
+const Raise = lazy(() => import("./routes/raise/Raise").then(({ Raise }) => ({ default: Raise })));
+const Raises = lazy(() => import("./routes/raise/Raises").then(({ Raises }) => ({ default: Raises })));
+const Multisigs = lazy(() => import("./routes/multisig/Multisigs").then(({ Multisigs }) => ({ default: Multisigs })));
+const Multisig = lazy(() => import("./routes/multisig/Multisig").then(({ Multisig }) => ({ default: Multisig })));
+const Docs = lazy(() => import("./routes/docs/Docs").then(({ Docs }) => ({ default: Docs })));
+const NotFoundPage = lazy(() => import("./routes/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })));
+
+function RouteLoading() {
+    return (
+        <div className="route-container flex min-h-[50vh] items-center justify-center text-text-tertiary">
+            Loading...
+        </div>
+    );
+}
+
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
     const location = useLocation();
     return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
 }
 
-function wrap(element: React.ReactNode) {
+function wrap(element: ReactNode) {
     return <RouteErrorBoundary>{element}</RouteErrorBoundary>;
 }
 
@@ -74,19 +84,25 @@ function AppLayout() {
                 {isHome ? (
                     <div className="h-full overflow-y-auto flex-1">
                         <Navbar homeHero />
-                        <Outlet />
+                        <Suspense fallback={<RouteLoading />}>
+                            <Outlet />
+                        </Suspense>
                         <SiteFooter />
                     </div>
                 ) : isDocs ? (
                     <div className="h-full overflow-y-auto flex-1">
                         <Navbar heroContent={<DocsNavbarHero />} />
-                        <Outlet />
+                        <Suspense fallback={<RouteLoading />}>
+                            <Outlet />
+                        </Suspense>
                         <SiteFooter />
                     </div>
                 ) : (
                     <div className="h-full overflow-y-auto flex-1">
                         <Navbar />
-                        <Outlet />
+                        <Suspense fallback={<RouteLoading />}>
+                            <Outlet />
+                        </Suspense>
                         <SiteFooter />
                     </div>
                 )}

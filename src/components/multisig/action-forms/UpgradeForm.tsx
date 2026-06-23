@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCurrentAccount, useSuiClient } from "@mysten/dapp-kit";
 import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@mysten/sui/transactions";
@@ -102,7 +102,7 @@ function useWalletUpgradeCaps() {
 // --- Component ---
 
 export function UpgradeForm({ accountId, data, onChange }: Props) {
-    const update = (patch: Partial<UpgradeData>) => onChange({ ...data, ...patch });
+    const update = useCallback((patch: Partial<UpgradeData>) => onChange({ ...data, ...patch }), [data, onChange]);
     const { data: packageInfo = [], isLoading: isPackagesLoading } = useMultisigPackageInfo(accountId);
     const { data: walletCaps = [], isLoading: isCapsLoading } = useWalletUpgradeCaps();
     const [buildJsonRaw, setBuildJsonRaw] = useState("");
@@ -137,7 +137,7 @@ export function UpgradeForm({ accountId, data, onChange }: Props) {
         if (data.mode === "lock_upgrade_cap" || !selectedLockedPackage) return;
         if (data.expectedCapId === selectedLockedPackage.capObjectId) return;
         update({ expectedCapId: selectedLockedPackage.capObjectId });
-    }, [data.expectedCapId, data.mode, selectedLockedPackage]);
+    }, [data.expectedCapId, data.mode, selectedLockedPackage, update]);
 
     const handleBuildJsonChange = (raw: string) => {
         setBuildJsonRaw(raw);

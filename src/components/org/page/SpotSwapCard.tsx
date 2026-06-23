@@ -460,12 +460,8 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         }
     }, [
         account,
-        dao.asset_type,
-        dao.id,
-        dao.stable_type,
-        dao.version,
+        dao,
         isLegacyV2,
-        protocolVersion,
         debouncedAmountStr,
         executeTransaction,
         fromAmountRaw,

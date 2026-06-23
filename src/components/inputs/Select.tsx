@@ -1,5 +1,5 @@
 import { CheckIcon, ChevronDownIcon, X } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { hexToRgba } from "@/lib/outcomes";
 import { Input } from "./Input";
 
@@ -43,9 +43,28 @@ export function Select(props: Props) {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Filter options based on search query
-    const filteredOptions = allowSearch
-        ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
-        : options;
+    const filteredOptions = useMemo(
+        () =>
+            allowSearch
+                ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+                : options,
+        [allowSearch, options, searchQuery]
+    );
+
+    const handleSelectOption = useCallback(
+        (selectedValue: string) => {
+            if (disabled) return;
+
+            const option = options.find((opt) => opt.value === selectedValue);
+            if (option?.disabled) return;
+
+            onChange(selectedValue);
+            setIsOpen(false);
+            setSearchQuery("");
+            setFocusedIndex(-1);
+        },
+        [disabled, onChange, options]
+    );
 
     // Handle click outside to close dropdown
     useEffect(() => {
@@ -97,7 +116,7 @@ export function Select(props: Props) {
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [isOpen, focusedIndex, filteredOptions]);
+    }, [isOpen, focusedIndex, filteredOptions, handleSelectOption]);
 
     // Scroll focused item into view
     useEffect(() => {
@@ -112,19 +131,7 @@ export function Select(props: Props) {
         }
     }, [focusedIndex]);
 
-    const handleSelectOption = (selectedValue: string) => {
-        if (disabled) return;
-
-        const option = options.find((opt) => opt.value === selectedValue);
-        if (option?.disabled) return;
-
-        onChange(selectedValue);
-        setIsOpen(false);
-        setSearchQuery("");
-        setFocusedIndex(-1);
-    };
-
-    const handleClear = (event: React.MouseEvent) => {
+    const handleClear = (event: ReactMouseEvent) => {
         event.stopPropagation();
         onChange("");
     };
@@ -158,7 +165,10 @@ export function Select(props: Props) {
                         className={`text-sm flex items-center gap-2 min-w-0 ${selectedOption ? "text-text-primary" : "text-text-muted"}`}
                     >
                         {selectedOption?.color && (
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: selectedOption.color }} />
+                            <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: selectedOption.color }}
+                            />
                         )}
                         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
                     </span>
