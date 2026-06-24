@@ -85,10 +85,7 @@ export function SiteFooter() {
         <footer className="route-container mt-8 shrink-0 pb-6 sm:pb-8">
             <div className="mx-auto grid w-full max-w-7xl gap-8 border-t border-border-light py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:py-8">
                 <div className="max-w-md">
-                    <p className="text-sm leading-relaxed text-text-muted">
-                        Multisig and decision-market infrastructure on Sui.
-                    </p>
-                    <div className="mt-4 flex flex-col items-start gap-2">
+                    <div className="flex flex-col items-start gap-2">
                         <BuildCommitLink />
                         <p className="text-xs text-text-muted">© {year} Govex.</p>
                     </div>
@@ -96,7 +93,7 @@ export function SiteFooter() {
 
                 <div className="grid grid-cols-2 gap-8 sm:grid-cols-[auto_auto_auto] sm:gap-10">
                     <div className="flex flex-col gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Product</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Products</p>
                         {productLinks.map((link) => (
                             <FooterLink key={link.to} to={link.to}>
                                 {link.label}

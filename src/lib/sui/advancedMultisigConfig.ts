@@ -83,7 +83,7 @@ function availableGroupMemberAddresses(draft: AdvancedMultisigDraft): Set<string
     );
 }
 
-/// Count of role addresses that would actually project to on-chain entries:
+/// Count of role addresses that would actually project to onchain entries:
 /// unique, valid Sui addresses that exist in some user group.
 function projectedRoleAddressCount(addresses: string[] | undefined, available: Set<string>): number {
     if (!addresses || addresses.length === 0) return 0;
@@ -98,7 +98,7 @@ function projectedRoleAddressCount(addresses: string[] | undefined, available: S
     return unique.size;
 }
 
-/// Number of role groups that will be appended on-chain (one per role list with ≥1 valid entry).
+/// Number of role groups that will be appended onchain (one per role list with ≥1 valid entry).
 export function effectiveRoleGroupCount(draft: AdvancedMultisigDraft): number {
     const available = availableGroupMemberAddresses(draft);
     return (
@@ -108,13 +108,13 @@ export function effectiveRoleGroupCount(draft: AdvancedMultisigDraft): number {
     );
 }
 
-/// Total group count that will be sent on-chain (user groups + projected role groups).
+/// Total group count that will be sent onchain (user groups + projected role groups).
 export function effectiveGroupCount(draft: AdvancedMultisigDraft): number {
     return draft.groups.length + effectiveRoleGroupCount(draft);
 }
 
-/// Total member entries that will be sent on-chain (sum of user-group members + projected role-group entries).
-/// Matches the on-chain MAX_MEMBERS check, which counts entries not unique addresses.
+/// Total member entries that will be sent onchain (sum of user-group members + projected role-group entries).
+/// Matches the onchain MAX_MEMBERS check, which counts entries not unique addresses.
 export function effectiveMemberCount(draft: AdvancedMultisigDraft): number {
     const userMembers = draft.groups.reduce((sum, group) => sum + group.members.length, 0);
     const available = availableGroupMemberAddresses(draft);
@@ -126,7 +126,7 @@ export function effectiveMemberCount(draft: AdvancedMultisigDraft): number {
 }
 
 /// Total role member entries (projected). Exposed so the OverviewStrip can show
-/// "incl. N role" sublabels that match the on-chain projection.
+/// "incl. N role" sublabels that match the onchain projection.
 export function effectiveRoleMemberCount(draft: AdvancedMultisigDraft): number {
     const available = availableGroupMemberAddresses(draft);
     return (
@@ -431,7 +431,7 @@ function parsePolicy(
                     if (threshold > maxWeight) {
                         errors.push(`${label} path ${pathIndex + 1} threshold exceeds available weight.`);
                     }
-                    // Mirrors on-chain rule (multisig.move:472-475): a time band can top up
+                    // Mirrors onchain rule (multisig.move:472-475): a time band can top up
                     // real votes but cannot satisfy a requirement on its own. If the group
                     // has no member weight, the path is unsatisfiable regardless of bands.
                     if (includeTimeBands && groups[groupIndex].memberWeight === 0n) {

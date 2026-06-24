@@ -26,7 +26,7 @@ interface UseChartTooltipProps {
 }
 
 /**
- * Build tooltip content using DOM APIs (avoids innerHTML XSS from on-chain data)
+ * Build tooltip content using DOM APIs (avoids innerHTML XSS from onchain data)
  */
 function buildTooltipDOM(container: HTMLElement, tooltipEntries: TooltipEntry[]): void {
     container.textContent = "";

@@ -1,4 +1,5 @@
 import { bcs } from "@mysten/sui/bcs";
+import { ALL_ACTIONS, getActionByFullType, type ActionDefinition, type ParamType } from "@govex/futarchy-sdk";
 import type { ActionData } from "@/types/Proposal";
 
 export interface DecodedActionParam {
@@ -15,82 +16,16 @@ export interface DecodedActionParams {
 
 interface ActionParamDef {
     name: string;
-    type: string;
+    type: ParamType | string;
 }
 
 interface ActionDataSchema {
     actionName: string;
+    displayName?: string;
+    definition?: ActionDefinition;
     suffixes: string[];
     params: ActionParamDef[];
 }
-
-const ACTION_DATA_SCHEMAS: ActionDataSchema[] = [
-    {
-        actionName: "MetadataUpdate",
-        suffixes: ["::config_actions::MetadataUpdate"],
-        params: [
-            { name: "daoName", type: "option<string>" },
-            { name: "iconUrl", type: "option<string>" },
-            { name: "description", type: "option<string>" },
-        ],
-    },
-    {
-        actionName: "TradingParamsUpdate",
-        suffixes: ["::config_actions::TradingParamsUpdate"],
-        params: [
-            { name: "minAssetAmount", type: "option<u64>" },
-            { name: "minStableAmount", type: "option<u64>" },
-            { name: "reviewPeriodMs", type: "option<u64>" },
-            { name: "tradingPeriodMs", type: "option<u64>" },
-            { name: "ammTotalFeeBps", type: "option<u64>" },
-            { name: "conditionalLiquidityRatioPercent", type: "option<u64>" },
-        ],
-    },
-    {
-        actionName: "TwapConfigUpdate",
-        suffixes: ["::config_actions::TwapConfigUpdate"],
-        params: [
-            { name: "startDelay", type: "option<u64>" },
-            { name: "capPpm", type: "option<u64>" },
-            { name: "initialObservation", type: "option<u128>" },
-            { name: "threshold", type: "option<u128>" },
-            { name: "sponsoredThreshold", type: "option<u128>" },
-        ],
-    },
-    {
-        actionName: "VaultSpend",
-        suffixes: ["::vault::VaultSpend"],
-        params: [
-            { name: "vaultName", type: "string" },
-            { name: "amount", type: "u64" },
-            { name: "spendAll", type: "bool" },
-            { name: "resourceName", type: "string" },
-        ],
-    },
-    {
-        actionName: "TransferCoin",
-        suffixes: ["::transfer::TransferCoin"],
-        params: [
-            { name: "recipient", type: "address" },
-            { name: "resourceName", type: "string" },
-        ],
-    },
-    {
-        actionName: "CreateStream",
-        suffixes: ["::vault::CreateStream"],
-        params: [
-            { name: "vaultName", type: "string" },
-            { name: "beneficiary", type: "address" },
-            { name: "amountPerIteration", type: "u64" },
-            { name: "startTime", type: "option<u64>" },
-            { name: "iterationsTotal", type: "u64" },
-            { name: "iterationPeriodMs", type: "u64" },
-            { name: "claimWindowMs", type: "option<u64>" },
-            { name: "expiryMs", type: "option<u64>" },
-            { name: "whitelistedRecipients", type: "vector<address>" },
-        ],
-    },
-];
 
 function hexToBytes(value: string): Uint8Array {
     const normalized = value.startsWith("0x") ? value.slice(2) : value;
@@ -105,9 +40,45 @@ function hexToBytes(value: string): Uint8Array {
     return bytes;
 }
 
+const BcsRecipientMint = bcs.struct("RecipientMint", {
+    recipient: bcs.Address,
+    amount: bcs.u64(),
+});
+
+const BcsTierSpec = bcs.struct("TierSpec", {
+    price_threshold: bcs.u128(),
+    is_above: bcs.bool(),
+    recipients: bcs.vector(BcsRecipientMint),
+    tier_description: bcs.string(),
+});
+
+const BcsUrl = bcs.struct("Url", {
+    url: bcs.string(),
+});
+
+const BcsConditionalMetadata = bcs.struct("ConditionalMetadata", {
+    decimals: bcs.u8(),
+    coin_name_prefix: bcs.string(),
+    coin_icon_url: BcsUrl,
+});
+
+const BcsLockTreasuryCapAction = bcs.struct("LockTreasuryCapAction", {
+    has_max_supply: bcs.bool(),
+    max_supply: bcs.u64(),
+    can_mint: bcs.bool(),
+    can_burn: bcs.bool(),
+    can_update_name: bcs.bool(),
+    can_update_description: bcs.bool(),
+    can_update_icon: bcs.bool(),
+    resource_name: bcs.string(),
+});
+
 function bcsTypeForParam(type: string) {
     switch (type) {
+        case "u8":
+            return bcs.u8();
         case "address":
+        case "id":
             return bcs.Address;
         case "bool":
             return bcs.bool();
@@ -117,26 +88,69 @@ function bcsTypeForParam(type: string) {
             return bcs.u64();
         case "u128":
             return bcs.u128();
+        case "vector<u8>":
+            return bcs.vector(bcs.u8());
+        case "vector<string>":
+            return bcs.vector(bcs.string());
+        case "vector<address>":
+            return bcs.vector(bcs.Address);
+        case "option<u8>":
+            return bcs.option(bcs.u8());
         case "option<string>":
             return bcs.option(bcs.string());
         case "option<u64>":
             return bcs.option(bcs.u64());
         case "option<u128>":
             return bcs.option(bcs.u128());
-        case "vector<address>":
-            return bcs.vector(bcs.Address);
+        case "option<bool>":
+            return bcs.option(bcs.bool());
+        case "option<vector<u8>>":
+            return bcs.option(bcs.vector(bcs.u8()));
+        case "tier_specs":
+            return bcs.vector(BcsTierSpec);
+        case "conditional_metadata":
+            return bcs.option(bcs.option(BcsConditionalMetadata));
         default:
             throw new Error(`unsupported BCS param type '${type}'`);
     }
 }
 
+function toCamelCaseKey(key: string): string {
+    return key.replace(/_([a-z])/g, (_match, char: string) => char.toUpperCase());
+}
+
 function normalizeValue(value: unknown): unknown {
     if (typeof value === "bigint") return value.toString();
+    if (value instanceof Uint8Array) return Array.from(value);
     if (Array.isArray(value)) return value.map(normalizeValue);
     if (value && typeof value === "object") {
-        return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, normalizeValue(nested)]));
+        return Object.fromEntries(
+            Object.entries(value).map(([key, nested]) => [toCamelCaseKey(key), normalizeValue(nested)])
+        );
     }
     return value;
+}
+
+function isByteArray(value: unknown): value is number[] {
+    return (
+        Array.isArray(value) &&
+        value.every((item) => Number.isInteger(item) && Number(item) >= 0 && Number(item) <= 255)
+    );
+}
+
+function bytesToHex(bytes: number[]): string {
+    return `0x${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function bytesToDisplay(bytes: number[]): string {
+    const hex = bytesToHex(bytes);
+    try {
+        const text = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes));
+        if (/^[\x20-\x7E]*$/.test(text) && text.length > 0) return `${text} (${hex})`;
+    } catch {
+        // Fall through to hex for non-UTF8 payloads.
+    }
+    return hex;
 }
 
 function formatValue(value: unknown): string {
@@ -144,27 +158,98 @@ function formatValue(value: unknown): string {
     if (normalized == null) return "none";
     if (typeof normalized === "string") return normalized;
     if (typeof normalized === "number" || typeof normalized === "boolean") return String(normalized);
+    if (isByteArray(normalized)) return bytesToDisplay(normalized);
     return JSON.stringify(normalized);
 }
 
-function schemaMatches(schema: ActionDataSchema, action: ActionData): boolean {
-    const cleanFullType = action.fullType?.split("<")[0] ?? "";
-    return (
-        schema.actionName === action.actionType ||
-        schema.suffixes.some((suffix) => cleanFullType.endsWith(suffix) || action.fullType?.includes(suffix))
-    );
+function extractShortMoveType(type: string | undefined): string {
+    if (!type) return "";
+    const withoutTypeArgs = type.split("<")[0] || type;
+    const parts = withoutTypeArgs.split("::");
+    return parts[parts.length - 1] || withoutTypeArgs;
+}
+
+function markerSuffix(definition: ActionDefinition): string {
+    const parts = definition.markerType.split("::");
+    return `::${parts.slice(-2).join("::")}`;
+}
+
+function schemaFromDefinition(definition: ActionDefinition): ActionDataSchema {
+    return {
+        actionName: extractShortMoveType(definition.markerType) || definition.id,
+        displayName: definition.name,
+        definition,
+        suffixes: [markerSuffix(definition)],
+        params: definition.params.map(({ name, type }) => ({ name, type })),
+    };
+}
+
+function findActionDefinition(action: ActionData): ActionDefinition | undefined {
+    if (action.fullType) {
+        const byFullType = getActionByFullType(action.fullType);
+        if (byFullType) return byFullType;
+    }
+
+    const rawCandidates = [
+        action.actionType,
+        action.displayName,
+        extractShortMoveType(action.fullType),
+        action.fullType?.split("<")[0],
+    ].filter((value): value is string => Boolean(value));
+
+    const normalizedCandidates = rawCandidates.map((value) => value.toLowerCase().replace(/[\s_-]/g, ""));
+
+    return ALL_ACTIONS.find((definition) => {
+        const markerShort = extractShortMoveType(definition.markerType);
+        const values = [definition.id, definition.name, markerShort, definition.markerType, markerSuffix(definition)];
+        return values.some((value) => {
+            const normalized = value.toLowerCase().replace(/[\s_-]/g, "");
+            return (
+                normalizedCandidates.includes(normalized) ||
+                rawCandidates.some((candidate) => candidate.endsWith(value))
+            );
+        });
+    });
+}
+
+function findActionSchema(action: ActionData): ActionDataSchema | null {
+    const definition = findActionDefinition(action);
+    if (definition) return schemaFromDefinition(definition);
+    return null;
+}
+
+function decodeSpecialAction(schema: ActionDataSchema, bytes: Uint8Array): Record<string, unknown> | null {
+    if (schema.definition?.id !== "lock_treasury_cap") return null;
+
+    const parsed = BcsLockTreasuryCapAction.parse(bytes);
+    return {
+        maxSupply: parsed.has_max_supply ? normalizeValue(parsed.max_supply) : null,
+        canMint: parsed.can_mint,
+        canBurn: parsed.can_burn,
+        canUpdateName: parsed.can_update_name,
+        canUpdateDescription: parsed.can_update_description,
+        canUpdateIcon: parsed.can_update_icon,
+        resourceName: parsed.resource_name,
+    };
 }
 
 export function decodeActionParams(action: ActionData): DecodedActionParams | null {
-    const schema = ACTION_DATA_SCHEMAS.find((candidate) => schemaMatches(candidate, action));
+    const schema = findActionSchema(action);
     if (!schema || !action.actionData) return null;
 
     try {
-        const fields = Object.fromEntries(schema.params.map((param) => [param.name, bcsTypeForParam(param.type)]));
+        const bytes = hexToBytes(action.actionData);
+        const parsed =
+            decodeSpecialAction(schema, bytes) ??
+            bcs
+                .struct(
+                    `${schema.definition?.id || schema.actionName}ActionData`,
+                    Object.fromEntries(schema.params.map((param) => [param.name, bcsTypeForParam(param.type)]))
+                )
+                .parse(bytes);
 
-        const parsed = bcs.struct(`${schema.actionName}ActionData`, fields).parse(hexToBytes(action.actionData));
         return {
-            actionName: schema.actionName,
+            actionName: schema.displayName || schema.actionName,
             params: schema.params.map((param) => ({
                 ...param,
                 value: formatValue(parsed[param.name]),

@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useParams } from "react-router";
 import {
@@ -9,6 +9,7 @@ import {
     Coins,
     ArrowDownToLine,
     Package,
+    WalletCards,
     ChevronDown,
     ChevronUp,
     Copy,
@@ -79,6 +80,54 @@ interface CleanupIntentTarget {
     intent: IntentSummary;
     action: CleanupIntentAction;
     isConfig: boolean;
+}
+
+interface CollapsibleSectionProps {
+    title: string;
+    count?: number;
+    icon?: ReactNode;
+    defaultOpen?: boolean;
+    muted?: boolean;
+    children: ReactNode;
+}
+
+function CollapsibleSection({
+    title,
+    count,
+    icon,
+    defaultOpen = false,
+    muted = false,
+    children,
+}: CollapsibleSectionProps) {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    useEffect(() => {
+        setIsOpen(defaultOpen);
+    }, [defaultOpen]);
+
+    return (
+        <section className={`rounded-xl border border-border-subtle ${muted ? "bg-card/20" : "bg-card/40"}`}>
+            <button
+                type="button"
+                onClick={() => setIsOpen((open) => !open)}
+                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-card-elevated/40"
+            >
+                <span className={`flex items-center gap-2 text-sm font-semibold ${muted ? "text-text-muted" : "text-text-primary"}`}>
+                    {icon}
+                    {title}
+                    {count != null && count > 0 ? (
+                        <span className="text-xs font-medium text-text-muted">({count})</span>
+                    ) : null}
+                </span>
+                {isOpen ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" />
+                ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
+                )}
+            </button>
+            {isOpen && <div className="border-t border-border-subtle px-3 pb-3 pt-3">{children}</div>}
+        </section>
+    );
 }
 
 /** Aggregate balances by coinType across vaults, resolve metadata */
@@ -276,6 +325,18 @@ export function Multisig() {
         () => (intents ?? []).filter((i) => isClosedIntentStatus(i.approvals.status)),
         [intents]
     );
+    const accountPaymentStreams = useMemo(
+        () => (streams ?? []).filter((stream) => !stream.isSpendingLimit),
+        [streams]
+    );
+    const accountSpendingLimits = useMemo(
+        () => (streams ?? []).filter((stream) => stream.isSpendingLimit),
+        [streams]
+    );
+    const accountStreamsAndSpendingLimits = useMemo(
+        () => [...accountPaymentStreams, ...accountSpendingLimits],
+        [accountPaymentStreams, accountSpendingLimits]
+    );
     const canCleanRejectedIntents = config ? canAddressCancel(config, account?.address) : false;
     const cleanupTargets = useMemo<CleanupIntentTarget[]>(() => {
         if (!account || !config) return [];
@@ -309,6 +370,10 @@ export function Multisig() {
     }, [account, canCleanRejectedIntents, config, intents]);
     const cleanupBatch = useMemo(() => cleanupTargets.slice(0, CLEANUP_INTENTS_LIMIT), [cleanupTargets]);
     const showIntentStorageSection = closedIntents.length > 0 || cleanupTargets.length > 0;
+    const showStreamsAndSpendingLimitsSection = !streamsLoading && accountStreamsAndSpendingLimits.length > 0;
+    const showVestingsSection = !vestingsLoading && accountVestings.length > 0;
+    const showPackagesSection = packagesLoading || (packageInfos?.length ?? 0) > 0;
+    const openMaintenanceByDefault = cleanupTargets.length >= CLOSED_INTENTS_WARNING_THRESHOLD;
 
     const handleIntentAction = useCallback(() => {
         if (!accountId) return;
@@ -476,12 +541,96 @@ export function Multisig() {
                 </div>
             ) : (
                 <>
-                    {/* Groups — preserves on-chain group structure (per-group weights, time bands, role badges). */}
-                    <GroupsSection config={config} currentUserAddress={account?.address} />
-
-                    {/* Members — flat overview of unique addresses with aggregated permissions. */}
+                    {/* Vault Holdings */}
                     <div>
-                        <h2 className="text-lg font-semibold mb-3">Members ({config.members.length})</h2>
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-semibold flex items-center gap-2">
+                                <Coins className="w-5 h-5 text-primary" />
+                                Vault Holdings{" "}
+                                {vaultBalances && vaultBalances.length > 0
+                                    ? `(${aggregateBalances(vaultBalances, coins).length})`
+                                    : ""}
+                            </h2>
+                            {account && (
+                                <button
+                                    onClick={() => setShowDepositModal(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
+                                >
+                                    <ArrowDownToLine className="w-3.5 h-3.5" />
+                                    Deposit
+                                </button>
+                            )}
+                        </div>
+                        <VaultHoldings balances={vaultBalances} coins={coins} isLoading={vaultBalancesLoading} />
+                    </div>
+
+                    {/* Pending Intents */}
+                    <div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold">
+                                <Hourglass className="w-5 h-5 text-primary" />
+                                Pending Intents {pendingIntents.length > 0 ? `(${pendingIntents.length})` : ""}
+                            </h2>
+                        </div>
+                        {intentsLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                            </div>
+                        ) : pendingIntents.length === 0 ? (
+                            <p className="text-text-muted text-sm py-4">No pending intents.</p>
+                        ) : (
+                            <div className="max-h-[600px] overflow-y-auto overscroll-contain scrollbar-always pr-1">
+                                <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+                                    {pendingIntents.map((intent) => (
+                                        <IntentCard
+                                            key={intent.key}
+                                            intent={intent}
+                                            config={config}
+                                            accountId={accountId!}
+                                            configNonce={config.configNonce}
+                                            currentUserAddress={account?.address}
+                                            onActionComplete={handleIntentAction}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {showStreamsAndSpendingLimitsSection && (
+                        <CollapsibleSection
+                            title="Spending Limits"
+                            count={accountStreamsAndSpendingLimits.length}
+                            icon={<WalletCards className="h-4 w-4 text-primary" />}
+                            defaultOpen
+                        >
+                            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+                                {accountStreamsAndSpendingLimits.map((stream) => (
+                                    <StreamCard key={stream.id} stream={stream} />
+                                ))}
+                            </div>
+                        </CollapsibleSection>
+                    )}
+
+                    {showVestingsSection && (
+                        <CollapsibleSection
+                            title="Vesting Coins"
+                            count={accountVestings.length}
+                            icon={<Coins className="h-4 w-4 text-primary" />}
+                        >
+                            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+                                {accountVestings.map((vesting) => (
+                                    <VestingCard key={vesting.vestingId} vesting={vesting} />
+                                ))}
+                            </div>
+                        </CollapsibleSection>
+                    )}
+
+                    <CollapsibleSection
+                        title="Members"
+                        count={config.members.length}
+                        icon={<Shield className="h-4 w-4 text-primary" />}
+                    >
                         <div className="overflow-x-auto rounded-xl border border-border">
                             <table className="w-full table-fixed">
                                 <thead>
@@ -510,150 +659,102 @@ export function Multisig() {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </CollapsibleSection>
 
-                    {/* Vault Holdings */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-lg font-semibold flex items-center gap-2">
-                                <Coins className="w-5 h-5 text-primary" />
-                                Vault Holdings{" "}
-                                {vaultBalances && vaultBalances.length > 0
-                                    ? `(${aggregateBalances(vaultBalances, coins).length})`
-                                    : ""}
-                            </h2>
-                            {account && (
-                                <button
-                                    onClick={() => setShowDepositModal(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
-                                >
-                                    <ArrowDownToLine className="w-3.5 h-3.5" />
-                                    Deposit
-                                </button>
-                            )}
-                        </div>
-                        <VaultHoldings balances={vaultBalances} coins={coins} isLoading={vaultBalancesLoading} />
-                    </div>
+                    {!isSinglePlainGroup && (
+                        <CollapsibleSection
+                            title="Policy Details"
+                            count={config.groups.length}
+                            icon={<Shield className="h-4 w-4 text-primary" />}
+                        >
+                            <GroupsSection config={config} currentUserAddress={account?.address} />
+                        </CollapsibleSection>
+                    )}
 
-                    {/* Packages */}
-                    <div>
-                        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                            <Package className="w-5 h-5 text-primary" />
-                            Packages {packageInfos && packageInfos.length > 0 ? `(${packageInfos.length})` : ""}
-                        </h2>
-                        {packagesLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                            </div>
-                        ) : !packageInfos || packageInfos.length === 0 ? (
-                            <p className="text-text-muted text-sm py-4">No locked packages.</p>
-                        ) : (
-                            <div className="overflow-x-auto rounded-xl border border-border">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-border bg-card-elevated">
-                                            <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                Name
-                                            </th>
-                                            <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                Package
-                                            </th>
-                                            <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                Policy
-                                            </th>
-                                            <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                Timelock
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {packageInfos.map((pkg) => (
-                                            <tr
-                                                key={pkg.name}
-                                                className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
-                                            >
-                                                <td className="py-3 px-4">
-                                                    <span className="text-sm font-medium text-text-primary">
-                                                        {pkg.name}
-                                                    </span>
-                                                </td>
-                                                <td className="min-w-0 py-3 px-4">
-                                                    {pkg.packageAddress ? (
-                                                        <CopyableAddress
-                                                            address={pkg.packageAddress}
-                                                            className="min-w-0 w-full"
-                                                            textClassName="text-xs text-text-muted"
-                                                            copyLabel="Copy package address"
-                                                            toastMessage="Package address copied"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs text-text-muted">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 px-4">
-                                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                                                        {policyLabel(pkg.policy)}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <span className="font-mono text-sm text-text-primary">
-                                                        {pkg.delayMs > 0
-                                                            ? `${Math.round(pkg.delayMs / 3_600_000)}h`
-                                                            : "None"}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Pending Intents */}
-                    <div>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <h2 className="flex items-center gap-2 text-lg font-semibold">
-                                <Hourglass className="w-5 h-5 text-primary" />
-                                Pending Intents {pendingIntents.length > 0 ? `(${pendingIntents.length})` : ""}
-                            </h2>
-                        </div>
-                        {intentsLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                            </div>
-                        ) : pendingIntents.length === 0 ? (
-                            <p className="text-text-muted text-sm py-4">No pending intents.</p>
-                        ) : (
-                            <div className="max-h-[600px] overflow-y-auto overscroll-contain scrollbar-always pr-1">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                    {pendingIntents.map((intent) => (
-                                        <IntentCard
-                                            key={intent.key}
-                                            intent={intent}
-                                            config={config}
-                                            accountId={accountId!}
-                                            configNonce={config.configNonce}
-                                            currentUserAddress={account?.address}
-                                            onActionComplete={handleIntentAction}
-                                        />
-                                    ))}
+                    {showPackagesSection && (
+                        <CollapsibleSection
+                            title="Packages"
+                            count={packageInfos?.length ?? 0}
+                            icon={<Package className="h-4 w-4 text-primary" />}
+                        >
+                            {packagesLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            ) : packageInfos && packageInfos.length > 0 ? (
+                                <div className="overflow-x-auto rounded-xl border border-border">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-border bg-card-elevated">
+                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                    Name
+                                                </th>
+                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                    Package
+                                                </th>
+                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                    Policy
+                                                </th>
+                                                <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                    Timelock
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {packageInfos.map((pkg) => (
+                                                <tr
+                                                    key={pkg.name}
+                                                    className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
+                                                >
+                                                    <td className="py-3 px-4">
+                                                        <span className="text-sm font-medium text-text-primary">
+                                                            {pkg.name}
+                                                        </span>
+                                                    </td>
+                                                    <td className="min-w-0 py-3 px-4">
+                                                        {pkg.packageAddress ? (
+                                                            <CopyableAddress
+                                                                address={pkg.packageAddress}
+                                                                className="min-w-0 w-full"
+                                                                textClassName="text-xs text-text-muted"
+                                                                copyLabel="Copy package address"
+                                                                toastMessage="Package address copied"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-xs text-text-muted">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                            {policyLabel(pkg.policy)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <span className="font-mono text-sm text-text-primary">
+                                                            {pkg.delayMs > 0
+                                                                ? `${Math.round(pkg.delayMs / 3_600_000)}h`
+                                                                : "None"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : null}
+                        </CollapsibleSection>
+                    )}
 
-                    {/* Closed Intents */}
                     {showIntentStorageSection && (
-                        <div>
-                            <div className="flex items-center justify-between mb-3 gap-3">
-                                <h2 className="text-lg font-semibold text-text-muted flex items-center gap-2">
-                                    <Archive className="w-5 h-5 text-primary" />
-                                    {closedIntents.length > 0
-                                        ? `Closed Intents (${closedIntents.length})`
-                                        : "Intent Storage"}
-                                </h2>
-                                <div className="flex shrink-0 items-center gap-2">
+                        <CollapsibleSection
+                            title="Intent History & Cleanup"
+                            count={closedIntents.length}
+                            icon={<Archive className="h-4 w-4 text-primary" />}
+                            defaultOpen={openMaintenanceByDefault}
+                            muted
+                        >
+                            {(cleanupBatch.length > 0 || closedIntents.length > CLOSED_INTENTS_LIMIT) && (
+                                <div className="mb-3 flex shrink-0 items-center justify-end gap-2">
                                     {cleanupBatch.length > 0 && (
                                         <button
                                             type="button"
@@ -662,7 +763,7 @@ export function Multisig() {
                                             title={
                                                 cleanupTargets.length > CLEANUP_INTENTS_LIMIT
                                                     ? `Removes the first ${CLEANUP_INTENTS_LIMIT} eligible old intents. Run again for the rest.`
-                                                    : "Remove eligible expired, stale, and rejected intents from the on-chain intent store."
+                                                    : "Remove eligible expired, stale, and rejected intents from the onchain intent store."
                                             }
                                             className="flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
@@ -693,12 +794,12 @@ export function Multisig() {
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            )}
                             {cleanupTargets.length >= CLOSED_INTENTS_WARNING_THRESHOLD && (
                                 <div className="mb-3 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
                                     <p className="font-medium">Storage cleanup recommended</p>
                                     <p className="mt-1 text-yellow-100/80">
-                                        This account has {cleanupTargets.length} old intents eligible for on-chain
+                                        This account has {cleanupTargets.length} old intents eligible for onchain
                                         removal. Large intent histories can slow RPC reads and make account pages less
                                         reliable. Remove eligible old intents to keep the account responsive.
                                     </p>
@@ -706,7 +807,7 @@ export function Multisig() {
                             )}
                             {closedIntents.length > 0 ? (
                                 <div className="max-h-[600px] overflow-y-auto overscroll-contain scrollbar-always pr-1">
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
                                         {(showAllExecuted
                                             ? closedIntents
                                             : closedIntents.slice(0, CLOSED_INTENTS_LIMIT)
@@ -725,40 +826,11 @@ export function Multisig() {
                                 </div>
                             ) : (
                                 <p className="text-text-muted text-sm py-4">
-                                    Old intents are eligible for removal from on-chain storage.
+                                    Old intents are eligible for removal from onchain storage.
                                 </p>
                             )}
-                        </div>
+                        </CollapsibleSection>
                     )}
-
-                    {/* Vesting, Payment Streams & Preapproved Spending */}
-                    <div>
-                        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                            <Coins className="w-5 h-5 text-primary" />
-                            Vesting, Payment Streams & Preapproved Spending
-                            {(streams?.length ?? 0) + accountVestings.length > 0
-                                ? ` (${(streams?.length ?? 0) + accountVestings.length})`
-                                : ""}
-                        </h2>
-                        {streamsLoading || vestingsLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                            </div>
-                        ) : (streams?.length ?? 0) === 0 && accountVestings.length === 0 ? (
-                            <p className="text-text-muted text-sm py-4">
-                                No active vesting, payment streams, or preapproved spending on this account.
-                            </p>
-                        ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                {accountVestings.map((vesting) => (
-                                    <VestingCard key={vesting.vestingId} vesting={vesting} />
-                                ))}
-                                {(streams ?? []).map((stream) => (
-                                    <StreamCard key={stream.id} stream={stream} />
-                                ))}
-                            </div>
-                        )}
-                    </div>
                 </>
             )}
 

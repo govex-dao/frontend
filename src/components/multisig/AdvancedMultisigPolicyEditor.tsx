@@ -322,7 +322,7 @@ export function AdvancedMultisigPolicyEditor({ draft, kind, title, caption, onCh
                 ))}
             </div>
             {paths.length >= ADVANCED_MAX_PATHS && (
-                <p className="mt-2 text-[11px] text-text-muted">The on-chain limit is {ADVANCED_MAX_PATHS} paths.</p>
+                <p className="mt-2 text-[11px] text-text-muted">The onchain limit is {ADVANCED_MAX_PATHS} paths.</p>
             )}
         </Section>
     );

@@ -1,5 +1,5 @@
 /**
- * React Query hooks for live on-chain multisig data (RPC)
+ * React Query hooks for live onchain multisig data (RPC)
  */
 
 import { useQuery } from "@tanstack/react-query";

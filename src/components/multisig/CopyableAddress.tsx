@@ -79,6 +79,7 @@ export function MiddleEllipsizedAddress({
 
 export function CopyableAddress({
     address,
+    displayText,
     className = "",
     textClassName = "",
     copyClassName = "",
@@ -86,6 +87,7 @@ export function CopyableAddress({
     toastMessage = "Address copied",
 }: {
     address: string;
+    displayText?: string;
     className?: string;
     textClassName?: string;
     copyClassName?: string;
@@ -110,7 +112,16 @@ export function CopyableAddress({
 
     return (
         <span className={`inline-flex min-w-0 max-w-full items-center gap-1.5 ${className}`}>
-            <MiddleEllipsizedAddress address={text} className={`flex-1 font-mono ${textClassName}`} />
+            {displayText ? (
+                <span
+                    className={`block min-w-0 max-w-full overflow-hidden whitespace-nowrap font-mono ${textClassName}`}
+                    title={text}
+                >
+                    {displayText}
+                </span>
+            ) : (
+                <MiddleEllipsizedAddress address={text} className={`flex-1 font-mono ${textClassName}`} />
+            )}
             <button
                 type="button"
                 onClick={copyAddress}

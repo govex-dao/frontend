@@ -8,7 +8,7 @@
  * // Transaction building
  * const tx = sdk.proposal.conditionalSwap({...});
  *
- * // On-chain queries
+ * // Onchain queries
  * const balances = await sdk.utils.queryHelper.getProposalBalances(...);
  * ```
  */

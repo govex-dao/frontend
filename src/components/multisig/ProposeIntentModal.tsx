@@ -136,15 +136,15 @@ const ACTION_TYPES: Array<{
     },
     {
         type: "stream",
-        label: "Payment Streams",
-        description: "Create or cancel payment streams and preapproved spending",
+        label: "Spending Limits",
+        description: "Create or cancel spending limits",
         icon: Droplets,
         group: "core",
     },
     {
         type: "vesting",
-        label: "Vesting",
-        description: "Create or cancel vesting schedules",
+        label: "Vesting Coins",
+        description: "Create or cancel vesting coins",
         icon: Gift,
         group: "core",
     },
@@ -176,7 +176,7 @@ const ACTION_TYPES: Array<{
         icon: BoxSelect,
         group: "advanced",
     },
-    { type: "memo", label: "Memo", description: "Record an on-chain note", icon: FileText, group: "advanced" },
+    { type: "memo", label: "Memo", description: "Record an onchain note", icon: FileText, group: "advanced" },
 ];
 
 const DEFAULT_INTENT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -362,7 +362,7 @@ function buildDescription(actionType: ActionType, data: ActionData): string {
         case "stream": {
             const d = data as StreamData;
             const coin = shortCoin(d.coinType);
-            if (d.mode === "cancel") return `Cancel payment stream / preapproved spending ${shortAddr(d.streamId)}`;
+            if (d.mode === "cancel") return `Cancel spending limit ${shortAddr(d.streamId)}`;
             const total = parseFloat(d.amountPerIteration) * Number(d.iterationsTotal);
             const pastIterations = getPastIterationsForStreamData(d);
             const totalIterations = Number(d.iterationsTotal || "0");
@@ -371,9 +371,9 @@ function buildDescription(actionType: ActionType, data: ActionData): string {
                     ? `, ${pastIterations} out of ${totalIterations} iterations in the past`
                     : "";
             if (d.mode === "create_spending_limit") {
-                return `Preapproved spending ${total || "?"} ${coin} for ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
+                return `Spending limit ${total || "?"} ${coin} for ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
             }
-            return `Payment stream ${total || "?"} ${coin} to ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
+            return `Spending limit ${total || "?"} ${coin} to ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
         }
         case "vesting": {
             const d = data as VestingData;

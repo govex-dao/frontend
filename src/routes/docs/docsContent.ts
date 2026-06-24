@@ -1,5 +1,3 @@
-import { decisionMarketDocsPages } from "./decisionMarketDocsContent";
-
 export interface DocsSection {
     id: string;
     title: string;
@@ -35,30 +33,29 @@ export const docsPages: DocsPage[] = [
                 id: "create-account",
                 title: "1. Create the account",
                 paragraphs: [
-                    "Start with the simple configuration unless you already need separate operating groups. Choose member addresses, weights, an approval threshold, a cancellation threshold, and an intent expiry.",
+                    "Choose member addresses, weights, a vote threshold, and an intent expiry.",
                 ],
             },
             {
                 id: "open-vaults",
                 title: "2. Open vaults",
                 paragraphs: [
-                    "Vaults are named and isolated coin balances inside the account. New vaults approve SUI deposits by default. Additional coin types must be approved by governance unless the vault name is exactly \"donations\", or starts with \"donations_\" or \"donations-\".",
+                    "Vaults are named and isolated coin balances inside the account. New vaults approve Sui deposits by default. Additional coin types must be approved by the multisig before deposits of that coin type are accepted.",
                 ],
             },
             {
                 id: "stage-actions",
-                title: "3. Stage actions",
+                title: "3. Create intents",
                 paragraphs: [
-                    "Build an action intent from one or more typed action specs. Common examples are spending from a vault and transferring funds, creating a payment stream, creating preapproved spending, locking an upgrade cap, or emitting a memo.",
-                    "A multisig intent can contain up to 10 action specs and uses one execution time. The expiration time must match the account's configured intent expiry.",
+                    "Create an intent for the transaction your team wants to approve. Common examples are transferring vault funds, creating a spending limit, locking an upgrade cap, or recording a memo.",
                 ],
             },
             {
                 id: "approve-execute",
                 title: "4. Approve and execute",
                 paragraphs: [
-                    "Members approve or reject. Approval and rejection votes can be changed before the intent is executed or canceled. Once an approval path is satisfied, an executor can run the actions in order.",
-                    "If the account configuration changes, older pending intents can become stale. Stale intents cannot be executed; they can only be canceled.",
+                    "Members approve or reject intents. Votes can be changed until the intent is executed or canceled. Once enough approval weight is reached, an executor can run it.",
+                    "If the account configuration changes, older pending intents become stale. Stale intents cannot be executed; they can only be canceled.",
                 ],
             },
         ],
@@ -101,134 +98,46 @@ export const docsPages: DocsPage[] = [
     },
     {
         slug: "configuration-simple",
-        navTitle: "Simple Multisig Config",
-        title: "Simple Multisig Configuration",
+        navTitle: "Account Setup",
+        title: "Account Setup",
         sections: [
             {
                 id: "shape",
-                title: "Shape",
+                title: "Members",
                 paragraphs: [
-                    "A simple multisig has members with their own weights. The multisig has a total weight threshold that must be met for a proposal to be executed or canceled.",
+                    "A Govex account has members, each with their own weight. Approval and cancellation thresholds define the weight needed to approve, execute, or cancel pending work.",
                 ],
             },
             {
                 id: "fields",
-                title: "Fields",
+                title: "Definitions",
                 bullets: [
-                    "Members are Sui addresses with positive weights.",
-                    "Approval threshold is the member weight needed to mark an intent approved.",
-                    "Reject threshold is the member reject weight needed to unlock cancellation.",
-                    "Propose roles allow addresses to stage intents.",
-                    "Execute roles allow addresses to execute approved intents. No selected executor makes execution permissionless, which is useful for third-party keeper bots or intent solvers.",
-                    "Cancel roles allow addresses to finalize cancellation after the cancellation policy is satisfied.",
-                    "Intent expiry time is how long intents have from the point of creation until they are no longer able to be approved.",
-                ],
-            },
-        ],
-    },
-    {
-        slug: "configuration-advanced",
-        navTitle: "Advanced Multisig Config",
-        title: "Advanced Multisig Configuration",
-        sections: [
-            {
-                id: "groups-and-paths",
-                title: "Groups and paths",
-                paragraphs: [
-                    "Groups are named member sets. The same address may appear in more than one group with different weights.",
-                    "A policy is OR across paths: any one path can satisfy the policy. A path is AND across requirements: every group threshold in that path must be met at the same time.",
-                ],
-                bullets: [
-                    "Example approve path: Team >= 2 and Auditor >= 1.",
-                    "Example fallback path: Team >= 3.",
-                    "Example cancel path: Team >= 1.",
-                ],
-            },
-            {
-                id: "time-bands",
-                title: "Time bands",
-                paragraphs: [
-                    "Time bands add delayed approval weight to a group after an intent has been pending for a configured time. The highest matured band counts; bands are not cumulative.",
-                    "Time bands are considered only for approvals, never for rejections.",
-                    "Time bands only relax approval over time. Time-banded approval protects against deadlock. Cancellation is controlled by cancel thresholds and intent expiry.",
-                ],
-                callout:
-                    "A time band is a review window before approval matures. It is not a separate post-approval timelock.",
-            },
-            {
-                id: "roles",
-                title: "Role gates",
-                bullets: [
-                    "Propose groups can stage new intents.",
-                    "Execute groups can execute approved intents. Empty execute groups allow any caller to execute, which is useful for third-party keeper bots or intent solvers.",
-                    "Cancel groups can finalize cancellation after reject weight satisfies a cancel path or the intent is otherwise rejected.",
-                ],
-            },
-            {
-                id: "config-changes",
-                title: "Config changes",
-                paragraphs: [
-                    "A config change is its own single-action intent. The proposed config is stored on the account while the intent is pending.",
-                    "When the config change executes, it replaces the account configuration. Pending intents from the old configuration become stale and cannot execute.",
-                ],
-            },
-            {
-                id: "limits",
-                title: "Limits and validation",
-                bullets: [
-                    "Max 20 groups per multisig.",
-                    "Max 200 member entries per multisig.",
-                    "Max 20 approval paths and max 20 cancellation paths per multisig.",
-                    "Max 10 time bands per group.",
-                    "Group names must be non-empty and unique.",
-                    "Member weights and path thresholds must be positive.",
-                    "Time bands must have positive delays and mature before intent expiry.",
+                    "**Members** are the Sui addresses that can participate in account voting.",
+                    "**Weights** let some members count more than others. A member with weight 2 contributes twice as much voting weight as a member with weight 1.",
+                    "**Vote thresholds** define the member weight needed to approve or reject an intent.",
+                    "**Execute thresholds** define the member weight needed to execute an approved intent or to cancel an intent.",
+                    "**Intent expiry** is how long an intent can collect approvals before it expires.",
                 ],
             },
         ],
     },
     {
         slug: "spending-limits",
-        navTitle: "Preapproved Spending and Payment Streams",
-        title: "Preapproved Spending and Payment Streams",
+        navTitle: "Spending Limits",
+        title: "Spending Limits",
         sections: [
-            {
-                id: "spending-limit-model",
-                title: "Preapproved spending model",
-                paragraphs: [
-                    "Preapproved spending is created by the same action used for payment streams, but with a non-empty recipient whitelist. The action mints a SpendingCap and transfers it to the delegate.",
-                    "The delegate can call spend_with_cap to send vested budget directly from the vault to a whitelisted recipient. The funds go straight to the recipient, not to the delegate.",
-                ],
-            },
             {
                 id: "streams",
-                title: "Payment streams",
+                title: "Spending limits",
                 paragraphs: [
-                    "A payment stream has an empty recipient whitelist. It mints a StreamCap to the beneficiary, and the cap holder can collect vested tokens from the vault.",
-                    "Payment streams do not support expiry_ms. They are always cancellable by governance, and cancellation removes stream metadata but does not automatically move funds out of the vault.",
-                ],
-            },
-        ],
-    },
-    {
-        slug: "whitelists",
-        navTitle: "Whitelists and Allow Lists",
-        title: "Whitelists and Allow Lists",
-        sections: [
-            {
-                id: "vault-coin-allowlist",
-                title: "Vault coin allow list",
-                paragraphs: [
-                    "Vaults have an approved_types list for deposit coin types. SUI is approved by default for new vaults. Other coin types need a governance action before regular deposits are accepted.",
-                    "Vault names that are exactly \"donations\", or start with \"donations_\" or \"donations-\", bypass the deposit coin allow list. This is meant for inbox-style vaults that accept arbitrary inbound assets.",
+                    "Spending limits release vault funds over time to a beneficiary or delegate. Add whitelisted recipients when funds should only be spent to specific addresses. Funds are not isolated and can still be spent by other actions. To isolate them, move them to a separate vault.",
                 ],
             },
             {
-                id: "spending-recipients",
-                title: "Spending recipients",
+                id: "vesting",
+                title: "Vesting coins",
                 paragraphs: [
-                    "Preapproved spending has its own recipient whitelist. The delegate can only spend vested budget to addresses on that list.",
-                    "Changing recipient policy means creating, replacing, or cancelling preapproved spending through governance; the recipient list is part of the approved action data.",
+                    "Vesting coins isolate funds and release them to a recipient over time.",
                 ],
             },
         ],
@@ -239,23 +148,14 @@ export const docsPages: DocsPage[] = [
         title: "Adding Your Own Actions",
         sections: [
             {
-                id: "coming-soon",
-                title: "Coming soon",
+                id: "custom-action-flow",
+                title: "Custom action flow",
+                paragraphs: [
+                    "Custom actions can wrap any public or entry Move function, including third-party Move functions, as a typed Govex intent. Use the [action wrapper generator script](https://github.com/govex-dao/smart-account-v3/blob/main/scripts/generate-action-wrapper.sh) to scan the function signature and produce the schema, Move wrapper, and TypeScript snippets. This allows the multisig to interact with any custom packages you deploy.",
+                ],
             },
         ],
     },
-    {
-        slug: "decision-markets",
-        navTitle: "Overview",
-        title: "Decision Markets",
-        sections: [
-            {
-                id: "coming-soon",
-                title: "Coming soon",
-            },
-        ],
-    },
-    ...decisionMarketDocsPages,
 ];
 
 export const docsBySlug = new Map(docsPages.map((page) => [page.slug, page]));
@@ -263,17 +163,8 @@ export const docsBySlug = new Map(docsPages.map((page) => [page.slug, page]));
 export const docsNavGroups: DocsNavGroup[] = [
     {
         title: "Multisig",
-        slugs: [
-            "quick-start",
-            "configuration-simple",
-            "configuration-advanced",
-            "spending-limits",
-            "whitelists",
-            "custom-actions",
-            "security",
-        ],
+        slugs: ["quick-start", "configuration-simple", "spending-limits", "custom-actions", "security"],
     },
-    { title: "Decision Markets", slugs: ["decision-markets", ...decisionMarketDocsPages.map((page) => page.slug)] },
 ];
 
 export const docsNavigationPages: DocsPage[] = docsNavGroups.flatMap((group) =>

@@ -80,6 +80,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
     memo: FileText,
     package: Package,
     config: Settings,
+    custom: FileText,
     unknown: FileText,
 };
 
@@ -92,6 +93,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     memo: "bg-gray-500/15 text-gray-400",
     package: "bg-teal-500/15 text-teal-400",
     config: "bg-orange-500/15 text-orange-400",
+    custom: "bg-card-more-elevated border border-border-subtle text-text-secondary",
     unknown: "bg-card-more-elevated border border-border-subtle text-text-muted",
 };
 
@@ -126,8 +128,8 @@ function findPairedLockUpgradeCapActionIndex(actionTypes: string[], provideActio
     return null;
 }
 
-/** Check if intent has any unknown (unregistered) action types. */
-function getUnknownActions(actionTypes: string[]): string[] {
+/** Action types the public frontend does not have an execution adapter for yet. */
+function getCustomActionTypes(actionTypes: string[]): string[] {
     return actionTypes.filter((t) => !getActionExecInfo(t));
 }
 
@@ -308,19 +310,9 @@ function parseDecodedU64(value: string | null): number | null {
     return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }
 
-function decodedVectorLength(value: string | null): number {
-    if (!value || value === "none") return 0;
-    try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed.length : 0;
-    } catch {
-        return 0;
-    }
-}
-
 interface StreamTimingWarning {
     actionIndex: number;
-    kind: "payment stream" | "preapproved spending";
+    kind: "spending limit";
     pastIterations: number;
     totalIterations: number;
 }
@@ -345,10 +337,9 @@ function getStreamTimingWarning(
     const pastIterations = Math.min(completedIterations, totalIterations);
     if (pastIterations <= 2) return null;
 
-    const recipientCount = decodedVectorLength(decodedParamValue(decoded.params, "whitelistedRecipients"));
     return {
         actionIndex,
-        kind: recipientCount > 0 ? "preapproved spending" : "payment stream",
+        kind: "spending limit",
         pastIterations,
         totalIterations,
     };
@@ -441,8 +432,10 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
     const hasInputRequirements = executionRequirements.length > 0;
     const unsupportedReasons = !isConfig ? getUnsupportedActions(intent.actionTypes) : [];
     const hasUnsupported = unsupportedReasons.length > 0;
-    const unknownActions = !isConfig ? getUnknownActions(intent.actionTypes) : [];
-    const hasUnknown = unknownActions.length > 0;
+    const customActionTypes = !isConfig ? getCustomActionTypes(intent.actionTypes) : [];
+    const hasCustomActionTypes = customActionTypes.length > 0;
+    const hasUnparsedActions = !isConfig && intent.actionTypes.length === 0 && intent.actionCount > 0;
+    const hasGenericExecutionGap = hasCustomActionTypes || hasUnparsedActions;
 
     const missingObjectTypeRequirements = objectTypeRequirements.filter((req) => {
         return !executeObjectTypes[req.actionIndex]?.trim();
@@ -492,8 +485,8 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         const info = getActionExecInfo(fullType);
         return {
             fullType,
-            name: info?.name || fullType.split("::").pop() || "Unknown",
-            category: info?.category || "unknown",
+            name: info?.name || "Custom action",
+            category: info?.category || "custom",
             requiresInput: requiredInputByAction.has(actionIndex),
         };
     });
@@ -695,7 +688,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         if (
             !showExecute ||
             isConfig ||
-            hasUnknown ||
+            hasGenericExecutionGap ||
             hasUnsupported ||
             !currentUserAddress ||
             objectIdRequirements.length === 0
@@ -757,7 +750,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
     }, [
         currentUserAddress,
         executeCoinTypeTrimmed,
-        hasUnknown,
+        hasGenericExecutionGap,
         hasUnsupported,
         intent.actionTypes,
         intent.expectedAmountByAction,
@@ -1046,13 +1039,15 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
     const hasActions =
         showApprove || showUndoApproval || showReject || showEvaluate || showExecute || showCancelPending;
 
-    // Execution is blocked if required inputs are missing, or if actions are unsupported/unknown.
+    // Execution is blocked if required inputs are missing, or if action execution is not wired into the public UI.
     const upgradeDelayBlocked = !!(upgradeDelayInfo && !upgradeDelayInfo.isDelayElapsed);
     const executeBlocked = !!(
         showExecute &&
         !isConfig &&
-        (hasMissingInputs || hasUnsupported || hasUnknown || upgradeDelayBlocked)
+        (hasMissingInputs || hasUnsupported || hasGenericExecutionGap || upgradeDelayBlocked)
     );
+    const genericExecutionGapMessage =
+        "Voting and cancellation are supported in this UI. Execution for custom intents is not currently supported in the public frontend.";
 
     const primaryActionName = isConfig
         ? "Config Change"
@@ -1238,19 +1233,32 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                 </div>
             )}
 
-            {/* Unknown action type warning */}
-            {hasUnknown && (
-                <div className="text-[10px] flex items-center gap-1 text-red-400">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>
-                        Contains {unknownActions.length} unknown action type{unknownActions.length > 1 ? "s" : ""}{" "}
-                        (potentially malicious) — cannot auto-execute
-                    </span>
+            {/* Custom intent warning */}
+            {hasGenericExecutionGap && (
+                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-2 text-[10px] text-yellow-200">
+                    <div className="flex items-center gap-1 font-semibold text-yellow-300">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Custom intent</span>
+                    </div>
+                    <div className="mt-1">{genericExecutionGapMessage}</div>
+                    {hasCustomActionTypes && (
+                        <div className="mt-1 break-all font-mono text-[9px] text-yellow-100/70">
+                            {customActionTypes.length} custom action type{customActionTypes.length > 1 ? "s" : ""}:{" "}
+                            {customActionTypes.join(", ")}
+                        </div>
+                    )}
+                    {hasUnparsedActions && (
+                        <div className="mt-1 text-yellow-100/70">
+                            This intent has {intent.actionCount} onchain action
+                            {intent.actionCount !== 1 ? "s" : ""}, but parsed action metadata was not returned to this
+                            UI.
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Unsupported action warning */}
-            {hasUnsupported && !hasUnknown && (
+            {hasUnsupported && !hasGenericExecutionGap && (
                 <div className="space-y-1">
                     {unsupportedReasons.map((reason, i) => (
                         <div key={i} className="text-[10px] flex items-center gap-1 text-yellow-400">
@@ -1273,7 +1281,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
             )}
 
             {/* Missing required execution inputs */}
-            {showExecute && !isConfig && !hasUnknown && !hasUnsupported && hasMissingInputs && (
+            {showExecute && !isConfig && !hasGenericExecutionGap && !hasUnsupported && hasMissingInputs && (
                 <div className="text-[10px] flex items-center gap-1 text-yellow-400">
                     <AlertTriangle className="w-3 h-3" />
                     <span>Fill required execution inputs to enable Execute</span>
@@ -1295,7 +1303,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
             )}
 
             {/* Required execution inputs */}
-            {showExecute && !isConfig && !hasUnsupported && !hasUnknown && hasInputRequirements && (
+            {showExecute && !isConfig && !hasUnsupported && !hasGenericExecutionGap && hasInputRequirements && (
                 <div className="border-t border-border-subtle pt-3 space-y-3">
                     <p className="text-[10px] text-text-muted">Provide required execution inputs:</p>
 
@@ -1440,7 +1448,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                                             Otherwise re-run:
                                         </p>
                                         <UpgradeBuildCommand codeClassName="bg-card-more-elevated/80" />
-                                        <p>The on-chain digest will verify the bytecode matches what was approved.</p>
+                                        <p>The onchain digest will verify the bytecode matches what was approved.</p>
                                     </div>
                                 )}
                                 {draft.packageId.trim() ? (
@@ -1528,7 +1536,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                         <button
                             onClick={handleCancelPending}
                             disabled={isLoading || submittingRef.current}
-                            title="Cancel quorum has been reached. This cancels the live intent and removes it from on-chain storage."
+                            title="Cancel quorum has been reached. This cancels the live intent and removes it from onchain storage."
                             className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Cancel
@@ -1548,6 +1556,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                         <button
                             onClick={handleExecute}
                             disabled={isLoading || submittingRef.current || executeBlocked}
+                            title={hasGenericExecutionGap ? genericExecutionGapMessage : undefined}
                             className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Execute

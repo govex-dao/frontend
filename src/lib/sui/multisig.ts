@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, max-lines */
 /**
  * Direct RPC queries for MultisigConfig and Account intents.
- * Used for live on-chain data on detail pages and paste-ID lookups.
+ * Used for live onchain data on detail pages and paste-ID lookups.
  */
 
 import { SuiClient } from "@mysten/sui/client";
@@ -285,7 +285,7 @@ export function approvalProgressFor(
     return best;
 }
 
-// Mirrors on-chain find_satisfied_reject_path: cancel_policy is evaluated against
+// Mirrors onchain find_satisfied_reject_path: cancel_policy is evaluated against
 // the rejected voters with include_time_bands=false. Time bands never count toward
 // cancellation; only real reject votes do.
 export function rejectionProgressFor(
@@ -341,7 +341,7 @@ export function rejectionProgressFor(
     return best;
 }
 
-// Deep equality on policy path structure. Order-sensitive: the on-chain
+// Deep equality on policy path structure. Order-sensitive: the onchain
 // matched_vote_path index is derived from path order, so [path A, path B]
 // is not the same as [path B, path A].
 export function arePoliciesEqual(a: MultisigPolicy, b: MultisigPolicy): boolean {
@@ -1424,8 +1424,8 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
 }
 
 /**
- * Normalize a coin type from on-chain TypeName format to standard short-form.
- * On-chain TypeName stores "0000...0002::sui::SUI" (full 64-char, no 0x prefix).
+ * Normalize a coin type from onchain TypeName format to standard short-form.
+ * Onchain TypeName stores "0000...0002::sui::SUI" (full 64-char, no 0x prefix).
  * Wallet/SDK uses short form "0x2::sui::SUI". This converts to short form.
  */
 function normalizeCoinType(coinType: string): string {

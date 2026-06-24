@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode, useLayoutEffect, useRef } from "react";
 import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router";
 import { Toaster } from "react-hot-toast";
 
@@ -15,6 +15,9 @@ const Proposals = lazy(() => import("./routes/proposal/Proposals").then(({ Propo
 const Raise = lazy(() => import("./routes/raise/Raise").then(({ Raise }) => ({ default: Raise })));
 const Raises = lazy(() => import("./routes/raise/Raises").then(({ Raises }) => ({ default: Raises })));
 const Multisigs = lazy(() => import("./routes/multisig/Multisigs").then(({ Multisigs }) => ({ default: Multisigs })));
+const ExampleMultisig = lazy(() =>
+    import("./routes/multisig/ExampleMultisig").then(({ ExampleMultisig }) => ({ default: ExampleMultisig }))
+);
 const Multisig = lazy(() => import("./routes/multisig/Multisig").then(({ Multisig }) => ({ default: Multisig })));
 const Docs = lazy(() => import("./routes/docs/Docs").then(({ Docs }) => ({ default: Docs })));
 const NotFoundPage = lazy(() => import("./routes/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })));
@@ -54,6 +57,21 @@ function DocsNavbarHero() {
     );
 }
 
+function RouteScrollContainer({ children }: { children: ReactNode }) {
+    const location = useLocation();
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        scrollRef.current?.scrollTo({ top: 0, left: 0 });
+    }, [location.pathname, location.search]);
+
+    return (
+        <div ref={scrollRef} className="h-full overflow-y-auto flex-1">
+            {children}
+        </div>
+    );
+}
+
 function AppLayout() {
     const location = useLocation();
     const isHome = location.pathname === "/";
@@ -81,31 +99,19 @@ function AppLayout() {
                         },
                     }}
                 />
-                {isHome ? (
-                    <div className="h-full overflow-y-auto flex-1">
+                <RouteScrollContainer>
+                    {isHome ? (
                         <Navbar homeHero />
-                        <Suspense fallback={<RouteLoading />}>
-                            <Outlet />
-                        </Suspense>
-                        <SiteFooter />
-                    </div>
-                ) : isDocs ? (
-                    <div className="h-full overflow-y-auto flex-1">
+                    ) : isDocs ? (
                         <Navbar heroContent={<DocsNavbarHero />} />
-                        <Suspense fallback={<RouteLoading />}>
-                            <Outlet />
-                        </Suspense>
-                        <SiteFooter />
-                    </div>
-                ) : (
-                    <div className="h-full overflow-y-auto flex-1">
+                    ) : (
                         <Navbar />
-                        <Suspense fallback={<RouteLoading />}>
-                            <Outlet />
-                        </Suspense>
-                        <SiteFooter />
-                    </div>
-                )}
+                    )}
+                    <Suspense fallback={<RouteLoading />}>
+                        <Outlet />
+                    </Suspense>
+                    <SiteFooter />
+                </RouteScrollContainer>
             </main>
         </ErrorBoundary>
     );
@@ -126,6 +132,7 @@ export const router = createBrowserRouter([
             { path: "/proposals/:proposalId", element: wrap(<Proposal />) },
             { path: "/proposals", element: wrap(<Proposals />) },
             { path: "/multisig", element: wrap(<Multisigs />) },
+            { path: "/multisig/example", element: wrap(<ExampleMultisig />) },
             { path: "/multisig/:accountId", element: wrap(<Multisig />) },
             { path: "/docs", element: wrap(<Docs />) },
             { path: "/docs/:slug", element: wrap(<Docs />) },

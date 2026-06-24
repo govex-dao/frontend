@@ -1,9 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { SuiWalletButton } from "@/components/sui/WalletButton";
 import { Drawer } from "@/components/overlays/Drawer";
-import { formatNumber } from "@/lib/formatNumber";
-import { useStats } from "@/hooks/api";
 import { NavButton } from "./NavButton";
 
 interface Props {
@@ -15,58 +13,13 @@ interface Props {
 const NAV_CHROME_CLASSES =
     "!h-12 !px-6 !py-0 !gap-2 !rounded-t-none !rounded-b-lg !bg-white/5 !border-x !border-b !border-t-0 !border-white/10 !backdrop-blur-sm !text-[15px] !font-medium !text-text-secondary hover:!bg-white/10 hover:!border-white/20 hover:!text-text-primary";
 
-const GOVEX_TREASURY_USDC_TVL = 48_000;
-const GOVEX_AMM_USDC_TVL = 85_195.244993;
-const GOVEX_DISPLAY_TVL = GOVEX_TREASURY_USDC_TVL + 2 * GOVEX_AMM_USDC_TVL;
-
-interface StatisticItemProps {
-    value: number;
-    label: string;
-    dollars?: boolean;
-    to?: string;
-}
-
-function StatisticItem(props: StatisticItemProps) {
-    const { value, label, dollars = false, to } = props;
-
-    const content = (
-        <>
-            <span className="tabular-nums text-primary">
-                {dollars && "$"}
-                {formatNumber(value)}
-            </span>
-            <span>{label}</span>
-        </>
-    );
-
-    if (to) {
-        return (
-            <Link
-                to={to}
-                className="inline-flex items-baseline gap-3 whitespace-nowrap hover:text-primary transition-colors"
-            >
-                {content}
-            </Link>
-        );
-    }
-
-    return <div className="inline-flex items-baseline gap-3 whitespace-nowrap">{content}</div>;
-}
-
 function HomeNavbarHero() {
-    const { data: stats } = useStats();
-
     return (
         <div className="relative z-10 py-12 sm:py-16 md:py-20 flex flex-col items-center">
             <div className="text-center relative my-6 sm:my-8 px-4 flex flex-col items-center gap-7 sm:gap-9">
-                <h1 className="bg-linear-to-r from-text-primary to-primary bg-clip-text text-transparent -mt-4 sm:-mt-6">
+                <h1 className="bg-linear-to-r from-text-primary to-primary bg-clip-text text-transparent -mt-4 text-4xl sm:-mt-6 sm:text-5xl md:text-6xl">
                     Secure and manage Sui assets
                 </h1>
-                <div className="flex flex-wrap items-baseline justify-center gap-x-10 gap-y-2 sm:gap-x-14 md:gap-x-20 relative z-10 px-4 text-xl sm:text-2xl font-bold text-text-primary mt-4 sm:mt-6">
-                    <StatisticItem value={stats?.multisig_count ?? 0} label="Multisigs" to="/multisig" />
-                    <StatisticItem value={stats?.proposal_count ?? 0} label="Decision Markets" to="/proposals" />
-                    <StatisticItem value={GOVEX_DISPLAY_TVL} label="TVL" dollars />
-                </div>
             </div>
         </div>
     );
@@ -115,14 +68,9 @@ export function Navbar(props: Props) {
                             className={`flex items-center gap-4 py-3 px-6 h-12 bg-white/5 rounded-b-lg border-b border-x border-white/10 backdrop-blur-sm transition-all duration-300`}
                         >
                             <NavButton
-                                label="Multisigs"
+                                label="Multisig"
                                 isActive={pathname.startsWith("/multisig")}
                                 onClick={() => navigate("/multisig")}
-                            />
-                            <NavButton
-                                label="Orgs"
-                                isActive={pathname.startsWith("/orgs")}
-                                onClick={() => navigate("/orgs")}
                             />
                             <NavButton
                                 label="Docs"
@@ -199,18 +147,7 @@ function MobileMenuContent({
                     }`}
                     onClick={() => handleNavigation("/multisig")}
                 >
-                    Multisigs
-                </button>
-
-                <button
-                    className={`px-4 py-3 rounded-lg transition-colors w-full text-left ${
-                        pathname.startsWith("/orgs")
-                            ? "bg-white/10 text-white"
-                            : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
-                    onClick={() => handleNavigation("/orgs")}
-                >
-                    Orgs
+                    Multisig
                 </button>
 
                 <button

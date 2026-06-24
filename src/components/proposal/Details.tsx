@@ -44,7 +44,7 @@ const STAGE_TITLES: Record<DisplayProposalState, string> = {
     created: "Created",
     active: "Trading Started",
     awaiting_execution: "Awaiting Execution",
-    finalized: "Finalized",
+    finalized: "TWAP Ended",
     executed: "Executed",
 };
 
@@ -138,20 +138,19 @@ function ProposalAdvancedPanel({ proposal, apiProposal }: Props) {
     const executedAtMs = parseMs(apiProposal?.execution_at);
 
     const currentState = apiProposal ? toDisplayProposalState(getEffectiveProposalState(apiProposal)) : undefined;
-    const finalizedAtMs = executedAtMs ?? tradingEndMs;
 
     const stateRows = useMemo(() => {
         const rowValues: Record<(typeof LIFECYCLE_STAGE_ORDER)[number], string> = {
             created: formatStageDate(createdAtMs),
             active: formatStageDate(tradingStartMs),
-            finalized: formatStageDate(finalizedAtMs),
+            finalized: formatStageDate(tradingEndMs),
             executed: formatStageDate(executedAtMs),
         };
         return LIFECYCLE_STAGE_ORDER.map((state) => ({
             title: STAGE_TITLES[state],
             value: rowValues[state],
         }));
-    }, [createdAtMs, executedAtMs, finalizedAtMs, tradingStartMs]);
+    }, [createdAtMs, executedAtMs, tradingEndMs, tradingStartMs]);
 
     const currentStage = currentState ? STAGE_TITLES[currentState] : "N/A";
 

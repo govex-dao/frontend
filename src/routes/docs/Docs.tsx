@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { ArrowRight, ChevronDown, ExternalLink, Menu, X } from "lucide-react";
@@ -18,6 +18,46 @@ interface DocsArticleProps {
 
 interface DocsSectionContentProps {
     section: DocsSection;
+}
+
+function renderInlineText(text: string): ReactNode[] {
+    const nodes: ReactNode[] = [];
+    const inlinePattern = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)|\*\*([^*]+)\*\*/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = inlinePattern.exec(text)) !== null) {
+        const [raw, label, href, boldText] = match;
+        if (match.index > lastIndex) {
+            nodes.push(text.slice(lastIndex, match.index));
+        }
+        if (href) {
+            nodes.push(
+                <a
+                    key={`${href}-${match.index}`}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                    {label}
+                </a>
+            );
+        } else {
+            nodes.push(
+                <strong key={`${boldText}-${match.index}`} className="font-semibold text-text-primary">
+                    {boldText}
+                </strong>
+            );
+        }
+        lastIndex = match.index + raw.length;
+    }
+
+    if (lastIndex < text.length) {
+        nodes.push(text.slice(lastIndex));
+    }
+
+    return nodes.length > 0 ? nodes : [text];
 }
 
 function DocsSidebar({ activePage, onNavigate, variant = "page" }: DocsSidebarProps) {
@@ -182,7 +222,7 @@ function DocsSectionContent({ section }: DocsSectionContentProps) {
                 <div className="mt-3 flex flex-col gap-3">
                     {section.paragraphs.map((paragraph) => (
                         <p key={paragraph} className="max-w-3xl text-sm leading-relaxed text-text-secondary">
-                            {paragraph}
+                            {renderInlineText(paragraph)}
                         </p>
                     ))}
                 </div>
@@ -191,7 +231,7 @@ function DocsSectionContent({ section }: DocsSectionContentProps) {
                 <ul className="mt-4 list-disc space-y-2 pl-5">
                     {section.bullets.map((bullet) => (
                         <li key={bullet} className="text-sm leading-relaxed text-text-secondary">
-                            {bullet}
+                            {renderInlineText(bullet)}
                         </li>
                     ))}
                 </ul>

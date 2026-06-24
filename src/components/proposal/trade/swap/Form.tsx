@@ -610,7 +610,7 @@ export function TradeForm({
                 quoteError instanceof Error && quoteError.message ? quoteError.message : "Simulation failed";
             return `Simulation failed: ${errorMessage}`;
         }
-        if (quoteResult) return "Estimated (simulated on-chain)";
+        if (quoteResult) return "Estimated (simulated onchain)";
         return "No simulation result";
     }, [fromAmountRaw, isQuoteStaleForInput, quoteEnabled, quoteLoading, quoteIsError, quoteError, quoteResult]);
 

@@ -4,7 +4,8 @@ import toast from "react-hot-toast";
 import { Input } from "@/components/inputs/Input";
 import {
     ADVANCED_MAX_GROUPS,
-    ADVANCED_MAX_TIME_BANDS,
+    // Remove this comment to use advanced time banding configuration:
+    // ADVANCED_MAX_TIME_BANDS,
     createDraftId,
     effectiveGroupCount,
     effectiveMemberCount,
@@ -15,7 +16,8 @@ import {
     type AdvancedMultisigDraft,
     type AdvancedPolicyPathDraft,
     type AdvancedRequirementDraft,
-    type AdvancedTimeBandDraft,
+    // Remove this comment to use advanced time banding configuration:
+    // type AdvancedTimeBandDraft,
 } from "@/lib/sui/advancedMultisigConfig";
 import { MAX_MULTISIG_MEMBERS, parseU64Input } from "@/lib/sui/multisigConfigValidation";
 import { AdvancedMultisigOverview } from "./AdvancedMultisigOverview";
@@ -43,9 +45,12 @@ function createMember(address = ""): AdvancedMemberDraft {
     return { id: createDraftId("member"), address, weight: "1" };
 }
 
+// Remove this comment block to use advanced time banding configuration:
+/*
 function createTimeBand(): AdvancedTimeBandDraft {
     return { id: createDraftId("time-band"), afterDays: "1", weight: "1" };
 }
+*/
 
 function nextGroupIndex(groups: AdvancedGroupDraft[]): number {
     const usedNames = new Set(groups.map((group) => group.name.trim().toLowerCase()));
@@ -278,6 +283,8 @@ function GroupMembers({
     );
 }
 
+// Remove this comment block to use advanced time banding configuration:
+/*
 function GroupTimeBands({
     group,
     draft,
@@ -364,6 +371,7 @@ function GroupTimeBands({
         </div>
     );
 }
+*/
 
 function GroupEditor({
     group,
@@ -412,7 +420,10 @@ function GroupEditor({
             </div>
             <div className="mt-3 space-y-3">
                 <GroupMembers group={group} draft={draft} onChange={onChange} />
-                <GroupTimeBands group={group} draft={draft} onChange={onChange} />
+                {/*
+                 * Remove this comment block to use advanced time banding configuration:
+                 * <GroupTimeBands group={group} draft={draft} onChange={onChange} />
+                 */}
             </div>
         </div>
     );
@@ -452,9 +463,13 @@ export function AdvancedMultisigConfig({ draft, onChange, error }: Props) {
                 </div>
             </div>
 
+            {/*
+             * Remove this comment block to use advanced time banding configuration:
+             * Use the Groups caption with `max ${ADVANCED_MAX_TIME_BANDS} time bands per group`.
+             */}
             <Section
                 title="Groups"
-                caption={`Signers can appear in multiple groups. Max ${ADVANCED_MAX_GROUPS} groups per multisig (incl. role groups), max ${MAX_MULTISIG_MEMBERS} member entries per multisig, max ${ADVANCED_MAX_TIME_BANDS} time bands per group.`}
+                caption={`Signers can appear in multiple groups. Max ${ADVANCED_MAX_GROUPS} groups per multisig (incl. role groups), max ${MAX_MULTISIG_MEMBERS} member entries per multisig.`}
                 action={
                     <SmallButton
                         onClick={() =>
@@ -488,11 +503,15 @@ export function AdvancedMultisigConfig({ draft, onChange, error }: Props) {
                     caption="Any path can approve. Each path requires every row."
                     onChange={onChange}
                 />
+                {/*
+                 * Remove this comment block to use advanced time banding configuration:
+                 * Use caption="Reject votes can unlock cancellation. Time bands are considered only for approvals, never for rejections."
+                 */}
                 <AdvancedMultisigPolicyEditor
                     draft={draft}
                     kind="rejection"
                     title="Rejection policy"
-                    caption="Reject votes can unlock cancellation. Time bands are considered only for approvals, never for rejections."
+                    caption="Reject votes can unlock cancellation."
                     onChange={onChange}
                 />
             </div>

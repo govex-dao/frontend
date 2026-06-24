@@ -24,7 +24,7 @@ export interface StreamData {
     iterationsTotal: string;
     iterationPeriodDays: string;
     startTime: string; // datetime-local, actual first claim/spend date
-    expiryTime: string; // datetime-local, preapproved spending only
+    expiryTime: string; // datetime-local, spending limits only
     whitelistedRecipients: string;
     // Cancel fields
     streamId: string;
@@ -37,9 +37,9 @@ interface Props {
 }
 
 const MODE_OPTIONS = [
-    { value: "create", label: "Create Payment Stream" },
-    { value: "create_spending_limit", label: "Create Preapproved Spending" },
-    { value: "cancel", label: "Cancel Payment Stream / Preapproved Spending" },
+    { value: "create", label: "Create Spending Limit" },
+    { value: "create_spending_limit", label: "Create Spending Limit with Whitelist" },
+    { value: "cancel", label: "Cancel Spending Limit" },
 ];
 
 function parseRecipients(input: string): string[] {
@@ -101,7 +101,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
         () =>
             streams.map((s) => ({
                 value: s.id,
-                label: `${s.vaultName} → ${s.isSpendingLimit ? "preapproved spending" : "payment stream"} (${s.coinType.split("::").pop()})`,
+                label: `${s.vaultName} → spending limit (${s.coinType.split("::").pop()})`,
             })),
         [streams]
     );
@@ -221,7 +221,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                     {streamOptions.length > 0 ? (
                         <>
                             <Select
-                                label="Payment Stream / Preapproved Spending"
+                                label="Spending Limit"
                                 options={streamOptions}
                                 value={data.streamId ?? ""}
                                 onChange={handleStreamSelect}
@@ -261,7 +261,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                     ) : (
                         <>
                             <Input
-                                label="Payment Stream / Preapproved Spending ID"
+                                label="Spending Limit ID"
                                 value={data.streamId ?? ""}
                                 onChange={(v) => update({ streamId: v })}
                                 placeholder="0x... (stream object ID)"
@@ -282,7 +282,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                         </>
                     )}
                     <p className="text-[11px] text-text-muted">
-                        Cancels the payment stream or preapproved spending and returns remaining funds to the vault.
+                        Cancels the spending limit and returns remaining funds to the vault.
                     </p>
                 </>
             )}

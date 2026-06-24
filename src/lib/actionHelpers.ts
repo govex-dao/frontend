@@ -25,8 +25,8 @@ export const actionTypes = [
     },
     {
         type: "createStream" as ActionType,
-        label: "Create Payment Stream",
-        description: "Create a payment stream",
+        label: "Create Spending Limit",
+        description: "Create a spending limit",
         icon: Clock,
         color: "text-orange-400",
         bgColor: ACTION_COLORS.createStream.bg,
@@ -36,7 +36,7 @@ export const actionTypes = [
     {
         type: "memo" as ActionType,
         label: "Memo",
-        description: "No on-chain action? Add a binding commitment",
+        description: "No onchain action? Add a binding commitment",
         icon: MessageSquare,
         color: "text-green-400",
         bgColor: ACTION_COLORS.memo.bg,
@@ -45,8 +45,8 @@ export const actionTypes = [
     },
     {
         type: "onChain" as ActionType,
-        label: "On-chain Action",
-        description: "Indexed action staged on-chain",
+        label: "Onchain Action",
+        description: "Indexed action staged onchain",
         icon: Code2,
         color: "text-teal-400",
         bgColor: ACTION_COLORS.onChain.bg,

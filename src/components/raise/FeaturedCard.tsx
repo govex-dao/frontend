@@ -107,7 +107,7 @@ export function FeaturedCard(props: Props) {
                             : status === "upcoming"
                               ? `Starts ${raiseStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
                               : status === "finalizing"
-                                ? "Finalizing on-chain"
+                                ? "Finalizing onchain"
                                 : status === "funded"
                                   ? "Funding complete"
                                   : "Funding ended"}

@@ -17,7 +17,7 @@ export type ActionSpecBuilder = TransactionResult;
 type MoveCallArgs = NonNullable<Parameters<Transaction["moveCall"]>[0]["arguments"]>;
 const CONFIG_CHANGE_ACTION_TYPE = "config::ConfigChange";
 
-/** Maximum action specs per multisig intent (matches on-chain constant) */
+/** Maximum action specs per multisig intent (matches onchain constant) */
 export const MAX_ACTION_SPECS_PER_INTENT = 10;
 
 // ---------------------------------------------------------------------------
@@ -639,7 +639,7 @@ export function addUnlockUpgradeCapSpec(
 // ---------------------------------------------------------------------------
 
 /**
- * Extract the "module::TypeName" suffix from a full on-chain type string.
+ * Extract the "module::TypeName" suffix from a full onchain type string.
  * E.g. "0xabc::vault::VaultDeposit<0x2::sui::SUI>" → "vault::VaultDeposit"
  */
 function extractModuleType(fullType: string): string {
@@ -758,7 +758,7 @@ function findExplicitUpgradeCapProviderForLock(actionTypes: string[], lockAction
 }
 
 /**
- * Info for mapping on-chain action types to do_* execution calls.
+ * Info for mapping onchain action types to do_* execution calls.
  *
  * Type args for each do_* vary — tracked explicitly:
  *   "COI"  = <Config, Outcome, IW>
@@ -788,7 +788,7 @@ interface ActionExecInfo {
 }
 
 /**
- * Map from on-chain action_type suffix (marker module::StructName)
+ * Map from onchain action_type suffix (marker module::StructName)
  * to execution info. Keys match what type_name::with_original_ids produces.
  *
  * do_* functions live in the lib modules (currency, vault, transfer, etc.),
@@ -1087,7 +1087,7 @@ const ACTION_EXEC_MAP: Record<string, ActionExecInfo> = {
         needsRegistry: true,
         needsClock: true,
         typeArgKind: "coin",
-        name: "Cancel Payment Stream",
+        name: "Cancel Spending Limit",
         category: "stream",
     },
     // do_collect_stream<Config, Outcome, CoinType, IW>(executable, account, registry, clock, witness, ctx)
@@ -1100,7 +1100,7 @@ const ACTION_EXEC_MAP: Record<string, ActionExecInfo> = {
         needsRegistry: true,
         needsClock: true,
         typeArgKind: "coin",
-        name: "Collect Payment Stream",
+        name: "Collect Spending Limit",
         category: "stream",
     },
 
@@ -1114,7 +1114,7 @@ const ACTION_EXEC_MAP: Record<string, ActionExecInfo> = {
         needsRegistry: true,
         needsClock: true,
         typeArgKind: "coin",
-        name: "Create Payment Stream",
+        name: "Create Spending Limit",
         category: "stream",
     },
 
@@ -1390,7 +1390,7 @@ export function getActionExecutionRequirements(actionTypes: string[]): ActionExe
 }
 
 /**
- * Look up action info from an on-chain action_type string.
+ * Look up action info from an onchain action_type string.
  * Returns both execution info and human-readable display data.
  */
 export function getActionExecInfo(fullType: string): ActionExecInfo | undefined {

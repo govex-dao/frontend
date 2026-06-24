@@ -1,6 +1,6 @@
 /**
  * React Query hooks for fetching the connected user's VestingCap, StreamCap, and SpendingCap objects,
- * plus their associated on-chain vesting/stream details.
+ * plus their associated onchain vesting/stream details.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -112,7 +112,7 @@ function normalizeIdValue(value: unknown): string {
 }
 
 /**
- * Normalize a coin type from on-chain TypeName format to standard short-form.
+ * Normalize a coin type from onchain TypeName format to standard short-form.
  * "0000...0002::sui::SUI" -> "0x2::sui::SUI"
  */
 function normalizeCoinType(coinType: string): string {

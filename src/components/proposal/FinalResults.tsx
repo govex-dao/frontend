@@ -89,7 +89,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
 
     const isAwaitingExecution = apiProposal.state === "awaiting_execution";
 
-    // If no winning outcome yet, show pending execution/finalization state
+    // If no winning outcome yet, show pending TWAP/execution state.
     if (proposal.winningOutcome == null) {
         return (
             <div className="flex flex-col gap-3">
@@ -106,12 +106,12 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
                             })}
                         </p>
                         <p className="font-bold text-xl tracking-tight text-text-secondary">
-                            {isAwaitingExecution ? "Awaiting Execution" : "Awaiting Finalization"}
+                            {isAwaitingExecution ? "Awaiting Execution" : "TWAP not fixed yet"}
                         </p>
                         <p className="text-xs opacity-60">
                             {isAwaitingExecution
-                                ? "Winning outcome is pending execution-window completion."
-                                : "Market has not been finalized yet"}
+                                ? "Awaiting execution..."
+                                : "TWAP not fixed yet"}
                         </p>
                     </div>
                 </div>

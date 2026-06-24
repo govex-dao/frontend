@@ -87,9 +87,9 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
     ];
 
     const selectedAddresses = (key: RoleAddressKey) => draft[key] ?? [];
-    // Each role becomes a synthetic on-chain group when non-empty, costing
+    // Each role becomes a synthetic onchain group when non-empty, costing
     // 1 group slot + N member-entry slots. Disable the picker when adding
-    // would breach either on-chain max.
+    // would breach either onchain max.
     const totalGroups = effectiveGroupCount(draft);
     const totalMembers = effectiveMemberCount(draft);
     const atMemberLimit = totalMembers >= MAX_MULTISIG_MEMBERS;
@@ -126,7 +126,7 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
                 <h3 className="text-sm font-semibold text-text-primary">Roles</h3>
                 <p className="mt-0.5 text-[11px] leading-snug text-text-muted">
                     Pick exact signer addresses for access. These selections are converted into role-only groups
-                    on-chain.
+                    onchain.
                 </p>
             </div>
             <div className="grid items-stretch gap-3 md:grid-cols-3">

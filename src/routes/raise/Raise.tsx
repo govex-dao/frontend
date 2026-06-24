@@ -393,7 +393,7 @@ export function Raise() {
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-blue-300">Finalizing Raise</p>
-                        <p className="text-xs text-white/50">On-chain completion intents are being processed</p>
+                        <p className="text-xs text-white/50">Onchain completion intents are being processed</p>
                     </div>
                 </div>
             )}

@@ -13,7 +13,7 @@ export function MemoForm(props: Props) {
                 label=""
                 value={value}
                 onChange={onChange}
-                placeholder="What message should be recorded on-chain?"
+                placeholder="What message should be recorded onchain?"
                 rows={3}
                 className="bg-card-elevated! focus:bg-card-more-elevated!"
             />

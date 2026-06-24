@@ -51,7 +51,7 @@ export function useOnChainCoinMetadata(
   });
 }
 
-/** Merge backend coins with on-chain fallback coins */
+/** Merge backend coins with onchain fallback coins */
 export function useMergedCoinMetadata(
   coinTypes: string[],
   backendCoins?: CoinMetadata[],

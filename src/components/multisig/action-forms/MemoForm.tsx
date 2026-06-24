@@ -18,7 +18,7 @@ export function MemoForm({ data, onChange }: Props) {
                 label="Memo"
                 value={data.memo}
                 onChange={(v) => onChange({ memo: v })}
-                placeholder="Record a message on-chain..."
+                placeholder="Record a message onchain..."
                 rows={3}
             />
         </div>

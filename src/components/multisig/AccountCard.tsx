@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { formatAddress } from "@mysten/sui/utils";
-import { Check, Copy, Shield, Users, X } from "lucide-react";
+import { Check, Copy, Shield, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 
@@ -8,13 +8,18 @@ interface Props {
   accountId: string;
   accountName: string;
   memberCount: number;
+  metaLabel?: string;
+  metaValue?: string;
   onRemove?: () => void;
+  to?: string | null;
 }
 
 export function AccountCard(props: Props) {
-  const { accountId, accountName, memberCount, onRemove } = props;
+  const { accountId, accountName, memberCount, metaLabel, metaValue, onRemove, to } = props;
   const [copied, setCopied] = useState(false);
   const displayName = accountName.trim() || "Multisig Account";
+  const cardClassName =
+    "group glass-flow-panel rounded-xl p-5 transition-all flex flex-col gap-4 h-full relative";
 
   const copyAccountId = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -30,11 +35,8 @@ export function AccountCard(props: Props) {
     }
   };
 
-  return (
-    <Link
-      to={`/multisig/${accountId}`}
-      className="group bg-card-elevated hover:bg-card-more-elevated border border-border rounded-xl p-5 transition-all flex flex-col gap-4 h-full relative"
-    >
+  const content = (
+    <>
       {onRemove && (
         <button
           onClick={(e) => {
@@ -42,7 +44,7 @@ export function AccountCard(props: Props) {
             e.stopPropagation();
             onRemove();
           }}
-          className="absolute top-3 right-3 p-1 rounded-lg hover:bg-card-more-elevated transition-colors text-text-muted hover:text-text-primary"
+          className="absolute top-3 right-3 p-1 rounded-lg hover:bg-white/10 transition-colors text-text-muted hover:text-text-primary"
           title="Remove saved account"
         >
           <X className="w-4 h-4" />
@@ -50,7 +52,7 @@ export function AccountCard(props: Props) {
       )}
 
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/15 backdrop-blur-sm flex items-center justify-center">
           <Shield className="w-5 h-5 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
@@ -72,15 +74,38 @@ export function AccountCard(props: Props) {
         </div>
       </div>
 
-      {memberCount > 0 && (
-        <div className="pt-3 border-t border-border-subtle">
-          <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Members</p>
-          <p className="text-sm font-medium flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            {memberCount}
-          </p>
+      {(memberCount > 0 || metaValue) && (
+        <div className="grid gap-3 border-t border-border-subtle pt-3 sm:grid-cols-2">
+          {memberCount > 0 && (
+            <div>
+              <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Members</p>
+              <p className="text-sm font-medium flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {memberCount}
+              </p>
+            </div>
+          )}
+          {metaValue && (
+            <div>
+              <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">{metaLabel ?? "Access"}</p>
+              <p className="text-sm font-medium flex items-center gap-1">
+                <WalletCards className="w-3 h-3" />
+                {metaValue}
+              </p>
+            </div>
+          )}
         </div>
       )}
+    </>
+  );
+
+  if (to === null) {
+    return <div className={cardClassName}>{content}</div>;
+  }
+
+  return (
+    <Link to={to ?? `/multisig/${accountId}`} className={cardClassName}>
+      {content}
     </Link>
   );
 }

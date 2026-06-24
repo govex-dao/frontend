@@ -4,7 +4,7 @@
 
 export type ProposalState = "created" | "initialized" | "active" | "awaiting_execution" | "finalized" | "executed";
 
-// Legacy action types used by proposal creation/editor UI, plus indexed on-chain actions.
+// Legacy action types used by proposal creation/editor UI, plus indexed onchain actions.
 export type ActionType = "memo" | "config" | "transfer" | "createStream" | "onChain";
 
 export interface ConfigUpdate {
@@ -126,6 +126,8 @@ export interface Proposal {
     timestamp: string;
     trading_started_at?: string | null; // Actual wall-clock time of REVIEW→TRADING transition
     trading_ended_at?: string | null; // Actual wall-clock time when trading ended
+    finalized_at?: string | null; // Terminal ProposalMarketFinalized event timestamp
+    finalization_tx?: string | null;
     execution_at?: string | null;
     has_twap: boolean;
     twaps: Record<number, string>;

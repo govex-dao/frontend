@@ -279,10 +279,10 @@ export function ProgressCard({
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
                             </div>
-                            <p className="text-sm font-semibold text-blue-300">Finalizing On-Chain</p>
+                            <p className="text-sm font-semibold text-blue-300">Finalizing Onchain</p>
                         </div>
                         <p className="text-xs text-white/60">
-                            The raise has closed and on-chain actions are being executed.
+                            The raise has closed and onchain actions are being executed.
                             This typically completes within a few minutes.
                         </p>
                         <div className="mt-2 flex items-center gap-1.5">

@@ -38,7 +38,7 @@ interface MemberDraft {
     execute: boolean;
 }
 
-// Simple mode always grants the cancel role (bit 8) to every member. On-chain,
+// Simple mode always grants the cancel role (bit 8) to every member. Onchain,
 // cancel role is a pure membership check (time bands and weights are ignored),
 // and finalizing cancellation still requires the reject quorum to have been met,
 // so making everyone a canceller is permissive but safe. Keep this synced with
@@ -306,7 +306,12 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
                                     <span className="mt-1 block text-[11px] leading-snug text-text-muted">
                                         {mode === "simple"
                                             ? "Best for: individuals and non-technical teams."
-                                            : "Best for: professional teams that want multiple approval paths, backup custodians, or time-weighted approvals."}
+                                            : "Best for: professional teams that want multiple approval paths or backup custodians."}
+                                        {/*
+                                         * Remove this comment block to use advanced time banding configuration:
+                                         * Advanced copy:
+                                         * "Best for: professional teams that want multiple approval paths, backup custodians, or time-weighted approvals."
+                                         */}
                                     </span>
                                 </button>
                             );

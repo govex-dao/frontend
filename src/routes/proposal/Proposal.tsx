@@ -40,7 +40,7 @@ function formatBase100kPercent(raw: string | null | undefined, fallback: string)
 }
 
 function formatThresholdPercent(raw: string | null | undefined): string {
-    return formatBase100kPercent(raw, "0.1%"); // On-chain default is 100 / 100,000 = 0.1%
+    return formatBase100kPercent(raw, "0.1%"); // Onchain default is 100 / 100,000 = 0.1%
 }
 
 function formatSponsoredThresholdPercent(raw: string | null | undefined): string {
@@ -190,7 +190,7 @@ export function Proposal() {
         return toPageProposal(effectiveApiProposal);
     }, [effectiveApiProposal]);
 
-    // Gate trading UI off the indexed proposal state (matches on-chain TradingStarted/Finalized events).
+    // Gate trading UI off the indexed proposal state (matches onchain TradingStarted/Finalized events).
     const state = effectiveApiProposal?.state;
     const isLegacyV1 = effectiveApiProposal?.version?.trim().toLowerCase() === "v1";
     const isActive = !isLegacyV1 && state === "active";

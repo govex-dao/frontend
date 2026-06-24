@@ -1,4 +1,5 @@
 import { calculateStreamAvailableWithTracking } from "@govex/futarchy-sdk";
+import { formatAddress } from "@mysten/sui/utils";
 import { Download, Loader2, Timer, User, Coins, WalletCards, Users } from "lucide-react";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
@@ -136,9 +137,11 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
           </div>
           <div>
             <p className="text-sm font-semibold text-text-primary">
-              {coin} {isSpendingLimit ? "Preapproved Spending" : "Payment Stream"}
+              {coin} Spending Limit
             </p>
-            <p className="text-[10px] text-text-muted">Vault: {stream.vaultName}</p>
+            <p className="text-[10px] text-text-muted">
+              Vault: {stream.vaultName} · {isSpendingLimit ? "Delegate with whitelisted recipients" : "Beneficiary"}
+            </p>
           </div>
         </div>
         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[status]}`}>
@@ -209,14 +212,6 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         {isSpendingLimit && (
           <>
             <div className="flex items-center gap-1.5 text-text-muted">
-              <Users className="w-3 h-3" />
-              <span>Recipients</span>
-            </div>
-            <span className="text-text-primary text-right">
-              {stream.whitelistedRecipients.length}
-            </span>
-
-            <div className="flex items-center gap-1.5 text-text-muted">
               <Timer className="w-3 h-3" />
               <span>Expiry</span>
             </div>
@@ -228,23 +223,25 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
       </div>
 
       {isSpendingLimit && stream.whitelistedRecipients.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-2 border-t border-border-subtle">
-          {stream.whitelistedRecipients.slice(0, 4).map((recipient) => (
-            <CopyableAddress
-              key={recipient}
-              address={recipient}
-              className="max-w-[140px] rounded-full bg-card-more-elevated px-2 py-0.5 text-[10px] text-text-muted"
-              copyClassName="p-0.5"
-              copyLabel="Copy recipient address"
-              textClassName="text-text-muted"
-              toastMessage="Recipient address copied"
-            />
-          ))}
-          {stream.whitelistedRecipients.length > 4 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-card-more-elevated text-text-muted">
-              +{stream.whitelistedRecipients.length - 4}
-            </span>
-          )}
+        <div className="space-y-1.5 pt-2 border-t border-border-subtle">
+          <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <Users className="w-3 h-3" />
+            <span>Whitelisted recipients</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {stream.whitelistedRecipients.map((recipient) => (
+              <CopyableAddress
+                key={recipient}
+                address={recipient}
+                displayText={formatAddress(recipient)}
+                className="max-w-[180px] rounded-full bg-card-more-elevated px-2 py-0.5 text-[10px] text-text-muted"
+                copyClassName="p-0.5"
+                copyLabel="Copy whitelisted recipient address"
+                textClassName="text-text-muted"
+                toastMessage="Whitelisted recipient address copied"
+              />
+            ))}
+          </div>
         </div>
       )}
 
