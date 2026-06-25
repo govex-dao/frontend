@@ -266,7 +266,7 @@ function CollapsibleSection({ title, count, icon, defaultOpen = true, children }
                     {icon}
                     {title}
                     {count != null && count > 0 ? (
-                        <span className="text-xs font-medium text-text-muted">({count})</span>
+                        <span className="text-sm font-semibold text-white">({count})</span>
                     ) : null}
                 </span>
                 {isOpen ? (
@@ -399,7 +399,7 @@ export function ExampleMultisig() {
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-lg font-semibold flex items-center gap-2">
                         <Coins className="w-5 h-5 text-primary" />
-                        Vault Holdings (1)
+                        Vault Holdings <span className="text-sm font-semibold text-white">(1)</span>
                     </h2>
                 </div>
                 <VaultHoldings balances={VAULT_BALANCES} />
@@ -409,7 +409,8 @@ export function ExampleMultisig() {
                 <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-2">
                     <h2 className="flex items-center gap-2 text-lg font-semibold">
                         <Hourglass className="w-5 h-5 text-primary" />
-                        Pending Intents ({pendingIntents.length})
+                        Pending Intents{" "}
+                        <span className="text-sm font-semibold text-white">({pendingIntents.length})</span>
                     </h2>
                 </div>
                 <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
@@ -431,6 +432,7 @@ export function ExampleMultisig() {
                 title="Spending Limits"
                 count={scheduledPayments.length}
                 icon={<WalletCards className="h-4 w-4 text-primary" />}
+                defaultOpen={false}
             >
                 <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
                     {scheduledPayments.map((stream) => (

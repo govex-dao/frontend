@@ -1,5 +1,4 @@
 import { Link } from "react-router";
-import { formatAddress } from "@mysten/sui/utils";
 import { Check, Copy, Shield, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
@@ -59,8 +58,10 @@ export function AccountCard(props: Props) {
           <h3 className="text-base font-semibold text-white group-hover:text-primary transition-colors truncate">
             {displayName}
           </h3>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5">
-            <p className="min-w-0 truncate font-mono text-xs text-text-muted">{formatAddress(accountId)}</p>
+          <div className="mt-1 flex min-w-0 items-start gap-1.5">
+            <p className="min-w-0 flex-1 break-all font-mono text-[11px] leading-relaxed text-text-muted">
+              {accountId}
+            </p>
             <button
               type="button"
               onClick={copyAccountId}

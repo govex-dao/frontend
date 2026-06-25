@@ -116,7 +116,7 @@ function CollapsibleSection({
                     {icon}
                     {title}
                     {count != null && count > 0 ? (
-                        <span className="text-xs font-medium text-text-muted">({count})</span>
+                        <span className="text-sm font-semibold text-white">({count})</span>
                     ) : null}
                 </span>
                 {isOpen ? (
@@ -546,10 +546,12 @@ export function Multisig() {
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
                                 <Coins className="w-5 h-5 text-primary" />
-                                Vault Holdings{" "}
-                                {vaultBalances && vaultBalances.length > 0
-                                    ? `(${aggregateBalances(vaultBalances, coins).length})`
-                                    : ""}
+                                Vault Holdings
+                                {vaultBalances && vaultBalances.length > 0 ? (
+                                    <span className="text-sm font-semibold text-white">
+                                        ({aggregateBalances(vaultBalances, coins).length})
+                                    </span>
+                                ) : null}
                             </h2>
                             {account && (
                                 <button
@@ -569,7 +571,10 @@ export function Multisig() {
                         <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-2">
                             <h2 className="flex items-center gap-2 text-lg font-semibold">
                                 <Hourglass className="w-5 h-5 text-primary" />
-                                Pending Intents {pendingIntents.length > 0 ? `(${pendingIntents.length})` : ""}
+                                Pending Intents
+                                {pendingIntents.length > 0 ? (
+                                    <span className="text-sm font-semibold text-white">({pendingIntents.length})</span>
+                                ) : null}
                             </h2>
                         </div>
                         {intentsLoading ? (
@@ -602,7 +607,6 @@ export function Multisig() {
                             title="Spending Limits"
                             count={accountStreamsAndSpendingLimits.length}
                             icon={<WalletCards className="h-4 w-4 text-primary" />}
-                            defaultOpen
                         >
                             <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
                                 {accountStreamsAndSpendingLimits.map((stream) => (
