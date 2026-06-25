@@ -119,6 +119,7 @@ export function Multisigs() {
   const isAccountListLoading = isLoading || linkedAccountsLoading;
   const totalPages = Math.max(1, Math.ceil(multisigItems.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(msPage, totalPages - 1);
+  const showExampleMultisig = !account || (!isAccountListLoading && multisigItems.length === 0);
 
   useEffect(() => {
     setShowCreateModal(false);
@@ -139,17 +140,18 @@ export function Multisigs() {
       </Helmet>
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Multisig" }]} />
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Example multisig</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          <AccountCard
-            accountId={EXAMPLE_MULTISIG.accountId}
-            accountName={EXAMPLE_MULTISIG.accountName}
-            memberCount={EXAMPLE_MULTISIG.memberCount}
-            to="/multisig/example"
-          />
-        </div>
-      </section>
+      {showExampleMultisig && (
+        <section aria-label="Example multisig">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <AccountCard
+              accountId={EXAMPLE_MULTISIG.accountId}
+              accountName={EXAMPLE_MULTISIG.accountName}
+              memberCount={EXAMPLE_MULTISIG.memberCount}
+              to="/multisig/example"
+            />
+          </div>
+        </section>
+      )}
 
       {!account ? (
         /* Not connected */
