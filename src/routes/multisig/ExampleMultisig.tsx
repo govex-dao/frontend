@@ -371,7 +371,7 @@ export function ExampleMultisig() {
             />
 
             <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0 flex-1">
                     <h1 className="flex items-center gap-3">
                         <Shield className="w-7 h-7 text-primary" />
                         {EXAMPLE_CONFIG.name}
@@ -379,8 +379,9 @@ export function ExampleMultisig() {
                     <div className="mt-1 flex max-w-full items-start gap-1.5">
                         <CopyableAddress
                             address={EXAMPLE_ACCOUNT_ID}
-                            className="min-w-0"
+                            className="w-full min-w-0"
                             textClassName="font-mono text-sm text-text-muted"
+                            wrap
                             copyLabel="Copy example multisig address"
                             toastMessage="Example multisig address copied"
                         />

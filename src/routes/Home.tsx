@@ -95,7 +95,6 @@ export function Home() {
                                     {CONTROL_TARGETS[controlTargetIndex]}
                                 </span>
                             </h2>
-                            <p className="mt-4 text-sm sm:text-base text-text-light">Choose your security level</p>
                         </div>
                     </div>
 
