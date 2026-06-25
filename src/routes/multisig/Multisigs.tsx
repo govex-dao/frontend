@@ -39,7 +39,7 @@ function Pagination({ page, totalPages, onPageChange }: { page: number; totalPag
       <button
         onClick={() => onPageChange(Math.max(0, page - 1))}
         disabled={page === 0}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card-elevated hover:bg-card-more-elevated disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/[0.085] bg-white/[0.045] backdrop-blur-md transition-all hover:bg-white/[0.075] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronLeft className="w-4 h-4" />
         <span className="text-sm">Previous</span>
@@ -56,7 +56,7 @@ function Pagination({ page, totalPages, onPageChange }: { page: number; totalPag
       <button
         onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
         disabled={page === totalPages - 1}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card-elevated hover:bg-card-more-elevated disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/[0.085] bg-white/[0.045] backdrop-blur-md transition-all hover:bg-white/[0.075] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <span className="text-sm">Next</span>
         <ChevronRight className="w-4 h-4" />

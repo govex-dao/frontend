@@ -106,13 +106,13 @@ function CollapsibleSection({
     }, [defaultOpen]);
 
     return (
-        <section className={`rounded-xl border border-border-subtle ${muted ? "bg-card/20" : "bg-card/40"}`}>
+        <section className={`space-y-3 ${muted ? "opacity-90" : ""}`}>
             <button
                 type="button"
                 onClick={() => setIsOpen((open) => !open)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-card-elevated/40"
+                className="flex w-full items-center justify-between gap-3 border-b border-border-subtle pb-2 text-left transition-colors hover:border-border-light"
             >
-                <span className={`flex items-center gap-2 text-sm font-semibold ${muted ? "text-text-muted" : "text-text-primary"}`}>
+                <span className={`flex items-center gap-2 text-lg font-semibold ${muted ? "text-text-muted" : "text-text-primary"}`}>
                     {icon}
                     {title}
                     {count != null && count > 0 ? (
@@ -125,7 +125,7 @@ function CollapsibleSection({
                     <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
                 )}
             </button>
-            {isOpen && <div className="border-t border-border-subtle px-3 pb-3 pt-3">{children}</div>}
+            {isOpen && <div>{children}</div>}
         </section>
     );
 }
@@ -196,10 +196,10 @@ function VaultHoldings({
     const rows = aggregateBalances(balances, coins);
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-white/[0.085] bg-white/[0.035] backdrop-blur-md">
             <table className="w-full">
                 <thead>
-                    <tr className="border-b border-border bg-card-elevated">
+                    <tr className="border-b border-white/[0.075] bg-white/[0.04]">
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                             Asset
                         </th>
@@ -217,7 +217,7 @@ function VaultHoldings({
                         return (
                             <tr
                                 key={row.coinType}
-                                className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
+                                className="border-b border-white/[0.065] last:border-b-0 transition-colors hover:bg-white/[0.035]"
                             >
                                 <td className="py-3 px-4">
                                     <div className="flex items-center gap-3">
@@ -493,7 +493,7 @@ export function Multisig() {
 
             {/* Your permissions summary bar */}
             {currentMember && config && !isSinglePlainGroup && (
-                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex items-center gap-4 flex-wrap">
+                <div className="glass-flow-panel glass-flow-panel-accent rounded-xl p-3 flex items-center gap-4 flex-wrap">
                     <span className="text-xs font-semibold text-text-primary">Your Permissions</span>
                     <div className="flex gap-1.5 flex-wrap">
                         {permissionLabels(currentUserPermissions).map((p) => (
@@ -531,7 +531,7 @@ export function Multisig() {
                 </div>
             ) : !config ? (
                 <div className="flex flex-col items-center justify-center py-24">
-                    <div className="w-20 h-20 rounded-full bg-card-elevated border border-border-subtle flex items-center justify-center mb-6">
+                    <div className="w-20 h-20 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-center mb-6">
                         <Shield className="w-10 h-10 text-text-disabled" />
                     </div>
                     <h3 className="mb-2">No Multisig Config</h3>
@@ -565,8 +565,8 @@ export function Multisig() {
                     </div>
 
                     {/* Pending Intents */}
-                    <div>
-                        <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-2">
                             <h2 className="flex items-center gap-2 text-lg font-semibold">
                                 <Hourglass className="w-5 h-5 text-primary" />
                                 Pending Intents {pendingIntents.length > 0 ? `(${pendingIntents.length})` : ""}

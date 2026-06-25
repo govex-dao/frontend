@@ -257,13 +257,13 @@ function CollapsibleSection({ title, count, icon, defaultOpen = true, children }
     }, [defaultOpen]);
 
     return (
-        <section className="rounded-xl border border-border-subtle bg-card/40">
+        <section className="space-y-3">
             <button
                 type="button"
                 onClick={() => setIsOpen((open) => !open)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-card-elevated/40"
+                className="flex w-full items-center justify-between gap-3 border-b border-border-subtle pb-2 text-left transition-colors hover:border-border-light"
             >
-                <span className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                <span className="flex items-center gap-2 text-lg font-semibold text-text-primary">
                     {icon}
                     {title}
                     {count != null && count > 0 ? (
@@ -276,7 +276,7 @@ function CollapsibleSection({ title, count, icon, defaultOpen = true, children }
                     <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
                 )}
             </button>
-            {isOpen && <div className="border-t border-border-subtle px-3 pb-3 pt-3">{children}</div>}
+            {isOpen && <div>{children}</div>}
         </section>
     );
 }
@@ -296,10 +296,10 @@ function VaultHoldings({ balances }: { balances: VaultCoinBalance[] }) {
     );
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-white/[0.085] bg-white/[0.035] backdrop-blur-md">
             <table className="w-full">
                 <thead>
-                    <tr className="border-b border-border bg-card-elevated">
+                    <tr className="border-b border-white/[0.075] bg-white/[0.04]">
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                             Asset
                         </th>
@@ -312,7 +312,7 @@ function VaultHoldings({ balances }: { balances: VaultCoinBalance[] }) {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors">
+                    <tr className="border-b border-white/[0.065] last:border-b-0 transition-colors hover:bg-white/[0.035]">
                         <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                                 <CoinAvatar coinType={USDC} symbol="USDC" iconUrl={null} size="lg" />
@@ -389,7 +389,7 @@ export function ExampleMultisig() {
                 </div>
                 <Link
                     to="/multisig"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border-subtle bg-card-elevated px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-card-more-elevated hover:text-text-primary"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.085] bg-white/[0.045] px-3 py-2 text-xs font-medium text-text-secondary backdrop-blur-md transition-colors hover:bg-white/[0.075] hover:text-text-primary"
                 >
                     <ArrowLeft className="h-3.5 w-3.5" />
                     Back
@@ -406,8 +406,8 @@ export function ExampleMultisig() {
                 <VaultHoldings balances={VAULT_BALANCES} />
             </div>
 
-            <div>
-                <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-2">
                     <h2 className="flex items-center gap-2 text-lg font-semibold">
                         <Hourglass className="w-5 h-5 text-primary" />
                         Pending Intents ({pendingIntents.length})

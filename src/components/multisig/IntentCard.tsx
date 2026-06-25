@@ -1539,14 +1539,6 @@ export function IntentCard({
                 </div>
             )}
 
-            {/* Approval is final once status flips to APPROVED. Tell users who voted
-                that the "Undo Approval" path is gone; they can still Reject. */}
-            {isApproved && hasAlreadyApproved && (
-                <p className="text-[10px] text-text-muted">
-                    Your approval is locked in once status reaches Approved. You can still Reject to flip status.
-                </p>
-            )}
-
             {/* Action buttons */}
             {hasActions && (
                 <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
