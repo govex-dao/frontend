@@ -464,6 +464,11 @@ export function IntentCard({
         !isStale
     );
     const showVoteProgress = approvalProgress.threshold > 0 || rejectionProgress.threshold > 0;
+    const voteProgressPanelClass = rejectionProgress.satisfied
+        ? "border-red-500/35 bg-red-500/[0.08] shadow-[0_0_18px_rgba(239,68,68,0.08)]"
+        : approvalProgress.satisfied
+          ? "border-green-500/35 bg-green-500/[0.08] shadow-[0_0_18px_rgba(34,197,94,0.08)]"
+          : "border-border-subtle bg-card-more-elevated/35";
 
     const isConfig = isMultisigConfigIntentSummary(intent, getSDK().packages.accountMultisig);
     const executionRequirements = !isConfig ? getActionExecutionRequirements(intent.actionTypes) : [];
@@ -1216,7 +1221,7 @@ export function IntentCard({
             )}
 
             {showVoteProgress && (
-                <div className="space-y-2 rounded-lg border border-border-subtle bg-card-more-elevated/35 p-2.5">
+                <div className={`space-y-2 rounded-lg border p-2.5 transition-colors ${voteProgressPanelClass}`}>
                     <VoteProgressMeter label="Approve votes" progress={approvalProgress} tone="approve" />
                     <VoteProgressMeter label="Reject votes" progress={rejectionProgress} tone="reject" />
                 </div>
