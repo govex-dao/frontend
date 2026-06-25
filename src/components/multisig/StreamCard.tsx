@@ -48,7 +48,25 @@ function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
-function streamProgress(stream: VaultStreamInfo): {
+function percentOf(amount: bigint, total: bigint): number {
+  if (total <= 0n || amount <= 0n) return 0;
+  const basisPoints = (amount * 10_000n) / total;
+  return Math.min(100, Number(basisPoints) / 100);
+}
+
+function formatPercent(percent: number): string {
+  if (percent <= 0) return "0%";
+  if (percent < 10) return `${percent.toFixed(1).replace(/\.0$/, "")}%`;
+  return `${Math.round(percent)}%`;
+}
+
+function clampBigInt(value: bigint, min: bigint, max: bigint): bigint {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+function streamProgress(stream: VaultStreamInfo, nowMs = Date.now()): {
   percent: number;
   totalAmount: bigint;
   elapsedIterations: number;
@@ -61,13 +79,11 @@ function streamProgress(stream: VaultStreamInfo): {
     return { percent: 100, totalAmount, elapsedIterations: stream.iterationsTotal, status: "completed" };
   }
 
-  const now = Date.now();
-
-  if (now < firstSpendTimeMs) {
+  if (nowMs < firstSpendTimeMs) {
     return { percent: 0, totalAmount, elapsedIterations: 0, status: "pending" };
   }
 
-  const elapsed = now - stream.startTimeMs;
+  const elapsed = nowMs - stream.startTimeMs;
   const elapsedIterations = Math.min(
     Math.floor(elapsed / stream.iterationPeriodMs),
     stream.iterationsTotal,
@@ -86,8 +102,8 @@ function getFirstSpendTimeMs(stream: VaultStreamInfo): number {
   return stream.startTimeMs + stream.iterationPeriodMs;
 }
 
-function streamClaimableAmount(stream: VaultStreamInfo): bigint {
-  if (stream.isSpendingLimit) return 0n;
+function streamAvailableAmount(stream: VaultStreamInfo, nowMs = Date.now()): bigint {
+  if (stream.isSpendingLimit && stream.expiryMs != null && nowMs >= stream.expiryMs) return 0n;
   try {
     return calculateStreamAvailableWithTracking({
       amountPerIteration: stream.amountPerIteration,
@@ -96,7 +112,7 @@ function streamClaimableAmount(stream: VaultStreamInfo): bigint {
       startTimeMs: BigInt(stream.startTimeMs),
       iterationsTotal: BigInt(stream.iterationsTotal),
       iterationPeriodMs: BigInt(stream.iterationPeriodMs),
-      currentTimeMs: BigInt(Date.now()),
+      currentTimeMs: BigInt(nowMs),
       claimWindowMs: stream.claimWindowMs != null ? BigInt(stream.claimWindowMs) : undefined,
     });
   } catch {
@@ -104,18 +120,45 @@ function streamClaimableAmount(stream: VaultStreamInfo): bigint {
   }
 }
 
+function streamAmountBreakdown(stream: VaultStreamInfo, nowMs = Date.now()) {
+  const totalAmount = stream.amountPerIteration * BigInt(stream.iterationsTotal);
+  const { elapsedIterations } = streamProgress(stream, nowMs);
+  const completedAmount = stream.amountPerIteration * BigInt(elapsedIterations);
+  const availableAmount = streamAvailableAmount(stream, nowMs);
+  const claimedAmount = clampBigInt(stream.claimedAmount, 0n, totalAmount);
+  const expiredSpendingLimit = Boolean(stream.isSpendingLimit && stream.expiryMs != null && nowMs >= stream.expiryMs);
+  const rawForfeitedAmount =
+    stream.claimWindowMs != null || expiredSpendingLimit
+      ? (expiredSpendingLimit ? totalAmount : completedAmount) - claimedAmount - availableAmount
+      : 0n;
+  const forfeitedAmount = clampBigInt(rawForfeitedAmount, 0n, totalAmount - claimedAmount);
+
+  return {
+    availableAmount,
+    claimedAmount,
+    forfeitedAmount,
+    claimedPercent: percentOf(claimedAmount, totalAmount),
+    forfeitedPercent: percentOf(forfeitedAmount, totalAmount),
+  };
+}
+
 export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
   const coin = extractCoinSymbol(stream.coinType);
-  const { percent, totalAmount, status } = streamProgress(stream);
+  const nowMs = Date.now();
+  const { totalAmount, status } = streamProgress(stream, nowMs);
   const isSpendingLimit = Boolean(stream.isSpendingLimit);
-  const claimableAmount = streamClaimableAmount(stream);
+  const { availableAmount, claimedAmount, forfeitedAmount, claimedPercent, forfeitedPercent } =
+    streamAmountBreakdown(stream, nowMs);
+  const claimableAmount = isSpendingLimit ? 0n : availableAmount;
   const canCollect = Boolean(onCollect && stream.capId && stream.accountId && !isSpendingLimit);
+  const hasForfeitedAmount = forfeitedAmount > 0n;
+  const hasWhitelistedRecipients = stream.whitelistedRecipients.length > 0;
 
   const firstSpendTimeMs = getFirstSpendTimeMs(stream);
   const endTimeMs = stream.startTimeMs + stream.iterationPeriodMs * stream.iterationsTotal;
   const visibleDurationMs = Math.max(endTimeMs - firstSpendTimeMs, 0);
-  const firstDateLabel = isSpendingLimit ? "First spend" : "First claim";
-  const finalDateLabel = isSpendingLimit ? "Final spend" : "Final claim";
+  const firstDateLabel = "First spend";
+  const finalDateLabel = "Final spend";
 
   const statusColors = {
     pending: "bg-yellow-500/15 text-yellow-400",
@@ -129,18 +172,14 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            {isSpendingLimit ? (
-              <WalletCards className="w-4 h-4 text-primary" />
-            ) : (
-              <Coins className="w-4 h-4 text-primary" />
-            )}
+            <WalletCards className="w-4 h-4 text-primary" />
           </div>
           <div>
             <p className="text-sm font-semibold text-text-primary">
               {coin} Spending Limit
             </p>
             <p className="text-[10px] text-text-muted">
-              Vault: {stream.vaultName} · {isSpendingLimit ? "Delegate with whitelisted recipients" : "Beneficiary"}
+              Vault: {stream.vaultName} · Delegate
             </p>
           </div>
         </div>
@@ -151,20 +190,45 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
 
       {/* Progress bar */}
       <div>
-        <div className="flex items-center justify-between text-[10px] text-text-muted mb-1">
-          <span>{formatAmount(stream.claimedAmount, coin)} {isSpendingLimit ? "spent" : "claimed"}</span>
-          <span>{percent}%</span>
+        <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-text-muted">
+          <span className="min-w-0">
+            {formatAmount(claimedAmount, coin)} spent
+            {hasForfeitedAmount && (
+              <span className="text-red-300"> · {formatAmount(forfeitedAmount, coin)} forfeited</span>
+            )}
+          </span>
+          <span className="shrink-0">{formatPercent(claimedPercent)} spent</span>
         </div>
-        <div className="h-1.5 bg-card-more-elevated rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${percent}%` }}
-          />
+        <div className="flex h-1.5 overflow-hidden rounded-full bg-card-more-elevated">
+          {claimedPercent > 0 && (
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${claimedPercent}%` }}
+            />
+          )}
+          {forfeitedPercent > 0 && (
+            <div
+              className="h-full bg-red-500/70 transition-all"
+              style={{ width: `${forfeitedPercent}%` }}
+            />
+          )}
         </div>
         <div className="flex items-center justify-between text-[10px] text-text-muted mt-1">
           <span>0</span>
           <span>{formatAmount(totalAmount, coin)} {coin}</span>
         </div>
+        {hasForfeitedAmount && (
+          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-text-muted">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-3 rounded-full bg-primary" />
+              Spent
+            </span>
+            <span className="inline-flex items-center gap-1 text-red-300">
+              <span className="h-1.5 w-3 rounded-full bg-red-500/70" />
+              Forfeited
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Details */}
@@ -173,14 +237,14 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
           <>
             <div className="flex items-center gap-1.5 text-text-muted">
               <User className="w-3 h-3" />
-              <span>{isSpendingLimit ? "Delegate" : "Beneficiary"}</span>
+              <span>Delegate</span>
             </div>
             <CopyableAddress
               address={stream.capHolder}
               className="justify-end text-text-primary"
               copyClassName="p-0.5"
-              copyLabel={`Copy ${isSpendingLimit ? "delegate" : "beneficiary"} address`}
-              toastMessage={`${isSpendingLimit ? "Delegate" : "Beneficiary"} address copied`}
+              copyLabel="Copy delegate address"
+              toastMessage="Delegate address copied"
             />
           </>
         )}
@@ -200,6 +264,18 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         <span className="text-text-primary text-right">
           {formatDuration(stream.iterationPeriodMs)} x {stream.iterationsTotal}
         </span>
+
+        {stream.claimWindowMs != null && (
+          <>
+            <div className="flex items-center gap-1.5 text-text-muted">
+              <Timer className="w-3 h-3" />
+              <span>Spend window</span>
+            </div>
+            <span className="text-text-primary text-right">
+              {formatDuration(stream.claimWindowMs)}
+            </span>
+          </>
+        )}
 
         <div className="flex items-center gap-1.5 text-text-muted">
           <Timer className="w-3 h-3" />
@@ -222,12 +298,12 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         )}
       </div>
 
-      {isSpendingLimit && stream.whitelistedRecipients.length > 0 && (
-        <div className="space-y-1.5 pt-2 border-t border-border-subtle">
-          <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
-            <Users className="w-3 h-3" />
-            <span>Whitelisted recipients</span>
-          </div>
+      <div className="space-y-1.5 pt-2 border-t border-border-subtle">
+        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <Users className="w-3 h-3" />
+          <span>Whitelisted recipients</span>
+        </div>
+        {hasWhitelistedRecipients ? (
           <div className="flex flex-wrap gap-1">
             {stream.whitelistedRecipients.map((recipient) => (
               <CopyableAddress
@@ -242,8 +318,12 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
               />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <span className="inline-flex rounded-full bg-card-more-elevated px-2 py-0.5 text-[10px] text-text-muted">
+            Open
+          </span>
+        )}
+      </div>
 
       {/* Timeline */}
       <div className="flex items-center justify-between gap-3 text-[10px] text-text-muted pt-2 border-t border-border-subtle">
@@ -268,7 +348,7 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
           {isCollecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {claimableAmount > 0n
             ? `Collect ${formatAmount(claimableAmount, coin)} ${coin}`
-            : "Nothing claimable yet"}
+            : "Nothing available yet"}
         </button>
       )}
     </div>

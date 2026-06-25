@@ -451,7 +451,7 @@ export function Multisig() {
             <Breadcrumbs
                 items={[
                     { label: "Home", href: "/" },
-                    { label: "Multisig", href: "/multisig" },
+                    { label: "Multisigs", href: "/multisig" },
                     { label: accountId ? formatAddress(accountId) : "..." },
                 ]}
             />

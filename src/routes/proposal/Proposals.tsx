@@ -139,7 +139,9 @@ export function Proposals() {
             {/* Main Layout with Sidebar */}
             <div className="flex gap-6 flex-1">
                 {/* Left Sidebar - Filters & Sort (Desktop) */}
-                <div className="hidden lg:block w-72 shrink-0">{filterContent}</div>
+                <div className="glass-flow-panel hidden w-72 shrink-0 self-start rounded-xl p-4 lg:block">
+                    {filterContent}
+                </div>
 
                 {/* Filter Drawer (Mobile) */}
                 <FilterDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
@@ -160,7 +162,7 @@ export function Proposals() {
 
                     {/* Empty State */}
                     {!proposalsLoading && filteredAndSortedProposals.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-24 gap-2">
+                        <div className="glass-flow-panel flex flex-col items-center justify-center gap-2 rounded-xl px-6 py-24">
                             <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
                                 <File className="w-10 h-10 text-text-disabled" />
                             </div>

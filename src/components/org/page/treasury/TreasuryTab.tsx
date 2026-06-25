@@ -58,7 +58,7 @@ interface TreasuryTabProps {
 }
 
 const TreasuryMetricCard = ({ org }: { org: Org }) => (
-    <Card className="min-w-[280px] h-full bg-linear-to-br from-primary/10 via-primary/5 to-primary/8 border border-border-light rounded-2xl overflow-hidden relative">
+    <Card variant="glass" className="glass-flow-panel-accent min-w-[280px] h-full rounded-2xl overflow-hidden relative">
         <div className="absolute inset-0 engineering-grid engineering-grid-fade pointer-events-none opacity-40" />
         <CardContent className="flex flex-col gap-4 h-full relative z-10 justify-between">
             <div className="flex flex-col gap-2">

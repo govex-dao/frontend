@@ -34,7 +34,7 @@ export function TradeDetails(props: TradeDetailsProps) {
     return (
         <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2 w-full text-xs">
-                <div className="bg-card-elevated px-3 py-1.5 rounded-md border border-border-light flex justify-between items-center">
+                <div className="rounded-md border border-border-light bg-white/[0.035] px-3 py-1.5 flex justify-between items-center">
                     <p className="text-text-tertiary font-medium text-xs">Price Impact</p>
                     <span
                         className={`font-semibold ${
@@ -48,7 +48,7 @@ export function TradeDetails(props: TradeDetailsProps) {
                         {formatDisplayNumber(swapDetails.priceImpact, 4)}%
                     </span>
                 </div>
-                <div className="bg-card-elevated px-3 py-1 rounded-md border border-border-light flex justify-between items-center">
+                <div className="rounded-md border border-border-light bg-white/[0.035] px-3 py-1 flex justify-between items-center">
                     <p className="text-text-tertiary font-medium text-xs">Slippage</p>
                     <p className="text-primary-light font-semibold text-xs">{formatDisplayNumber(tolerance, 4)}%</p>
                 </div>

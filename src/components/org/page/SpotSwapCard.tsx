@@ -479,7 +479,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
     ]);
 
     return (
-        <Card variant="elevated" className="bg-card-elevated">
+        <Card variant="glass">
             <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
                     <h3 className="text-lg font-semibold">Swap</h3>
@@ -487,7 +487,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
             </div>
 
             {!poolReady ? (
-                <div className="rounded-lg border border-border-light bg-card-more-elevated p-3 text-sm text-text-muted">
+                <div className="rounded-lg border border-border-light bg-white/[0.035] p-3 text-sm text-text-muted">
                     This organization does not have a spot pool yet.
                 </div>
             ) : (
@@ -516,7 +516,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
                         label="Receive"
                     />
 
-                    <div className="mt-1 rounded-lg border border-border-light bg-card-more-elevated p-3">
+                    <div className="mt-1 rounded-lg border border-border-light bg-white/[0.035] p-3">
                         <div className="flex items-center justify-between gap-3 text-xs">
                             <span className="text-text-muted">Price</span>
                             <span className="text-text-primary tabular-nums">

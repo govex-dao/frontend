@@ -23,7 +23,7 @@ export interface StreamData {
     amountPerIteration: string;
     iterationsTotal: string;
     iterationPeriodDays: string;
-    startTime: string; // datetime-local, actual first claim/spend date
+    startTime: string; // datetime-local, actual first spend date
     expiryTime: string; // datetime-local, spending limits only
     whitelistedRecipients: string;
     // Cancel fields
@@ -38,7 +38,7 @@ interface Props {
 
 const MODE_OPTIONS = [
     { value: "create", label: "Create Spending Limit" },
-    { value: "create_spending_limit", label: "Create Spending Limit with Whitelist" },
+    { value: "create_spending_limit", label: "Create Spending Limit with Whitelisted Recipients" },
     { value: "cancel", label: "Cancel Spending Limit" },
 ];
 
@@ -68,7 +68,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
     const periodMs = daysToMs(data.iterationPeriodDays);
     const pastIterations = getPastIterationsForStreamData(data);
     const totalIterations = Number(data.iterationsTotal || "0");
-    const firstAvailableLabel = isSpendingLimitMode ? "First Spend Date (optional)" : "First Claim Date (optional)";
+    const firstAvailableLabel = "First Spend Date (optional)";
     const startTimeError =
         (data.startTime ?? "").length > 0 && (startTimeMs == null || BigInt(startTimeMs) < periodMs);
     const hasPastIterationWarning = pastIterations > 2;
@@ -148,7 +148,7 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                         label={data.vaultName ? `Coin Type (${data.vaultName} vault)` : "Coin Type"}
                     />
                     <Input
-                        label={isSpendingLimitMode ? "Delegate" : "Beneficiary"}
+                        label="Delegate"
                         value={data.capRecipient}
                         onChange={(v) => update({ capRecipient: v })}
                         placeholder="0x... address"
@@ -241,20 +241,22 @@ export function StreamForm({ accountId, data, onChange }: Props) {
                                     </p>
                                     {selectedStream.capHolder && (
                                         <p>
-                                            {selectedStream.isSpendingLimit ? "Delegate" : "Beneficiary"}:{" "}
+                                            Delegate:{" "}
                                             <span className="font-mono text-text-primary">
                                                 {formatAddress(selectedStream.capHolder)}
                                             </span>
                                         </p>
                                     )}
-                                    {selectedStream.isSpendingLimit && (
-                                        <p>
-                                            Recipients:{" "}
-                                            <span className="text-text-primary">
-                                                {selectedStream.whitelistedRecipients.length}
+                                    <p>
+                                        Whitelisted recipients:{" "}
+                                        {selectedStream.whitelistedRecipients.length > 0 ? (
+                                            <span className="font-mono text-text-primary">
+                                                {selectedStream.whitelistedRecipients.map(formatAddress).join(", ")}
                                             </span>
-                                        </p>
-                                    )}
+                                        ) : (
+                                            <span className="text-text-primary">Open</span>
+                                        )}
+                                    </p>
                                 </div>
                             )}
                         </>
@@ -308,7 +310,7 @@ function firstAvailableTimeToStartTimeMs(value: string, iterationPeriodMs: bigin
 
     const startTimeMs = BigInt(firstAvailableMs) - iterationPeriodMs;
     if (startTimeMs < 0n) {
-        throw new Error("First claim/spend date is too early for this iteration period");
+        throw new Error("First spend date is too early for this iteration period");
     }
     return startTimeMs;
 }

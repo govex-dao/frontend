@@ -29,11 +29,16 @@ interface MemberDraft {
     propose: boolean;
     vote: boolean;
     execute: boolean;
-    cancel: boolean;
 }
 
-function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean; cancel: boolean }): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 : 0) | (m.cancel ? 8 : 0);
+const PERMISSION_LABELS = {
+    propose: "Propose",
+    vote: "Vote",
+    execute: "Execute",
+} as const;
+
+function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean }): number {
+    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? (4 | 8) : 0);
 }
 
 function memberFromConfig(m: MultisigMember): MemberDraft {
@@ -42,8 +47,7 @@ function memberFromConfig(m: MultisigMember): MemberDraft {
         weight: String(m.weight),
         propose: (m.permissions & 1) !== 0,
         vote: (m.permissions & 2) !== 0,
-        execute: (m.permissions & 4) !== 0,
-        cancel: (m.permissions & 8) !== 0,
+        execute: (m.permissions & (4 | 8)) !== 0,
     };
 }
 
@@ -94,7 +98,7 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
     const addMember = () =>
         setMembers((prev) => [
             ...prev,
-            { address: "", weight: "1", propose: true, vote: true, execute: true, cancel: true },
+            { address: "", weight: "1", propose: true, vote: true, execute: true },
         ]);
 
     const removeMember = (idx: number) => setMembers((prev) => prev.filter((_, i) => i !== idx));
@@ -232,7 +236,7 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
                                 </div>
 
                                 <div className="flex gap-1.5 text-xs">
-                                    {(["propose", "vote", "execute", "cancel"] as const).map((permission) => (
+                                    {(["propose", "vote", "execute"] as const).map((permission) => (
                                         <button
                                             key={permission}
                                             type="button"
@@ -243,8 +247,7 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
                                                     : "bg-white/5 text-text-muted hover:text-text-primary"
                                             }`}
                                         >
-                                            {permission[0].toUpperCase()}
-                                            {permission.slice(1)}
+                                            {PERMISSION_LABELS[permission]}
                                         </button>
                                     ))}
                                 </div>

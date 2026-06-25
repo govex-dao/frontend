@@ -148,8 +148,9 @@ export function permissionLabels(permissions: number): string[] {
     const labels: string[] = [];
     if (hasPermission(permissions, PERMISSION_PROPOSE)) labels.push("Propose");
     if (hasPermission(permissions, PERMISSION_VOTE)) labels.push("Vote");
-    if (hasPermission(permissions, PERMISSION_EXECUTE)) labels.push("Execute");
-    if (hasPermission(permissions, PERMISSION_CANCEL)) labels.push("Cancel");
+    if (hasPermission(permissions, PERMISSION_EXECUTE) || hasPermission(permissions, PERMISSION_CANCEL)) {
+        labels.push("Execute");
+    }
     return labels;
 }
 

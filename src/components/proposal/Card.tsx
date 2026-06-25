@@ -57,21 +57,19 @@ export function ProposalCard(props: Props) {
             " transition-colors group-hover/proposal:text-primary group-active/proposal:text-primary-light group-focus/proposal:text-primary";
         detailsClasses += " text-text-secondary";
     } else if (isEnded) {
-        cardClasses = "bg-card-elevated hover:bg-card-more-elevated border border-border hover:border-border-lighter";
+        cardClasses = "hover:border-border-light";
         titleClasses += " text-text-secondary";
         detailsClasses += " text-text-muted";
     } else if (isPending) {
-        cardClasses =
-            "bg-purple-900/10 hover:bg-purple-900/20 border-2 border-dashed border-purple-500/30 hover:border-purple-500/30";
+        cardClasses = "glass-flow-panel-accent";
         titleClasses += " text-text-primary";
         detailsClasses += " text-text-secondary";
     } else if (isActive) {
-        cardClasses =
-            "bg-linear-to-l from-primary/10 to-gray-800/60 border-2 border-primary/20 hover:border-primary/30";
+        cardClasses = "glass-flow-panel-accent";
         titleClasses += " text-text-primary";
         detailsClasses += " text-text-secondary";
     } else {
-        cardClasses = "bg-card hover:bg-card-elevated border border-border-light hover:border-border-lighter";
+        cardClasses = "hover:border-border-light";
         titleClasses += " text-text-primary";
         detailsClasses += " text-text-secondary";
     }
@@ -105,6 +103,7 @@ export function ProposalCard(props: Props) {
     return (
         <Card
             key={proposal.id}
+            variant={joined ? "default" : "glass"}
             interactive
             className={`${cardOuterClasses} ${cardClasses} ${className}`}
             onClick={handleCardClick}

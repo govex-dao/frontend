@@ -68,7 +68,7 @@ export function Navbar(props: Props) {
                             className={`flex items-center gap-4 py-3 px-6 h-12 bg-white/5 rounded-b-lg border-b border-x border-white/10 backdrop-blur-sm transition-all duration-300`}
                         >
                             <NavButton
-                                label="Multisig"
+                                label="Multisigs"
                                 isActive={pathname.startsWith("/multisig")}
                                 onClick={() => navigate("/multisig")}
                             />
@@ -147,7 +147,7 @@ function MobileMenuContent({
                     }`}
                     onClick={() => handleNavigation("/multisig")}
                 >
-                    Multisig
+                    Multisigs
                 </button>
 
                 <button

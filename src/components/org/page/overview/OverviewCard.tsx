@@ -32,9 +32,9 @@ export function OverviewCard({
 }: OverviewCardProps) {
     const cardClasses = `
         flex flex-col h-full group min-w-[200px]
-        bg-card-elevated border border-border/50 rounded-2xl overflow-hidden
+        glass-flow-panel rounded-2xl overflow-hidden
         relative shadow-sm transition-all duration-200
-        ${clickable ? "cursor-pointer bg-card-elevated border-border-light hover:bg-card-more-elevated/40 hover:border-border-light group" : ""}
+        ${clickable ? "cursor-pointer hover:border-border-light group" : ""}
     `.trim();
 
     const handleClick = () => {
@@ -46,7 +46,7 @@ export function OverviewCard({
     return (
         <div className={cardClasses + " " + className} onClick={handleClick}>
             {/* Header */}
-            <div className="z-20 bg-card-elevated px-4 py-3 flex items-center justify-between border-b border-border-light/30">
+            <div className="z-20 bg-white/[0.035] px-4 py-3 flex items-center justify-between border-b border-border-light/30">
                 <div className="flex items-center gap-2.5">
                     {Icon && (
                         <div className="p-1.5 rounded-lg bg-primary/10 text-primary">

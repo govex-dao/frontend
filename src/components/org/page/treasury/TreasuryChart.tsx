@@ -7,7 +7,7 @@ interface TreasuryChartProps {
 export function TreasuryChart({ treasuryValue }: TreasuryChartProps) {
     void treasuryValue;
     return (
-        <Card className="flex-1 p-0! h-full">
+        <Card variant="glass" className="flex-1 p-0! h-full">
             <CardContent className="h-full flex flex-col gap-1">
                 <div className="flex flex-row justify-between items-center p-4">
                     <h3 className="text-sm font-semibold">Treasury Over Time</h3>

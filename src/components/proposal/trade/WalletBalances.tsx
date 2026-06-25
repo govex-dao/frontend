@@ -13,7 +13,7 @@ interface Props {
 export function WalletBalances({ balances, isLoading, isConnected }: Props) {
     if (!isConnected) {
         return (
-            <Card className="p-4">
+            <Card variant="glass" className="p-4">
                 <div className="flex items-center gap-2 text-text-muted">
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm">Connect wallet to view balances</span>
@@ -24,7 +24,7 @@ export function WalletBalances({ balances, isLoading, isConnected }: Props) {
 
     if (isLoading) {
         return (
-            <Card className="p-4">
+            <Card variant="glass" className="p-4">
                 <div className="flex items-center gap-2 text-text-muted">
                     <Wallet className="w-4 h-4 animate-pulse" />
                     <span className="text-sm">Loading balances...</span>
@@ -45,7 +45,7 @@ export function WalletBalances({ balances, isLoading, isConnected }: Props) {
 
     if (!hasSpotBalance && !hasConditionalBalance && nonEmptyWrappers.length === 0) {
         return (
-            <Card className="p-4">
+            <Card variant="glass" className="p-4">
                 <div className="flex items-center gap-2 text-text-muted">
                     <Wallet className="w-4 h-4" />
                     <span className="text-sm">No balances for this proposal</span>
@@ -55,7 +55,7 @@ export function WalletBalances({ balances, isLoading, isConnected }: Props) {
     }
 
     return (
-        <Card className="p-4 space-y-4">
+        <Card variant="glass" className="p-4 space-y-4">
             <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold">Your Balances</h3>
@@ -159,7 +159,7 @@ function BalanceWrapperCard({ wrapper, outcomeCount }: { wrapper: BalanceWrapper
     const shortId = `${wrapper.objectId.slice(0, 6)}...${wrapper.objectId.slice(-4)}`;
 
     return (
-        <div className="bg-card-elevated border border-border/30 rounded p-2 space-y-2">
+        <div className="rounded border border-border/30 bg-white/[0.035] p-2 space-y-2">
             <div className="flex items-center justify-between">
                 <span className="text-xs text-text-muted font-mono">{shortId}</span>
             </div>

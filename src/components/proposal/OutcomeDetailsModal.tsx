@@ -70,7 +70,7 @@ export function OutcomeDetailsModal(props: OutcomeDetailsModalProps) {
             <div className="space-y-3">
                 <div className={`${showTwapMetric ? "grid-cols-2" : "grid-cols-1"} grid gap-3 sm:gap-4`}>
                     {showTwapMetric && (
-                        <div className="bg-card-elevated border border-border/50 rounded-lg p-3 sm:p-4">
+                        <div className="glass-flow-panel rounded-lg p-3 sm:p-4">
                             <div className="text-[10px] uppercase tracking-wider font-medium text-text-tertiary mb-1">
                                 TWAP
                             </div>
@@ -79,7 +79,7 @@ export function OutcomeDetailsModal(props: OutcomeDetailsModalProps) {
                             </div>
                         </div>
                     )}
-                    <div className="bg-card-elevated border border-border/50 rounded-lg p-3 sm:p-4">
+                    <div className="glass-flow-panel rounded-lg p-3 sm:p-4">
                         <div className="text-[10px] uppercase tracking-wider font-medium text-text-tertiary mb-1">
                             Current Price
                         </div>
@@ -91,7 +91,7 @@ export function OutcomeDetailsModal(props: OutcomeDetailsModalProps) {
 
                 {((outcome.usdcBalance !== undefined && outcome.usdcBalance > 0) ||
                     (outcome.tokenBalance !== undefined && outcome.tokenBalance > 0)) && (
-                    <div className="bg-card-elevated border border-border/50 rounded-lg p-3 sm:p-4">
+                    <div className="glass-flow-panel rounded-lg p-3 sm:p-4">
                         <BalancesTable
                             balances={[outcome]}
                             totalOutcomes={totalOutcomes}
@@ -129,7 +129,7 @@ export function OutcomeDetailsModal(props: OutcomeDetailsModalProps) {
                             ))}
                         </div>
                     ) : (
-                        <div className="bg-card-elevated border border-border/50 rounded-lg p-5 sm:p-6 text-center space-y-2.5">
+                        <div className="glass-flow-panel rounded-lg p-5 sm:p-6 text-center space-y-2.5">
                             <div className="flex items-center justify-center gap-2 text-text-tertiary">
                                 <Ban className="w-5 h-5 opacity-50" />
                                 <h4 className="font-semibold text-sm">No Actions</h4>

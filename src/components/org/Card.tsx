@@ -37,7 +37,7 @@ export function OrgCard(props: Props) {
         <motion.div layout>
             <Link
                 to={`/orgs/${id}`}
-                className="group bg-card-elevated/50 hover:bg-card-elevated border border-white/5 rounded-xl p-5 transition-all flex flex-col gap-2 items-start h-full"
+                className="group glass-flow-panel rounded-xl p-5 transition-all flex flex-col gap-2 items-start h-full"
             >
                 {/* Header with logo, name, and actions */}
                 <div className="flex justify-between items-start gap-3 w-full">

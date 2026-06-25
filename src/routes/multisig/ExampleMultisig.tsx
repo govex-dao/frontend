@@ -34,6 +34,7 @@ const EXAMPLE_ACCOUNT_ID = "0x4eedc223e50297adf3fd0124af3a114384b43685870a70140b
 const ALICE = "0x72722cd52399b1e7c789a7aaa9ed2f198dbe012404ff0223f75a1a8d623d54f5";
 const BOB = "0xcad054bfa05142e1522d23de533182ce1af4e00c3d4753e205a36c3fec42a83a";
 const CAROL = "0x16094e8525602afbda3b4c493c7b5be3a09add0397239cc42bc8569d21152a50";
+const EXAMPLE_VIEWER = BOB;
 const CONTRIBUTOR = "0xfed96874a96193823826001a96856167c3963266791214d92416ad3cb97be499";
 const VENDOR = "0x6375f93dc12b72466e4d22707a3e3fe3257f95d0817da2516a988ac002169eec";
 const ACTIONS_PACKAGE = "0x7cc89124f3f190fe390d3cd855348e34ffa28d51ccec6030176cc75a2452961e";
@@ -365,7 +366,7 @@ export function ExampleMultisig() {
             <Breadcrumbs
                 items={[
                     { label: "Home", href: "/" },
-                    { label: "Multisig", href: "/multisig" },
+                    { label: "Multisigs", href: "/multisig" },
                     { label: "Example" },
                 ]}
             />
@@ -420,6 +421,8 @@ export function ExampleMultisig() {
                             config={EXAMPLE_CONFIG}
                             accountId={EXAMPLE_ACCOUNT_ID}
                             configNonce={EXAMPLE_CONFIG.configNonce}
+                            currentUserAddress={EXAMPLE_VIEWER}
+                            previewMode
                         />
                     ))}
                 </div>
@@ -492,6 +495,8 @@ export function ExampleMultisig() {
                             config={EXAMPLE_CONFIG}
                             accountId={EXAMPLE_ACCOUNT_ID}
                             configNonce={EXAMPLE_CONFIG.configNonce}
+                            currentUserAddress={EXAMPLE_VIEWER}
+                            previewMode
                         />
                     ))}
                 </div>

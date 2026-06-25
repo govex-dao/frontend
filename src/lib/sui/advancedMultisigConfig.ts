@@ -98,13 +98,22 @@ function projectedRoleAddressCount(addresses: string[] | undefined, available: S
     return unique.size;
 }
 
+function mergedExecuteRoleAddresses(draft: AdvancedMultisigDraft): string[] {
+    return [
+        ...new Set(
+            [...(draft.executeAddresses ?? []), ...(draft.cancelAddresses ?? [])]
+                .map((address) => address.trim().toLowerCase())
+                .filter(Boolean)
+        ),
+    ];
+}
+
 /// Number of role groups that will be appended onchain (one per role list with ≥1 valid entry).
 export function effectiveRoleGroupCount(draft: AdvancedMultisigDraft): number {
     const available = availableGroupMemberAddresses(draft);
     return (
         (projectedRoleAddressCount(draft.proposeAddresses, available) > 0 ? 1 : 0) +
-        (projectedRoleAddressCount(draft.executeAddresses, available) > 0 ? 1 : 0) +
-        (projectedRoleAddressCount(draft.cancelAddresses, available) > 0 ? 1 : 0)
+        (projectedRoleAddressCount(mergedExecuteRoleAddresses(draft), available) > 0 ? 1 : 0)
     );
 }
 
@@ -120,8 +129,7 @@ export function effectiveMemberCount(draft: AdvancedMultisigDraft): number {
     const available = availableGroupMemberAddresses(draft);
     const roleMembers =
         projectedRoleAddressCount(draft.proposeAddresses, available) +
-        projectedRoleAddressCount(draft.executeAddresses, available) +
-        projectedRoleAddressCount(draft.cancelAddresses, available);
+        projectedRoleAddressCount(mergedExecuteRoleAddresses(draft), available);
     return userMembers + roleMembers;
 }
 
@@ -131,8 +139,7 @@ export function effectiveRoleMemberCount(draft: AdvancedMultisigDraft): number {
     const available = availableGroupMemberAddresses(draft);
     return (
         projectedRoleAddressCount(draft.proposeAddresses, available) +
-        projectedRoleAddressCount(draft.executeAddresses, available) +
-        projectedRoleAddressCount(draft.cancelAddresses, available)
+        projectedRoleAddressCount(mergedExecuteRoleAddresses(draft), available)
     );
 }
 
@@ -484,16 +491,9 @@ export function parseAdvancedMultisigDraft(draft: AdvancedMultisigDraft): Advanc
         errors
     );
     const executeAddresses = parseRoleAddresses(
-        draft.executeAddresses ?? [],
+        mergedExecuteRoleAddresses(draft),
         availableAddresses,
         "Execute access",
-        true,
-        errors
-    );
-    const cancelAddresses = parseRoleAddresses(
-        draft.cancelAddresses ?? [],
-        availableAddresses,
-        "Cancel access",
         false,
         errors
     );
@@ -502,7 +502,7 @@ export function parseAdvancedMultisigDraft(draft: AdvancedMultisigDraft): Advanc
     const usedNames = new Set(configGroups.map((group) => group.input.name.toLowerCase()));
     const proposeGroups = appendRoleAddressGroup(configGroups, usedNames, "Propose role", proposeAddresses);
     const executeGroups = appendRoleAddressGroup(configGroups, usedNames, "Execute role", executeAddresses);
-    const cancelGroups = appendRoleAddressGroup(configGroups, usedNames, "Cancel role", cancelAddresses);
+    const cancelGroups = executeGroups;
     const totalGroupEntries = configGroups.length;
     const totalMemberEntries = configGroups.reduce((total, group) => total + group.input.members.length, 0);
 

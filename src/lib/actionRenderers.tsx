@@ -121,7 +121,7 @@ function formatParamLabel(name: string): string {
         amountPerIteration: "Amount per iteration",
         ammTotalFeeBps: "AMM total fee",
         capPpm: "Cap",
-        claimWindowMs: "Claim window",
+        claimWindowMs: "Spend window",
         daoName: "DAO name",
         expiryMs: "Expiry",
         iconUrl: "Icon URL",
@@ -188,7 +188,7 @@ export const getActionSummary = (action: ProposalAction) => {
         case "createStream":
             return (
                 <span className="inline-flex items-center gap-1.5 flex-wrap">
-                    <span>Create stream of</span>
+                    <span>Create spending limit of</span>
                     <span className="px-1.5 py-0.5 bg-black/40 rounded text-text-primary font-semibold font-mono">
                         {formatNumberWithCommas(Number(action.data.amount))} {action.data.token}
                     </span>

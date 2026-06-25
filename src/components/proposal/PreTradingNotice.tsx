@@ -22,7 +22,7 @@ export function PreTradingNotice({ timeUntilReviewEnd, reviewEndDate }: PreTradi
     const reviewEnded = timeUntilReviewEnd.totalMs <= 0;
 
     return (
-        <Card className="shrink-0 bg-linear-to-br from-purple-500/10 via-purple-500/5 to-purple-600/10 border border-border-light rounded-2xl overflow-hidden relative">
+        <Card variant="glass" className="glass-flow-panel-accent shrink-0 rounded-2xl overflow-hidden relative">
             <div className="relative z-10 p-6 sm:py-8 sm:px-4 flex flex-col items-center justify-center gap-6 text-center">
                 <div className="relative">
                     <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-purple-500/10 border border-purple-400/20">

@@ -93,8 +93,8 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
     if (proposal.winningOutcome == null) {
         return (
             <div className="flex flex-col gap-3">
-                <div className="relative p-2 rounded-xl border flex items-center gap-4 px-4 z-20 border-border/50 bg-card-elevated">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-xl border shrink-0 border-border/50 bg-card">
+                <div className="glass-flow-panel relative p-2 rounded-xl flex items-center gap-4 px-4 z-20">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl border shrink-0 border-border/50 bg-white/5">
                         <ClockIcon className="w-7 h-7 text-text-tertiary" strokeWidth={2} />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col">
@@ -200,7 +200,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
         <div className="flex flex-col gap-3">
             {/* Header - Trading Ended */}
             <div
-                className="relative p-2 rounded-xl border flex items-center gap-4 px-4 z-20"
+                className="glass-flow-panel relative p-2 rounded-xl flex items-center gap-4 px-4 z-20"
                 style={{
                     borderColor: winningColor + "30",
                     background: `linear-gradient(135deg, ${winningColor}15 0%, ${winningColor}25 50%, ${winningColor}08 100%), var(--color-card-elevated)`,
@@ -247,7 +247,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
                             backgroundImage: `linear-gradient(135deg, ${winningColor}20 0%, ${winningColor}10 50%,  ${winningColor}23 100%)`,
                         }}
                     >
-                        <div className="relative z-10 space-y-3 px-6 py-4 pt-12 bg-card rounded-lg flex flex-col">
+                        <div className="relative z-10 space-y-3 px-6 py-4 pt-12 bg-white/[0.035] rounded-lg flex flex-col">
                             <span className="font-bold text-sm uppercase tracking-wider text-text-primary w-full text-center opacity-20">
                                 Settlement Preview
                             </span>

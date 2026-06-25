@@ -615,7 +615,7 @@ export function TradeForm({
     }, [fromAmountRaw, isQuoteStaleForInput, quoteEnabled, quoteLoading, quoteIsError, quoteError, quoteResult]);
 
     return (
-        <Card className="bg-card-elevated flex flex-col gap-2 transition-all duration-300 ease-in-out">
+        <Card variant="glass" className="flex flex-col gap-2 transition-all duration-300 ease-in-out">
             {/* Outcome Selection */}
             <Select
                 allowSearch={false}

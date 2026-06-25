@@ -91,7 +91,7 @@ interface DescriptionTabProps {
 
 function DescriptionTab({ proposal, showActions = true }: DescriptionTabProps) {
     return (
-        <div className="bg-card border border-border/50 rounded-lg">
+        <div className="glass-flow-panel rounded-lg">
             <div className="space-y-5 p-3 sm:p-4">
                 <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Description</h3>
@@ -120,7 +120,7 @@ function DescriptionTab({ proposal, showActions = true }: DescriptionTabProps) {
                         {proposal.outcomes?.map((outcome, index) => (
                             <div
                                 key={index}
-                                className="bg-card-elevated border border-border/50 rounded-lg p-4 space-y-4"
+                                className="rounded-lg border border-border/50 bg-white/[0.035] p-4 space-y-4"
                             >
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
@@ -353,7 +353,7 @@ export function Proposal() {
                 {/* Main proposal content - first on mobile and desktop */}
                 {isPreTrading ? (
                     <div className="flex flex-col gap-2 flex-1 min-w-0 scrollbar-gutter-stable order-1 lg:order-1">
-                        <Card className="flex-1">
+                        <Card variant="glass" className="flex-1">
                             <ProposalDetails proposal={proposal} apiProposal={effectiveApiProposal} />
                         </Card>
                     </div>
@@ -366,7 +366,7 @@ export function Proposal() {
                         )}
 
                         {/* Tab Selector at the top */}
-                        <div className="bg-card border border-border/50 rounded-lg flex flex-col shrink-0 sticky top-0 z-20">
+                        <div className="glass-flow-panel rounded-lg flex flex-col shrink-0 sticky top-0 z-20">
                             <TabSelector
                                 tabs={[
                                     { id: "chart", label: "Chart" },
@@ -416,7 +416,7 @@ export function Proposal() {
                                         }}
                                     />
                                 )}
-                                <Card className="flex flex-col gap-4 pt-6">
+                                <Card variant="glass" className="flex flex-col gap-4">
                                     <Chart
                                         proposalId={proposal.id}
                                         outcomeCount={proposal.outcomes.length}

@@ -179,7 +179,7 @@ function ProposalAdvancedPanel({ proposal, apiProposal }: Props) {
         <div className="space-y-6">
             <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Proposal Details</h3>
-                <div className="space-y-2 bg-card-elevated border border-border/50 rounded-lg p-4">
+                <div className="glass-flow-panel space-y-2 rounded-lg p-4">
                     <DetailRow label="Current Stage" value={currentStage} />
                     <DetailRow label="Conditional Trading Fee" value={formatBpsWithPercent(totalTradingFeeBps)} />
                     {showTwapMetrics && <DetailRow label="TWAP Threshold" value={formatThreshold(twapThreshold)} />}
@@ -215,7 +215,7 @@ function ProposalAdvancedPanel({ proposal, apiProposal }: Props) {
 
             <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Lifecycle</h3>
-                <div className="space-y-2 bg-card-elevated border border-border/50 rounded-lg p-4">
+                <div className="glass-flow-panel space-y-2 rounded-lg p-4">
                     {stateRows.map((row) => (
                         <StateHistoryItem key={row.title} title={row.title} value={row.value} />
                     ))}
@@ -282,7 +282,7 @@ export function ProposalDetails(props: Props) {
                                 {proposal.outcomes?.map((outcome, index) => (
                                     <div
                                         key={index}
-                                        className="bg-card-elevated border border-border/50 rounded-lg p-4 space-y-4"
+                                        className="rounded-lg border border-border/50 bg-white/[0.035] p-4 space-y-4"
                                     >
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
@@ -335,7 +335,7 @@ export function ProposalDetails(props: Props) {
 
 export function ProposalAdvancedDetails(props: Props) {
     return (
-        <Card className="space-y-6">
+        <Card variant="glass" className="space-y-6">
             <ProposalAdvancedPanel {...props} />
         </Card>
     );

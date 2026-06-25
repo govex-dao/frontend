@@ -227,7 +227,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
 
     if (!dao.spot_pool_id || !dao.lp_type || isLegacyV2) {
         return (
-            <div className="rounded-lg border border-border-light bg-card-elevated p-4 text-sm text-text-muted">
+            <div className="glass-flow-panel rounded-lg p-4 text-sm text-text-muted">
                 No spot pool configured for this organization.
             </div>
         );
@@ -243,7 +243,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
 
     if (error) {
         return (
-            <div className="rounded-lg border border-border-light bg-card-elevated p-4 text-sm text-error">
+            <div className="glass-flow-panel rounded-lg p-4 text-sm text-error">
                 Failed to load orders: {error instanceof Error ? error.message : "Unknown error"}
             </div>
         );
@@ -253,7 +253,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
 
     if (!data || activeOrders.length === 0) {
         return (
-            <div className="flex items-center justify-center py-12 text-text-light">
+            <div className="glass-flow-panel flex items-center justify-center rounded-lg px-4 py-12 text-text-light">
                 No bid or ask orders active for this organization.
             </div>
         );
@@ -277,7 +277,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
     };
 
     return (
-        <div className="flex flex-col gap-0 max-w-2xl">
+        <div className="glass-flow-panel flex max-w-2xl flex-col gap-0 rounded-xl py-2">
             {/* Header row */}
             <div className="grid grid-cols-3 px-4 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                 <span>Price ({stableSymbol})</span>

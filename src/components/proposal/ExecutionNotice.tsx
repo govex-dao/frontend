@@ -10,7 +10,7 @@ interface ExecutionNoticeProps {
 
 export function ExecutionNotice({ countdown, expired }: ExecutionNoticeProps) {
     return (
-        <Card className="shrink-0 border border-border-light rounded-2xl overflow-hidden relative bg-linear-to-br from-amber-500/10 via-amber-500/5 to-amber-600/10">
+        <Card variant="glass" className="glass-flow-panel-accent shrink-0 rounded-2xl overflow-hidden relative">
             <div className="relative z-10 p-4 sm:p-5 flex items-center gap-4">
                 <div className="relative shrink-0">
                     <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-amber-500/10 border border-amber-400/20">

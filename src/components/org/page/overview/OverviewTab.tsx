@@ -109,7 +109,7 @@ export function OverviewTab({ org, pool, raise, setActiveTab }: OverviewTabProps
                             <MetricItem label="Holders" value={formatNumber(org.holders)} size="lg" />
                         </div>
                     </div>
-                    <div className="flex-1 -m-px bg-card-elevated min-w-[320px]">
+                    <div className="flex-1 -m-px bg-white/[0.035] min-w-[320px]">
                         <TokenPriceChart />
                     </div>
                 </div>

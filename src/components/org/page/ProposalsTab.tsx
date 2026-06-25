@@ -47,8 +47,8 @@ export function ProposalsTab(props: ProposalsTabProps) {
                 {sortedProposals.length > 0 ? (
                     sortedProposals.map((proposal) => <ProposalCard key={proposal.id} proposal={proposal} />)
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-16 px-4 bg-card-elevated/50 rounded-lg border border-border-light/50">
-                        <div className="w-16 h-16 mb-4 rounded-full bg-card-more-elevated flex items-center justify-center">
+                    <div className="glass-flow-panel flex flex-col items-center justify-center rounded-lg px-4 py-16">
+                        <div className="w-16 h-16 mb-4 rounded-full bg-white/5 flex items-center justify-center">
                             <X className="w-8 h-8 text-text-muted" />
                         </div>
                         <h3 className="text-lg font-semibold mb-2">No decisions yet</h3>

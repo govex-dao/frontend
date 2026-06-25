@@ -130,7 +130,7 @@ export const docsPages: DocsPage[] = [
                 id: "streams",
                 title: "Spending limits",
                 paragraphs: [
-                    "Spending limits release vault funds over time to a beneficiary or delegate. Add whitelisted recipients when funds should only be spent to specific addresses. Funds are not isolated and can still be spent by other actions. To isolate them, move them to a separate vault.",
+                    "Spending limits release vault funds over time to a delegate. Add whitelisted recipients when funds should only be spent to specific addresses. Funds are not isolated and can still be spent by other actions. To isolate them, move them to a separate vault.",
                 ],
             },
             {

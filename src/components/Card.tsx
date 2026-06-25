@@ -17,12 +17,12 @@ export function Card(props: CardProps) {
         default: "bg-card border border-border shadow-card",
         elevated: "bg-card-elevated border border-border shadow-card-elevated",
         "more-elevated": "bg-card-more-elevated border border-border-light shadow-card-more-elevated",
-        glass: "bg-white/5 border border-border-subtle backdrop-blur-card",
+        glass: "glass-flow-panel shadow-none",
     };
 
     const interactiveStyles =
         interactive || onClick
-            ? "cursor-pointer transition-all hover:border-border-lighter/50 hover:bg-card-elevated"
+            ? `cursor-pointer transition-all hover:border-border-lighter/50 ${variant === "glass" ? "" : "hover:bg-card-elevated"}`
             : "";
 
     const combinedClassName = `${baseStyles} ${variantStyles[variant]} ${interactiveStyles} ${className}`;

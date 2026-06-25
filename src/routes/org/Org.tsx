@@ -117,10 +117,10 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
         });
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="glass-flow-panel overflow-x-auto rounded-xl">
             <table className="w-full">
                 <thead>
-                    <tr className="border-b border-border bg-card-elevated">
+                    <tr className="border-b border-border bg-white/[0.035]">
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Asset</th>
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Vault</th>
                         <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Balance</th>
@@ -228,9 +228,9 @@ export function Org() {
                 items={[{ label: "Home", href: "/" }, { label: "Orgs", href: "/orgs" }, { label: dao.name }]}
             />
 
-            <div className="flex flex-col md:flex-row md:bg-card rounded-xl -mx-2 md:mx-0 md:border border-border-light md:h-[calc(100vh-7rem)] overflow-hidden">
+            <div className="glass-flow-panel flex flex-col rounded-xl -mx-2 overflow-hidden md:mx-0 md:h-[calc(100vh-7rem)] md:flex-row">
                 {/* Mobile Header */}
-                <div className="md:hidden border-b border-border-light shrink-0 bg-card">
+                <div className="shrink-0 border-b border-border-light bg-transparent md:hidden">
                     <OrgHeader
                         dao={dao}
                         isFavorited={isFavorited(dao.id)}
@@ -274,7 +274,7 @@ export function Org() {
 
                 {/* Desktop Sidebar */}
                 <div className="hidden md:block md:w-72 shrink-0 h-full overflow-hidden">
-                    <div className="bg-linear-to-br from-card-elevated to-card-more-elevated border-r border-border-light rounded-l-xl shadow-lg overflow-hidden h-full flex flex-col">
+                    <div className="h-full overflow-hidden rounded-l-xl border-r border-border-light bg-white/[0.025] shadow-lg flex flex-col">
                         <OrgHeader
                             dao={dao}
                             isFavorited={isFavorited(dao.id)}
@@ -299,7 +299,7 @@ export function Org() {
                     {activeTab === "overview" && (
                         <div className="flex flex-col gap-6">
                             {/* Org Info */}
-                            <div className="bg-card-elevated rounded-xl p-6 border border-border-subtle">
+                            <div className="glass-flow-panel rounded-xl p-6">
                                 <div className="mb-4">
                                     <h3 className="text-lg font-semibold mb-1">{dao.name}</h3>
                                     <p className="text-text-muted text-sm">{dao.description || "No description"}</p>

@@ -45,7 +45,7 @@ export function ProposalStats({
     timeLabel,
 }: ProposalStatsProps) {
     return (
-        <Card className={`grid grid-cols-3 gap-2 flex-wrap text-xs ${className}`}>
+        <Card variant="glass" className={`grid grid-cols-3 gap-2 flex-wrap text-xs ${className}`}>
             <MetricItem label="Volume" value={formatNumber(volume)} size="lg" />
             <MetricItem label="Trades" value={traderCount} size="lg" />
             {ended ? (

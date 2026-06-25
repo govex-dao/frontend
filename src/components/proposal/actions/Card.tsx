@@ -30,7 +30,7 @@ export function ActionCard(props: Props) {
             className={`w-full ${showDetails ? "z-30" : "z-0"} rounded-lg group/card cursor-pointer relative flex flex-col transition-all duration-200`}
         >
             <div
-                className="group-hover/card:border-border-light min-h-[132px] rounded-lg overflow-visible border border-border bg-card-more-elevated z-10 p-4 flex flex-col gap-3"
+                className="glass-flow-panel group-hover/card:border-border-light min-h-[132px] rounded-lg overflow-visible z-10 p-4 flex flex-col gap-3"
                 onClick={action.type !== "memo" ? toggleDetails : undefined}
             >
                 <div className="flex items-start justify-between gap-3">
@@ -59,7 +59,7 @@ export function ActionCard(props: Props) {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="mt-2 max-h-[360px] overflow-y-auto rounded-lg border border-border bg-card p-4 group-hover/card:border-border-light"
+                        className="mt-2 max-h-[360px] overflow-y-auto rounded-lg border border-border bg-white/[0.035] p-4 group-hover/card:border-border-light"
                     >
                         {renderActionDetails(action)}
                     </motion.div>

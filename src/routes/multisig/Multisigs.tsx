@@ -136,9 +136,9 @@ export function Multisigs() {
   return (
     <div className="route-container h-full flex flex-col gap-4 scrollbar-gutter-stable">
       <Helmet>
-        <title>Multisig</title>
+        <title>Multisigs</title>
       </Helmet>
-      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Multisig" }]} />
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Multisigs" }]} />
 
       {showExampleMultisig && (
         <section aria-label="Example multisig">
@@ -170,7 +170,7 @@ export function Multisigs() {
         <section className="glass-flow-panel flex flex-col gap-4 rounded-xl p-4 md:p-6 lg:p-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Multisig accounts</h1>
+              <h1 className="text-2xl font-bold">Multisigs</h1>
               <p className="mt-1 max-w-2xl text-sm text-text-muted">
                 Create, manage, or review shared Sui accounts connected to your wallet.
               </p>

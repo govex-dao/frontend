@@ -66,8 +66,13 @@ interface MemberDraft {
     propose: boolean;
     vote: boolean;
     execute: boolean;
-    cancel: boolean;
 }
+
+const CONFIG_PERMISSION_LABELS = {
+    propose: "Propose",
+    vote: "Vote",
+    execute: "Execute",
+} as const;
 
 interface ConfigChangeData {
     members: MemberDraft[];
@@ -80,13 +85,12 @@ function memberFromConfig(m: MultisigMember): MemberDraft {
         weight: String(m.weight),
         propose: (m.permissions & 1) !== 0,
         vote: (m.permissions & 2) !== 0,
-        execute: (m.permissions & 4) !== 0,
-        cancel: (m.permissions & 8) !== 0,
+        execute: (m.permissions & (4 | 8)) !== 0,
     };
 }
 
 function memberToPermissions(m: MemberDraft): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 : 0) | (m.cancel ? 8 : 0);
+    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? (4 | 8) : 0);
 }
 
 function validateConfigChange(data: ConfigChangeData): boolean {
@@ -275,7 +279,7 @@ function getDefaultData(type: ActionType, config?: MultisigConfig): ActionData {
             return {
                 members: config
                     ? config.members.map(memberFromConfig)
-                    : [{ address: "", weight: "1", propose: true, vote: true, execute: true, cancel: true }],
+                    : [{ address: "", weight: "1", propose: true, vote: true, execute: true }],
                 globalThreshold: config ? String(config.globalThreshold) : "1",
             };
     }
@@ -370,10 +374,7 @@ function buildDescription(actionType: ActionType, data: ActionData): string {
                 pastIterations > 2 && totalIterations > 0
                     ? `, ${pastIterations} out of ${totalIterations} iterations in the past`
                     : "";
-            if (d.mode === "create_spending_limit") {
-                return `Spending limit ${total || "?"} ${coin} for ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
-            }
-            return `Spending limit ${total || "?"} ${coin} to ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
+            return `Spending limit ${total || "?"} ${coin} for delegate ${shortAddr(d.capRecipient)} (${d.iterationsTotal} x ${d.iterationPeriodDays}d${pastWarning})`;
         }
         case "vesting": {
             const d = data as VestingData;
@@ -726,7 +727,6 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                                                             propose: true,
                                                             vote: true,
                                                             execute: true,
-                                                            cancel: true,
                                                         },
                                                     ])
                                                 }
@@ -802,7 +802,7 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                                                         </button>
                                                     </div>
                                                     <div className="flex gap-1.5 text-xs">
-                                                        {(["propose", "vote", "execute", "cancel"] as const).map(
+                                                        {(["propose", "vote", "execute"] as const).map(
                                                             (permission) => (
                                                                 <button
                                                                     key={permission}
@@ -825,8 +825,7 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                                                                             : "bg-white/5 text-text-muted hover:text-text-primary"
                                                                     }`}
                                                                 >
-                                                                    {permission[0].toUpperCase()}
-                                                                    {permission.slice(1)}
+                                                                    {CONFIG_PERMISSION_LABELS[permission]}
                                                                 </button>
                                                             )
                                                         )}

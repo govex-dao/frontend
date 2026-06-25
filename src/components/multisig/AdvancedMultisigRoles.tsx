@@ -10,7 +10,7 @@ import {
 import { MAX_MULTISIG_MEMBERS } from "@/lib/sui/multisigConfigValidation";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
 
-type RoleAddressKey = "proposeAddresses" | "executeAddresses" | "cancelAddresses";
+type RoleAddressKey = "proposeAddresses" | "executeAddresses";
 
 interface Props {
     draft: AdvancedMultisigDraft;
@@ -35,6 +35,16 @@ function roleAddressOptions(draft: AdvancedMultisigDraft) {
                 .filter((address) => isValidSuiAddress(address))
         )
     ).map((address) => ({ value: address, label: compactAddress(address) }));
+}
+
+function mergedExecuteAddresses(draft: AdvancedMultisigDraft): string[] {
+    return [
+        ...new Set(
+            [...(draft.executeAddresses ?? []), ...(draft.cancelAddresses ?? [])]
+                .map((address) => normalizeAddress(address))
+                .filter(Boolean)
+        ),
+    ];
 }
 
 async function copyAddress(address: string) {
@@ -70,23 +80,22 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
         {
             key: "executeAddresses",
             title: "Execute",
-            caption:
-                "Can execute approved intents. Empty means permissionless execution, useful for third-party keeper bots or intent solvers.",
+            caption: "Can execute approved intents or cancel intents once reject votes allow it.",
             placeholder: "Add executor",
             accentClass: "border-l-success/70",
             titleClass: "text-success-light",
         },
-        {
-            key: "cancelAddresses",
-            title: "Cancel",
-            caption: "Can delete intents after rejection policy allows it.",
-            placeholder: "Add canceller",
-            accentClass: "border-l-warning/70",
-            titleClass: "text-warning-light",
-        },
     ];
 
-    const selectedAddresses = (key: RoleAddressKey) => draft[key] ?? [];
+    const selectedAddresses = (key: RoleAddressKey) =>
+        key === "executeAddresses" ? mergedExecuteAddresses(draft) : (draft[key] ?? []);
+    const updateRoleAddresses = (key: RoleAddressKey, addresses: string[]) => {
+        if (key === "executeAddresses") {
+            onChange({ ...draft, executeAddresses: addresses, cancelAddresses: addresses });
+            return;
+        }
+        onChange({ ...draft, [key]: addresses });
+    };
     // Each role becomes a synthetic onchain group when non-empty, costing
     // 1 group slot + N member-entry slots. Disable the picker when adding
     // would breach either onchain max.
@@ -112,12 +121,12 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
         const nextAddress = normalizeAddress(address);
         const selected = selectedAddresses(key);
         if (selected.map(normalizeAddress).includes(nextAddress)) return;
-        onChange({ ...draft, [key]: [...selected, nextAddress] });
+        updateRoleAddresses(key, [...selected, nextAddress]);
     };
 
     const removeRoleAddress = (key: RoleAddressKey, address: string) => {
         const removed = normalizeAddress(address);
-        onChange({ ...draft, [key]: selectedAddresses(key).filter((item) => normalizeAddress(item) !== removed) });
+        updateRoleAddresses(key, selectedAddresses(key).filter((item) => normalizeAddress(item) !== removed));
     };
 
     return (
@@ -129,7 +138,7 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
                     onchain.
                 </p>
             </div>
-            <div className="grid items-stretch gap-3 md:grid-cols-3">
+            <div className="grid items-stretch gap-3 md:grid-cols-2">
                 {roles.map((role) => (
                     <div key={role.key} className={`flex min-w-0 flex-col gap-2 border-l-2 pl-3 ${role.accentClass}`}>
                         <div className="min-h-11 md:min-h-[5.25rem] lg:min-h-[4.5rem]">
@@ -139,7 +148,7 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
                         <div className="min-w-0 flex-1 space-y-2">
                             {selectedAddresses(role.key).length === 0 ? (
                                 <div className="rounded-lg border border-border-subtle bg-card-more-elevated/30 px-2 py-1.5 text-[11px] text-text-muted">
-                                    {role.key === "executeAddresses" ? "Permissionless" : "No signers selected"}
+                                    No signers selected
                                 </div>
                             ) : (
                                 selectedAddresses(role.key).map((address, index) => {

@@ -48,7 +48,7 @@ export function TwapHeader({
     onOutcomeClick,
 }: TwapHeaderProps) {
     return (
-        <div className="-mb-2 gap-2 sticky top-10 z-20 flex flex-col px-2 sm:px-3 md:px-4 py-2 border border-border/50 rounded bg-card-elevated shrink-0">
+        <div className="glass-flow-panel mb-3 gap-2 flex flex-col px-2 sm:px-3 md:px-4 py-2 rounded shrink-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center flex-wrap justify-between gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 text-xs sm:text-[11px] flex-wrap">
                     <div className="flex items-center gap-1.5">
@@ -73,7 +73,7 @@ export function TwapHeader({
                     <span className="text-text-primary font-bold text-xs sm:text-sm">
                         {signedPositivePercent(twapThresholdLabel)}
                     </span>
-                    <div className="ml-2 rounded-md border border-border/40 bg-card px-2 py-1">
+                    <div className="ml-2 rounded-md border border-border/40 bg-white/[0.035] px-2 py-1">
                         <div className="text-[10px] uppercase tracking-wide text-text-tertiary">{twapDelayCaption}</div>
                         <div
                             className={`font-mono tabular-nums text-sm tracking-[0.08em] ${
@@ -84,7 +84,7 @@ export function TwapHeader({
                         </div>
                     </div>
                     {phaseCountdown && (
-                        <div className="ml-1 rounded-md border border-border/40 bg-card px-2 py-1">
+                        <div className="ml-1 rounded-md border border-border/40 bg-white/[0.035] px-2 py-1">
                             <div className="text-[10px] uppercase tracking-wide text-text-tertiary">
                                 {phaseCountdownCaption}
                             </div>

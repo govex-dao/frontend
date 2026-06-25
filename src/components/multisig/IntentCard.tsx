@@ -62,7 +62,10 @@ interface Props {
     configNonce?: number;
     currentUserAddress?: string;
     onActionComplete?: () => void;
+    previewMode?: boolean;
 }
+
+type PolicyProgress = ReturnType<typeof approvalProgressFor>;
 
 const statusConfig: Record<number, { icon: typeof Clock; color: string }> = {
     [MULTISIG_INTENT_STATUS.ACTIVE]: { icon: Clock, color: "text-yellow-400" },
@@ -345,10 +348,48 @@ function getStreamTimingWarning(
     };
 }
 
+function VoteProgressMeter({
+    label,
+    progress,
+    tone,
+}: {
+    label: string;
+    progress: PolicyProgress;
+    tone: "approve" | "reject";
+}) {
+    const percent = Math.max(0, Math.min(100, progress.percent));
+    const fillClass = tone === "approve" ? "bg-green-500" : "bg-red-500/80";
+    const textClass = progress.satisfied
+        ? tone === "approve"
+            ? "text-green-400"
+            : "text-red-300"
+        : "text-text-muted";
+
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center justify-between gap-3 text-[10px]">
+                <span className="font-medium text-text-muted">{label}</span>
+                <span className={textClass}>{progress.label}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-card-more-elevated">
+                <div className={`h-full rounded-full ${fillClass}`} style={{ width: `${percent}%` }} />
+            </div>
+        </div>
+    );
+}
+
 type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
 type MultisigTx = Parameters<MultisigService["approveIntent"]>[0];
 
-export function IntentCard({ intent, config, accountId, configNonce, currentUserAddress, onActionComplete }: Props) {
+export function IntentCard({
+    intent,
+    config,
+    accountId,
+    configNonce,
+    currentUserAddress,
+    onActionComplete,
+    previewMode = false,
+}: Props) {
     const { approvals } = intent;
     const cfg = statusConfig[approvals.status] || statusConfig[MULTISIG_INTENT_STATUS.ACTIVE];
     const StatusIcon = cfg.icon;
@@ -366,7 +407,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
     >({});
 
     const { data: accountOwnedObjects = [] } = useMultisigOwnedObjects(accountId);
-    const { data: walletOwnedObjects = [] } = useMultisigOwnedObjects(currentUserAddress);
+    const { data: walletOwnedObjects = [] } = useMultisigOwnedObjects(previewMode ? undefined : currentUserAddress);
 
     // Fetch package info for any package-related intent
     const hasPackageAction = intent.actionTypes.some((t) => {
@@ -422,6 +463,7 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         !isExpired &&
         !isStale
     );
+    const showVoteProgress = approvalProgress.threshold > 0 || rejectionProgress.threshold > 0;
 
     const isConfig = isMultisigConfigIntentSummary(intent, getSDK().packages.accountMultisig);
     const executionRequirements = !isConfig ? getActionExecutionRequirements(intent.actionTypes) : [];
@@ -991,6 +1033,10 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
         );
     }, [accountId, asMultisigTx, intent.key, isConfig, runAction]);
 
+    const handlePreviewAction = useCallback((action: string) => {
+        toast.success(`${action} preview only`);
+    }, []);
+
     // Earliest-future time-band maturation across any group used in the approve
     // policy. Lets active intents preview when delayed-quorum approval becomes
     // reachable without new votes.
@@ -1166,6 +1212,13 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                 >
                     <Clock className="w-3 h-3" />
                     <span>{expInfo.label}</span>
+                </div>
+            )}
+
+            {showVoteProgress && (
+                <div className="space-y-2 rounded-lg border border-border-subtle bg-card-more-elevated/35 p-2.5">
+                    <VoteProgressMeter label="Approve votes" progress={approvalProgress} tone="approve" />
+                    <VoteProgressMeter label="Reject votes" progress={rejectionProgress} tone="reject" />
                 </div>
             )}
 
@@ -1494,10 +1547,12 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                 <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
                     {showApprove && (
                         <button
-                            onClick={handleApprove}
-                            disabled={isLoading || submittingRef.current}
+                            onClick={previewMode ? () => handlePreviewAction("Approve") : handleApprove}
+                            disabled={!previewMode && (isLoading || submittingRef.current)}
                             title={
-                                hasAlreadyRejected
+                                previewMode
+                                    ? "Example preview only."
+                                    : hasAlreadyRejected
                                     ? "Approving will clear your prior reject vote."
                                     : "Cast an approval vote."
                             }
@@ -1508,9 +1563,13 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     )}
                     {showUndoApproval && (
                         <button
-                            onClick={handleDisapprove}
-                            disabled={isLoading || submittingRef.current}
-                            title="Remove your approval. Only available while the intent is still Active; once approved, you can only Reject to flip status."
+                            onClick={previewMode ? () => handlePreviewAction("Undo approval") : handleDisapprove}
+                            disabled={!previewMode && (isLoading || submittingRef.current)}
+                            title={
+                                previewMode
+                                    ? "Example preview only."
+                                    : "Remove your approval. Only available while the intent is still Active; once approved, you can only Reject to flip status."
+                            }
                             className="px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs font-medium hover:bg-yellow-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Undo Approval
@@ -1518,10 +1577,12 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     )}
                     {showReject && (
                         <button
-                            onClick={handleReject}
-                            disabled={isLoading || submittingRef.current}
+                            onClick={previewMode ? () => handlePreviewAction("Reject") : handleReject}
+                            disabled={!previewMode && (isLoading || submittingRef.current)}
                             title={
-                                hasAlreadyApproved
+                                previewMode
+                                    ? "Example preview only."
+                                    : hasAlreadyApproved
                                     ? "Rejecting will clear your prior approval vote."
                                     : isApproved
                                       ? "Reject the already-approved intent. If the cancel quorum is met, cancellation unlocks."
@@ -1534,9 +1595,13 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     )}
                     {showCancelPending && (
                         <button
-                            onClick={handleCancelPending}
-                            disabled={isLoading || submittingRef.current}
-                            title="Cancel quorum has been reached. This cancels the live intent and removes it from onchain storage."
+                            onClick={previewMode ? () => handlePreviewAction("Cancel") : handleCancelPending}
+                            disabled={!previewMode && (isLoading || submittingRef.current)}
+                            title={
+                                previewMode
+                                    ? "Example preview only."
+                                    : "Cancel quorum has been reached. This cancels the live intent and removes it from onchain storage."
+                            }
                             className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Cancel
@@ -1544,9 +1609,13 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     )}
                     {showEvaluate && (
                         <button
-                            onClick={handleEvaluate}
-                            disabled={isLoading || submittingRef.current}
-                            title="Re-check the policy against current time and vote state. Approve path satisfied via time bands? Marks Approved. Reject quorum already met? Marks Rejected."
+                            onClick={previewMode ? () => handlePreviewAction("Re-evaluate") : handleEvaluate}
+                            disabled={!previewMode && (isLoading || submittingRef.current)}
+                            title={
+                                previewMode
+                                    ? "Example preview only."
+                                    : "Re-check the policy against current time and vote state. Approve path satisfied via time bands? Marks Approved. Reject quorum already met? Marks Rejected."
+                            }
                             className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Re-evaluate
@@ -1554,9 +1623,15 @@ export function IntentCard({ intent, config, accountId, configNonce, currentUser
                     )}
                     {showExecute && (
                         <button
-                            onClick={handleExecute}
-                            disabled={isLoading || submittingRef.current || executeBlocked}
-                            title={hasGenericExecutionGap ? genericExecutionGapMessage : undefined}
+                            onClick={previewMode ? () => handlePreviewAction("Execute") : handleExecute}
+                            disabled={(!previewMode && (isLoading || submittingRef.current)) || executeBlocked}
+                            title={
+                                previewMode
+                                    ? "Example preview only."
+                                    : hasGenericExecutionGap
+                                      ? genericExecutionGapMessage
+                                      : undefined
+                            }
                             className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Execute

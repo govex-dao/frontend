@@ -1,4 +1,4 @@
-import { Clock, Edit3, Play, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, Edit3, Play } from "lucide-react";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import {
     type MultisigConfig,
@@ -13,8 +13,15 @@ interface Props {
 
 interface GroupRoleFlags {
     propose: boolean;
+    vote: boolean;
     execute: boolean;
-    cancel: boolean;
+}
+
+function policyReferencesGroup(config: MultisigConfig, groupIndex: number): boolean {
+    const policies = [config.approvePolicy, config.cancelPolicy];
+    return policies.some((policy) =>
+        policy.paths.some((path) => path.requirements.some((requirement) => requirement.groupIndex === groupIndex))
+    );
 }
 
 function formatDelay(ms: number): string {
@@ -26,16 +33,16 @@ function formatDelay(ms: number): string {
 function flagsFor(groupIndex: number, config: MultisigConfig): GroupRoleFlags {
     return {
         propose: config.proposeGroups.includes(groupIndex),
-        execute: config.executeGroups.includes(groupIndex),
-        cancel: config.cancelGroups.includes(groupIndex),
+        vote: policyReferencesGroup(config, groupIndex),
+        execute: config.executeGroups.includes(groupIndex) || config.cancelGroups.includes(groupIndex),
     };
 }
 
 function GroupRoleBadges({ flags }: { flags: GroupRoleFlags }) {
     const items: Array<{ label: string; icon: typeof Edit3; cls: string }> = [];
     if (flags.propose) items.push({ label: "Propose", icon: Edit3, cls: "bg-blue-500/15 text-blue-400" });
+    if (flags.vote) items.push({ label: "Vote", icon: CheckCircle2, cls: "bg-primary/15 text-primary" });
     if (flags.execute) items.push({ label: "Execute", icon: Play, cls: "bg-green-500/15 text-green-400" });
-    if (flags.cancel) items.push({ label: "Cancel", icon: Trash2, cls: "bg-red-500/15 text-red-400" });
     if (items.length === 0) {
         return <span className="text-[10px] text-text-muted">No role</span>;
     }
