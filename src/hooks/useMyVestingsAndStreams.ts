@@ -43,6 +43,12 @@ export interface MySpendingLimitInfo extends VaultStreamInfo {
     accountAddr: string;
 }
 
+export interface MyLinkedMultisigAccount {
+    accountId: string;
+    hasSpendingLimit: boolean;
+    hasVesting: boolean;
+}
+
 // --- Helpers ---
 
 interface OwnedVaultStreamCap {
@@ -295,6 +301,40 @@ async function fetchMySpendingLimits(
     );
 }
 
+async function fetchMyLinkedMultisigAccounts(
+    client: SuiClient,
+    owner: string,
+    actionsPackageId: string
+): Promise<MyLinkedMultisigAccount[]> {
+    const [vestingCaps, spendingCaps] = await Promise.all([
+        getAllOwnedObjects(client, owner, `${actionsPackageId}::vesting::VestingCap`),
+        getAllOwnedObjects(client, owner, `${actionsPackageId}::vault::SpendingCap`),
+    ]);
+
+    const accounts = new Map<string, MyLinkedMultisigAccount>();
+
+    function addAccount(capObj: SuiObjectResponse, source: "vesting" | "spendingLimit") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const capFields = (capObj.data?.content as any)?.fields;
+        const accountId = normalizeIdValue(capFields?.account_id);
+        if (!accountId) return;
+
+        const existing = accounts.get(accountId) ?? {
+            accountId,
+            hasSpendingLimit: false,
+            hasVesting: false,
+        };
+        if (source === "vesting") existing.hasVesting = true;
+        if (source === "spendingLimit") existing.hasSpendingLimit = true;
+        accounts.set(accountId, existing);
+    }
+
+    vestingCaps.forEach((cap) => addAccount(cap, "vesting"));
+    spendingCaps.forEach((cap) => addAccount(cap, "spendingLimit"));
+
+    return Array.from(accounts.values()).sort((a, b) => a.accountId.localeCompare(b.accountId));
+}
+
 async function fetchOwnedVaultStreamCaps(
     client: SuiClient,
     owner: string,
@@ -482,6 +522,7 @@ export const myVestingsAndStreamsKeys = {
     vestings: (owner: string) => ["my-vestings", owner] as const,
     streams: (owner: string) => ["my-streams", owner] as const,
     spendingLimits: (owner: string) => ["my-spending-limits", owner] as const,
+    linkedMultisigs: (owner: string) => ["my-linked-multisigs", owner] as const,
 };
 
 // --- Hooks ---
@@ -540,6 +581,25 @@ export function useMySpendingLimits() {
         enabled: !!owner,
         staleTime: 30_000,
         refetchInterval: REFRESH_INTERVALS.LIVE,
+    });
+}
+
+export function useMyLinkedMultisigAccounts() {
+    const client = useSuiClient();
+    const account = useCurrentAccount();
+    const owner = account?.address;
+
+    return useQuery<MyLinkedMultisigAccount[]>({
+        queryKey: myVestingsAndStreamsKeys.linkedMultisigs(owner!),
+        queryFn: () => {
+            const sdk = getSDK();
+            const actionsPackageId = sdk.packages.accountActions;
+            if (!actionsPackageId) throw new Error("accountActions package not configured");
+            return fetchMyLinkedMultisigAccounts(client, owner!, actionsPackageId);
+        },
+        enabled: !!owner,
+        staleTime: REFRESH_INTERVALS.STATIC,
+        refetchInterval: false,
     });
 }
 

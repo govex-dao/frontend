@@ -72,9 +72,8 @@ const EXAMPLE_CONFIG: MultisigConfig = {
 };
 
 const VAULT_BALANCES: VaultCoinBalance[] = [
-    { vaultName: "Treasury", coinType: USDC, amount: 145_000_000_000n },
+    { vaultName: "Treasury", coinType: USDC, amount: 168_000_000_000n },
     { vaultName: "Payroll", coinType: USDC, amount: 52_000_000_000n },
-    { vaultName: "Vesting Reserve", coinType: USDC, amount: 23_000_000_000n },
 ];
 
 const STREAMS: VaultStreamInfo[] = [
@@ -304,7 +303,7 @@ function VaultHoldings({ balances }: { balances: VaultCoinBalance[] }) {
                             Asset
                         </th>
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                            Vault
+                            Vaults
                         </th>
                         <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                             Balance

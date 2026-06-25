@@ -204,7 +204,7 @@ function VaultHoldings({
                             Asset
                         </th>
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                            Vault
+                            Vaults
                         </th>
                         <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                             Balance

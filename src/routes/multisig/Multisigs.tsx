@@ -7,8 +7,9 @@ import { AccountCard } from "@/components/multisig/AccountCard";
 import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
-import { useMyVestingsAndStreams } from "@/hooks/useMyVestingsAndStreams";
+import { useMyLinkedMultisigAccounts } from "@/hooks/useMyVestingsAndStreams";
 import type { MultisigListItem } from "@/lib/api";
+import { normalizeSuiAddress } from "@/lib/sui/multisig";
 
 const ITEMS_PER_PAGE = 6;
 const EXAMPLE_MULTISIG = {
@@ -18,19 +19,12 @@ const EXAMPLE_MULTISIG = {
 };
 
 type MultisigItem =
-  | { type: "backend"; ms: MultisigListItem; metaValue?: string }
-  | { type: "saved"; id: string; metaValue?: string }
-  | { type: "linked"; id: string; metaValue: string };
+  | { type: "backend"; ms: MultisigListItem }
+  | { type: "saved"; id: string }
+  | { type: "linked"; id: string };
 
-function addLinkedAccess(linked: Map<string, Set<string>>, accountId: string | undefined, label: string) {
-  if (!accountId) return;
-  const labels = linked.get(accountId) ?? new Set<string>();
-  labels.add(label);
-  linked.set(accountId, labels);
-}
-
-function formatLinkedAccess(labels: Set<string>): string {
-  return Array.from(labels).sort().join(" · ");
+function accountKey(id: string | undefined): string {
+  return normalizeSuiAddress(id) || "";
 }
 
 function Pagination({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (p: number) => void }) {
@@ -69,57 +63,32 @@ export function Multisigs() {
   const account = useCurrentAccount();
   const { data: multisigs, isLoading } = useMyMultisigs();
   const { ids: savedIds, removeId } = useSavedMultisigIds();
-  const {
-    vestings,
-    streams,
-    spendingLimits,
-    isLoading: linkedAccountsLoading,
-  } = useMyVestingsAndStreams();
+  const { data: linkedAccounts = [], isLoading: linkedAccountsLoading } = useMyLinkedMultisigAccounts();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [msPage, setMsPage] = useState(0);
 
-  const linkedAccessByAccount = useMemo(() => {
-    const linked = new Map<string, Set<string>>();
-    vestings.forEach((vesting) => addLinkedAccess(linked, vesting.accountId, "Vesting coins"));
-    streams.forEach((stream) => addLinkedAccess(linked, stream.accountId, "Spending limits"));
-    spendingLimits.forEach((limit) => addLinkedAccess(linked, limit.accountId, "Spending limits"));
-    return linked;
-  }, [spendingLimits, streams, vestings]);
-
   const multisigItems = useMemo<MultisigItem[]>(() => {
-    const backendAccountIds = new Set(multisigs?.map((m) => m.account_id) || []);
-    const savedAccountIds = new Set(savedIds);
-    const knownAccountIds = new Set([...backendAccountIds, ...savedAccountIds]);
-    const extraSavedIds = savedIds.filter((id) => !backendAccountIds.has(id));
-    const linkedItems = Array.from(linkedAccessByAccount.entries())
-      .filter(([id]) => !knownAccountIds.has(id))
-      .map(([id, labels]) => ({
-        type: "linked" as const,
-        id,
-        metaValue: formatLinkedAccess(labels),
-      }));
+    const items: MultisigItem[] = [];
+    const seen = new Set<string>();
 
-    return [
-      ...(multisigs?.map((ms) => ({
-        type: "backend" as const,
-        ms,
-        metaValue: linkedAccessByAccount.has(ms.account_id)
-          ? formatLinkedAccess(linkedAccessByAccount.get(ms.account_id)!)
-          : undefined,
-      })) ?? []),
-      ...extraSavedIds.map((id) => ({
-        type: "saved" as const,
-        id,
-        metaValue: linkedAccessByAccount.has(id) ? formatLinkedAccess(linkedAccessByAccount.get(id)!) : undefined,
-      })),
-      ...linkedItems,
-    ];
-  }, [linkedAccessByAccount, multisigs, savedIds]);
+    function addItem(id: string | undefined, item: MultisigItem) {
+      const key = accountKey(id);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      items.push(item);
+    }
 
-  const isAccountListLoading = isLoading || linkedAccountsLoading;
+    (multisigs ?? []).forEach((ms) => addItem(ms.account_id, { type: "backend", ms }));
+    savedIds.forEach((id) => addItem(id, { type: "saved", id }));
+    linkedAccounts.forEach((linked) => addItem(linked.accountId, { type: "linked", id: linked.accountId }));
+
+    return items;
+  }, [linkedAccounts, multisigs, savedIds]);
+
+  const isMemberListLoading = isLoading;
   const totalPages = Math.max(1, Math.ceil(multisigItems.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(msPage, totalPages - 1);
-  const showExampleMultisig = !account || (!isAccountListLoading && multisigItems.length === 0);
+  const showExampleMultisig = !account || (!isMemberListLoading && !linkedAccountsLoading && multisigItems.length === 0);
 
   useEffect(() => {
     setShowCreateModal(false);
@@ -184,7 +153,7 @@ export function Multisigs() {
             </button>
           </div>
 
-          {isAccountListLoading ? (
+          {isMemberListLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {[0, 1, 2].map((i) => (
                 <div
@@ -219,8 +188,6 @@ export function Multisigs() {
                         accountId={item.ms.account_id}
                         accountName={item.ms.name}
                         memberCount={item.ms.member_count}
-                        metaLabel="Access"
-                        metaValue={item.metaValue}
                       />
                     ) : item.type === "saved" ? (
                       <AccountCard
@@ -228,8 +195,6 @@ export function Multisigs() {
                         accountId={item.id}
                         accountName="Saved Multisig"
                         memberCount={0}
-                        metaLabel="Access"
-                        metaValue={item.metaValue}
                         onRemove={() => removeId(item.id)}
                       />
                     ) : (
@@ -238,13 +203,11 @@ export function Multisigs() {
                         accountId={item.id}
                         accountName="Linked Multisig"
                         memberCount={0}
-                        metaLabel="Access"
-                        metaValue={item.metaValue}
                       />
                     )
                   )}
 
-                {multisigItems.length === 0 && (
+                {multisigItems.length === 0 && !linkedAccountsLoading && (
                   <div className="col-span-full flex flex-col items-center justify-center py-16">
                     <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center mb-4">
                       <Shield className="w-8 h-8 text-text-disabled" />

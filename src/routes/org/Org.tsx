@@ -122,7 +122,7 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
                 <thead>
                     <tr className="border-b border-border bg-white/[0.035]">
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Asset</th>
-                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Vault</th>
+                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Vaults</th>
                         <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Balance</th>
                     </tr>
                 </thead>
