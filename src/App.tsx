@@ -7,6 +7,9 @@ import { SiteFooter } from "./components/navigation/Footer";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const Home = lazy(() => import("./routes/Home").then(({ Home }) => ({ default: Home })));
+const GovexDashboard = lazy(() =>
+    import("./routes/GovexDashboard").then(({ GovexDashboard }) => ({ default: GovexDashboard }))
+);
 const CreateOrg = lazy(() => import("./routes/org/Create").then(({ CreateOrg }) => ({ default: CreateOrg })));
 const Org = lazy(() => import("./routes/org/Org").then(({ Org }) => ({ default: Org })));
 const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ default: Orgs })));
@@ -122,6 +125,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
             { path: "/", element: wrap(<Home />) },
+            { path: "/govex/dashboard", element: wrap(<GovexDashboard />) },
             { path: "/raises/:raiseId", element: wrap(<Raise />) },
             { path: "/raises", element: wrap(<Raises />) },
             { path: "/orgs/create", element: wrap(<CreateOrg />) },
