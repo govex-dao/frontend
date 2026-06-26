@@ -30,7 +30,7 @@ type MultisigTier = {
 const multisigTiers: MultisigTier[] = [
     {
         name: "Govex teams multisig",
-        price: "20 Sui creation fee",
+        price: "Free",
         action: "Create your multisig",
         actionHref: "/multisig",
         items: [

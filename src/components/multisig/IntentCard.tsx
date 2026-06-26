@@ -100,6 +100,35 @@ const CATEGORY_COLORS: Record<string, string> = {
     unknown: "bg-card-more-elevated border border-border-subtle text-text-muted",
 };
 
+function VoterAddressChips({
+    label,
+    addresses,
+    tone,
+}: {
+    label: string;
+    addresses: string[];
+    tone: "approve" | "reject";
+}) {
+    if (addresses.length === 0) return null;
+    const chipClass =
+        tone === "approve"
+            ? "bg-green-500/10 text-green-400"
+            : "bg-red-500/10 text-red-400";
+
+    return (
+        <div className="space-y-1">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</p>
+            <div className="flex flex-wrap gap-1">
+                {addresses.map((addr) => (
+                    <span key={addr} className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${chipClass}`}>
+                        {formatAddress(addr)}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function extractModuleType(fullType: string): string {
     try {
         const tag = parseStructTag(fullType);
@@ -1346,17 +1375,10 @@ export function IntentCard({
                 </div>
             )}
 
-            {/* Approvers */}
-            {approvals.approved.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {approvals.approved.map((addr) => (
-                        <span
-                            key={addr}
-                            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-500/10 text-green-400"
-                        >
-                            {formatAddress(addr)}
-                        </span>
-                    ))}
+            {(approvals.approved.length > 0 || approvals.rejected.length > 0) && (
+                <div className="space-y-2">
+                    <VoterAddressChips label="Approve votes" addresses={approvals.approved} tone="approve" />
+                    <VoterAddressChips label="Reject votes" addresses={approvals.rejected} tone="reject" />
                 </div>
             )}
 

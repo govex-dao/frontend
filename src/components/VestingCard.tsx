@@ -1,3 +1,4 @@
+import { calculateStreamAvailableWithTracking } from "@govex/futarchy-sdk";
 import { Timer, Coins, Shield, ShieldOff, Building2 } from "lucide-react";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 
@@ -9,6 +10,8 @@ interface VestingDisplayInfo {
   balance: bigint;
   amountPerIteration: bigint;
   claimedAmount: bigint;
+  firstUnclaimedIteration?: bigint;
+  partialClaimedInIteration?: bigint;
   startTimeMs: number;
   iterationsTotal: number;
   iterationPeriodMs: number;
@@ -95,10 +98,43 @@ function getFirstVestingTimeMs(vesting: VestingDisplayInfo): number {
   return vesting.startTimeMs + vesting.iterationPeriodMs;
 }
 
+function percentOf(amount: bigint, total: bigint): number {
+  if (total <= 0n || amount <= 0n) return 0;
+  const basisPoints = (amount * 10_000n) / total;
+  return Math.min(100, Number(basisPoints) / 100);
+}
+
+function clampBigInt(value: bigint, min: bigint, max: bigint): bigint {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+function vestingAvailableAmount(vesting: VestingDisplayInfo, nowMs = Date.now()): bigint {
+  try {
+    const available = calculateStreamAvailableWithTracking({
+      amountPerIteration: vesting.amountPerIteration,
+      firstUnclaimedIteration: vesting.firstUnclaimedIteration ?? 0n,
+      partialClaimedInIteration: vesting.partialClaimedInIteration ?? 0n,
+      startTimeMs: BigInt(vesting.startTimeMs),
+      iterationsTotal: BigInt(vesting.iterationsTotal),
+      iterationPeriodMs: BigInt(vesting.iterationPeriodMs),
+      currentTimeMs: BigInt(nowMs),
+    });
+    return clampBigInt(available, 0n, vesting.balance);
+  } catch {
+    return 0n;
+  }
+}
+
 export function VestingCard({ vesting }: Props) {
   const coin = extractCoinSymbol(vesting.coinType);
-  const { percent, totalAmount, status } = vestingProgress(vesting);
+  const { totalAmount, status } = vestingProgress(vesting);
   const accountLabel = vesting.daoAddress ?? vesting.accountId ?? vesting.vestingId;
+  const claimedAmount = clampBigInt(vesting.claimedAmount, 0n, totalAmount);
+  const availableAmount = vestingAvailableAmount(vesting);
+  const leftAmount = clampBigInt(vesting.balance, 0n, totalAmount - claimedAmount);
+  const claimedPercent = percentOf(claimedAmount, totalAmount);
 
   const firstVestingTimeMs = getFirstVestingTimeMs(vesting);
   const endTimeMs = vesting.startTimeMs + vesting.iterationPeriodMs * vesting.iterationsTotal;
@@ -153,19 +189,25 @@ export function VestingCard({ vesting }: Props) {
       {/* Progress bar */}
       <div>
         <div className="flex items-center justify-between text-[10px] text-text-muted mb-1">
-          <span>{formatAmount(vesting.claimedAmount, coin)} claimed</span>
-          <span>{percent}%</span>
+          <span>{formatAmount(claimedAmount, coin)} claimed</span>
+          <span>{formatAmount(leftAmount, coin)} left</span>
         </div>
         <div className="h-1.5 bg-card-more-elevated rounded-full overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${percent}%` }}
+            style={{ width: `${claimedPercent}%` }}
           />
         </div>
         <div className="flex items-center justify-between text-[10px] text-text-muted mt-1">
           <span>0</span>
           <span>{formatAmount(totalAmount, coin)} {coin}</span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-[10px]">
+        <AmountMetric label="Claimed" value={`${formatAmount(claimedAmount, coin)} ${coin}`} />
+        <AmountMetric label="Available now" value={`${formatAmount(availableAmount, coin)} ${coin}`} />
+        <AmountMetric label="Left" value={`${formatAmount(leftAmount, coin)} ${coin}`} />
       </div>
 
       {/* Details */}
@@ -219,6 +261,15 @@ export function VestingCard({ vesting }: Props) {
           <span>{new Date(endTimeMs).toLocaleDateString()}</span>
         </span>
       </div>
+    </div>
+  );
+}
+
+function AmountMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-card-more-elevated/50 px-2.5 py-2">
+      <p className="uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="mt-1 truncate font-mono text-[11px] font-semibold text-text-primary">{value}</p>
     </div>
   );
 }

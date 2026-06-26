@@ -116,6 +116,7 @@ export function Multisigs() {
               accountId={EXAMPLE_MULTISIG.accountId}
               accountName={EXAMPLE_MULTISIG.accountName}
               memberCount={EXAMPLE_MULTISIG.memberCount}
+              showAccountId={false}
               to="/multisig/example"
             />
           </div>

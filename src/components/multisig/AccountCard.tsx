@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { Check, Copy, Shield, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
+import { MiddleEllipsizedAddress } from "./CopyableAddress";
 
 interface Props {
   accountId: string;
@@ -10,11 +11,12 @@ interface Props {
   metaLabel?: string;
   metaValue?: string;
   onRemove?: () => void;
+  showAccountId?: boolean;
   to?: string | null;
 }
 
 export function AccountCard(props: Props) {
-  const { accountId, accountName, memberCount, metaLabel, metaValue, onRemove, to } = props;
+  const { accountId, accountName, memberCount, metaLabel, metaValue, onRemove, showAccountId = true, to } = props;
   const [copied, setCopied] = useState(false);
   const displayName = accountName.trim() || "Multisig Account";
   const cardClassName =
@@ -58,20 +60,23 @@ export function AccountCard(props: Props) {
           <h3 className="text-base font-semibold text-white group-hover:text-primary transition-colors truncate">
             {displayName}
           </h3>
-          <div className="mt-1 flex min-w-0 items-start gap-1.5">
-            <p className="min-w-0 flex-1 break-all font-mono text-[11px] leading-relaxed text-text-muted">
-              {accountId}
-            </p>
-            <button
-              type="button"
-              onClick={copyAccountId}
-              className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
-              title="Copy multisig address"
-              aria-label="Copy multisig address"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-          </div>
+          {showAccountId && (
+            <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              <MiddleEllipsizedAddress
+                address={accountId}
+                className="flex-1 font-mono text-xs text-text-muted"
+              />
+              <button
+                type="button"
+                onClick={copyAccountId}
+                className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
+                title="Copy multisig address"
+                aria-label="Copy multisig address"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

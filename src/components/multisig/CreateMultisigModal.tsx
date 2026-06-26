@@ -3,7 +3,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
-import { MIST_PER_SUI, isValidSuiAddress } from "@mysten/sui/utils";
+import { isValidSuiAddress } from "@mysten/sui/utils";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/overlays/Modal";
@@ -59,8 +59,8 @@ const PERMISSION_LABELS = {
     execute: "Execute",
 } as const;
 
-const FEE_SUI_DISPLAY = "20";
-const FEE_MIST = 20n * MIST_PER_SUI;
+const FEE_DISPLAY = "Free";
+const SUI_COIN_TYPE = "0x2::sui::SUI";
 const DEFAULT_INTENT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const SUI_MAINNET_USDC_COIN_TYPE =
     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
@@ -194,7 +194,11 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
             if (!feeVault) throw new Error("multisigFeeVault not configured");
 
             const tx = new Transaction();
-            const [feeCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(FEE_MIST)]);
+            const feeCoin = tx.moveCall({
+                target: "0x2::coin::zero",
+                typeArguments: [SUI_COIN_TYPE],
+                arguments: [],
+            });
 
             const metadataKeys: string[] = [];
             const metadataValues: string[] = [];
@@ -320,7 +324,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
 
                 <div className="flex justify-end gap-2 text-sm">
                     <span className="text-text-muted">Creation fee</span>
-                    <span className="font-semibold text-text-primary">{FEE_SUI_DISPLAY} SUI</span>
+                    <span className="font-semibold text-text-primary">{FEE_DISPLAY}</span>
                 </div>
 
                 {/* Account name */}

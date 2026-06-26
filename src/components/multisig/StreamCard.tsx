@@ -54,12 +54,6 @@ function percentOf(amount: bigint, total: bigint): number {
   return Math.min(100, Number(basisPoints) / 100);
 }
 
-function formatPercent(percent: number): string {
-  if (percent <= 0) return "0%";
-  if (percent < 10) return `${percent.toFixed(1).replace(/\.0$/, "")}%`;
-  return `${Math.round(percent)}%`;
-}
-
 function clampBigInt(value: bigint, min: bigint, max: bigint): bigint {
   if (value < min) return min;
   if (value > max) return max;
@@ -124,21 +118,25 @@ function streamAmountBreakdown(stream: VaultStreamInfo, nowMs = Date.now()) {
   const totalAmount = stream.amountPerIteration * BigInt(stream.iterationsTotal);
   const { elapsedIterations } = streamProgress(stream, nowMs);
   const completedAmount = stream.amountPerIteration * BigInt(elapsedIterations);
-  const availableAmount = streamAvailableAmount(stream, nowMs);
   const claimedAmount = clampBigInt(stream.claimedAmount, 0n, totalAmount);
+  const availableAmount = clampBigInt(streamAvailableAmount(stream, nowMs), 0n, totalAmount - claimedAmount);
   const expiredSpendingLimit = Boolean(stream.isSpendingLimit && stream.expiryMs != null && nowMs >= stream.expiryMs);
   const rawForfeitedAmount =
     stream.claimWindowMs != null || expiredSpendingLimit
       ? (expiredSpendingLimit ? totalAmount : completedAmount) - claimedAmount - availableAmount
       : 0n;
   const forfeitedAmount = clampBigInt(rawForfeitedAmount, 0n, totalAmount - claimedAmount);
+  const lockedAmount = clampBigInt(totalAmount - claimedAmount - forfeitedAmount - availableAmount, 0n, totalAmount);
 
   return {
     availableAmount,
     claimedAmount,
     forfeitedAmount,
+    lockedAmount,
     claimedPercent: percentOf(claimedAmount, totalAmount),
     forfeitedPercent: percentOf(forfeitedAmount, totalAmount),
+    availablePercent: percentOf(availableAmount, totalAmount),
+    lockedPercent: percentOf(lockedAmount, totalAmount),
   };
 }
 
@@ -147,11 +145,20 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
   const nowMs = Date.now();
   const { totalAmount, status } = streamProgress(stream, nowMs);
   const isSpendingLimit = Boolean(stream.isSpendingLimit);
-  const { availableAmount, claimedAmount, forfeitedAmount, claimedPercent, forfeitedPercent } =
+  const {
+    availableAmount,
+    claimedAmount,
+    forfeitedAmount,
+    lockedAmount,
+    claimedPercent,
+    forfeitedPercent,
+    availablePercent,
+    lockedPercent,
+  } =
     streamAmountBreakdown(stream, nowMs);
+  const leftAmount = clampBigInt(availableAmount + lockedAmount, 0n, totalAmount);
   const claimableAmount = isSpendingLimit ? 0n : availableAmount;
   const canCollect = Boolean(onCollect && stream.capId && stream.accountId && !isSpendingLimit);
-  const hasForfeitedAmount = forfeitedAmount > 0n;
   const hasWhitelistedRecipients = stream.whitelistedRecipients.length > 0;
 
   const firstSpendTimeMs = getFirstSpendTimeMs(stream);
@@ -168,7 +175,6 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
 
   return (
     <div className="bg-card-elevated border border-border-subtle rounded-xl p-4 space-y-3">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -178,9 +184,7 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
             <p className="text-sm font-semibold text-text-primary">
               {coin} Spending Limit
             </p>
-            <p className="text-[10px] text-text-muted">
-              Vault: {stream.vaultName} · Delegate
-            </p>
+            <p className="text-[10px] text-text-muted">Vault: {stream.vaultName}</p>
           </div>
         </div>
         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[status]}`}>
@@ -188,50 +192,20 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         </span>
       </div>
 
-      {/* Progress bar */}
-      <div>
-        <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-text-muted">
-          <span className="min-w-0">
-            {formatAmount(claimedAmount, coin)} spent
-            {hasForfeitedAmount && (
-              <span className="text-red-300"> · {formatAmount(forfeitedAmount, coin)} forfeited</span>
-            )}
-          </span>
-          <span className="shrink-0">{formatPercent(claimedPercent)} spent</span>
-        </div>
-        <div className="flex h-1.5 overflow-hidden rounded-full bg-card-more-elevated">
-          {claimedPercent > 0 && (
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${claimedPercent}%` }}
-            />
-          )}
-          {forfeitedPercent > 0 && (
-            <div
-              className="h-full bg-red-500/70 transition-all"
-              style={{ width: `${forfeitedPercent}%` }}
-            />
-          )}
-        </div>
-        <div className="flex items-center justify-between text-[10px] text-text-muted mt-1">
-          <span>0</span>
-          <span>{formatAmount(totalAmount, coin)} {coin}</span>
-        </div>
-        {hasForfeitedAmount && (
-          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-text-muted">
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-3 rounded-full bg-primary" />
-              Spent
-            </span>
-            <span className="inline-flex items-center gap-1 text-red-300">
-              <span className="h-1.5 w-3 rounded-full bg-red-500/70" />
-              Forfeited
-            </span>
-          </div>
-        )}
-      </div>
+      <StreamBudgetBar
+        coin={coin}
+        claimedAmount={claimedAmount}
+        availableAmount={availableAmount}
+        forfeitedAmount={forfeitedAmount}
+        lockedAmount={lockedAmount}
+        leftAmount={leftAmount}
+        totalAmount={totalAmount}
+        claimedPercent={claimedPercent}
+        forfeitedPercent={forfeitedPercent}
+        availablePercent={availablePercent}
+        lockedPercent={lockedPercent}
+      />
 
-      {/* Details */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         {stream.capHolder && (
           <>
@@ -285,17 +259,13 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
           {formatDuration(visibleDurationMs)}
         </span>
 
-        {isSpendingLimit && (
-          <>
-            <div className="flex items-center gap-1.5 text-text-muted">
-              <Timer className="w-3 h-3" />
-              <span>Expiry</span>
-            </div>
-            <span className="text-text-primary text-right">
-              {stream.expiryMs ? new Date(stream.expiryMs).toLocaleDateString() : "None"}
-            </span>
-          </>
-        )}
+        <div className="flex items-center gap-1.5 text-text-muted">
+          <Timer className="w-3 h-3" />
+          <span>Expiry</span>
+        </div>
+        <span className="text-text-primary text-right">
+          {stream.expiryMs ? new Date(stream.expiryMs).toLocaleDateString() : "No expiry"}
+        </span>
       </div>
 
       <div className="space-y-1.5 pt-2 border-t border-border-subtle">
@@ -325,7 +295,6 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         )}
       </div>
 
-      {/* Timeline */}
       <div className="flex items-center justify-between gap-3 text-[10px] text-text-muted pt-2 border-t border-border-subtle">
         <span className="flex flex-col">
           <span>{firstDateLabel}</span>
@@ -352,5 +321,99 @@ export function StreamCard({ stream, onCollect, isCollecting = false }: Props) {
         </button>
       )}
     </div>
+  );
+}
+
+function StreamBudgetBar({
+  coin,
+  claimedAmount,
+  availableAmount,
+  forfeitedAmount,
+  lockedAmount,
+  leftAmount,
+  totalAmount,
+  claimedPercent,
+  forfeitedPercent,
+  availablePercent,
+  lockedPercent,
+}: {
+  coin: string;
+  claimedAmount: bigint;
+  availableAmount: bigint;
+  forfeitedAmount: bigint;
+  lockedAmount: bigint;
+  leftAmount: bigint;
+  totalAmount: bigint;
+  claimedPercent: number;
+  forfeitedPercent: number;
+  availablePercent: number;
+  lockedPercent: number;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-text-muted">
+        <span className="min-w-0">
+          {formatAmount(claimedAmount, coin)} spent
+          {availableAmount > 0n && (
+            <span className="text-green-300"> · {formatAmount(availableAmount, coin)} available</span>
+          )}
+          {forfeitedAmount > 0n && (
+            <span className="text-red-300"> · {formatAmount(forfeitedAmount, coin)} forfeited</span>
+          )}
+        </span>
+        <span className="shrink-0">{formatAmount(leftAmount, coin)} left</span>
+      </div>
+      <div className="flex h-1.5 overflow-hidden rounded-full bg-card-more-elevated">
+        <BudgetSegment amount={claimedAmount} coin={coin} label="spent" percent={claimedPercent} className="bg-primary" />
+        <BudgetSegment
+          amount={forfeitedAmount}
+          coin={coin}
+          label="forfeited"
+          percent={forfeitedPercent}
+          className="bg-red-500/70"
+        />
+        <BudgetSegment
+          amount={availableAmount}
+          coin={coin}
+          label="available now"
+          percent={availablePercent}
+          className="bg-green-400/80"
+        />
+        <BudgetSegment
+          amount={lockedAmount}
+          coin={coin}
+          label="not yet available"
+          percent={lockedPercent}
+          className="bg-white/10"
+        />
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-text-muted mt-1">
+        <span>0</span>
+        <span>{formatAmount(totalAmount, coin)} {coin}</span>
+      </div>
+    </div>
+  );
+}
+
+function BudgetSegment({
+  amount,
+  coin,
+  label,
+  percent,
+  className,
+}: {
+  amount: bigint;
+  coin: string;
+  label: string;
+  percent: number;
+  className: string;
+}) {
+  if (percent <= 0) return null;
+  return (
+    <div
+      className={`h-full transition-all ${className}`}
+      title={`${formatAmount(amount, coin)} ${coin} ${label}`}
+      style={{ width: `${percent}%` }}
+    />
   );
 }
