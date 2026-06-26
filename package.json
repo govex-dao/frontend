@@ -17,7 +17,7 @@
         "prepare": "husky"
     },
     "dependencies": {
-        "@govex/futarchy-sdk": "git+https://github.com/govex-dao/sdk-v3.git#33c29005cda826252a10464c2e66ed2b9e285e33",
+        "@govex/futarchy-sdk": "git+https://github.com/govex-dao/sdk.git#e9c7224530e30847b5f908e3f1e054475e52d815",
         "@mysten/dapp-kit": "^0.19.8",
         "@mysten/sui": "^1.44.0",
         "@tailwindcss/vite": "^4.1.16",

@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Transaction } from "@mysten/sui/transactions";
-import { bcs } from "@mysten/sui/bcs";
 import { isValidSuiAddress } from "@mysten/sui/utils";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -16,7 +15,6 @@ import { network } from "@/lib/config";
 import { createDefaultAdvancedDraft, parseAdvancedMultisigDraft } from "@/lib/sui/advancedMultisigConfig";
 import {
     buildSimpleMultisigConfigInput,
-    flattenMultisigConfigInput,
     parseU64Input,
     validateAndParseMultisigConfigDraft,
 } from "@/lib/sui/multisigConfigValidation";
@@ -60,7 +58,6 @@ const PERMISSION_LABELS = {
 } as const;
 
 const FEE_DISPLAY = "Free";
-const SUI_COIN_TYPE = "0x2::sui::SUI";
 const DEFAULT_INTENT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const SUI_MAINNET_USDC_COIN_TYPE =
     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
@@ -184,67 +181,13 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
         submittingRef.current = true;
         try {
             const sdk = getSDK();
-            const pkg = sdk.packages.accountMultisig;
-            const actionsPackage = sdk.packages.accountActions;
-            const feeVault = sdk.sharedObjects.multisigFeeVault;
-            const registryId = sdk.sharedObjects.packageRegistry.id;
-
-            if (!pkg) throw new Error("accountMultisig package not configured");
-            if (!actionsPackage) throw new Error("accountActions package not configured");
-            if (!feeVault) throw new Error("multisigFeeVault not configured");
+            if (!sdk.multisig) throw new Error("multisig service not configured");
 
             const tx = new Transaction();
-            const feeCoin = tx.moveCall({
-                target: "0x2::coin::zero",
-                typeArguments: [SUI_COIN_TYPE],
-                arguments: [],
-            });
-
-            const metadataKeys: string[] = [];
-            const metadataValues: string[] = [];
-            if (accountName.trim()) {
-                metadataKeys.push("name");
-                metadataValues.push(accountName.trim());
-            }
-            const configArgs = flattenMultisigConfigInput(configInput);
-
-            const newAccount = tx.moveCall({
-                target: `${pkg}::multisig::new_account`,
-                arguments: [
-                    tx.object(feeVault.id),
-                    tx.object(registryId),
-                    feeCoin,
-                    tx.pure.vector("string", metadataKeys),
-                    tx.pure.vector("string", metadataValues),
-                    tx.pure.vector("string", configArgs.groupNames),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.groupMemberCounts).toBytes()),
-                    tx.pure(bcs.vector(bcs.Address).serialize(configArgs.allMemberAddresses).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allMemberWeights).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.timeBandCounts).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allTimeBandAfters).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allTimeBandWeights).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.approvePathReqCounts).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allApproveGroupIndices).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allApproveThresholds).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.cancelPathReqCounts).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allCancelGroupIndices).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.allCancelThresholds).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.proposeGroups).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.executeGroups).toBytes()),
-                    tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.cancelGroups).toBytes()),
-                    tx.pure.u64(configArgs.intentExpiryMs),
-                ],
-            });
-
-            tx.moveCall({
-                target: `${actionsPackage}::vault::init_treasury_vault_with_coin_type`,
-                typeArguments: [getMultisigTreasuryCoinType()],
-                arguments: [newAccount, tx.object(registryId)],
-            });
-
-            tx.moveCall({
-                target: `${pkg}::multisig::share`,
-                arguments: [newAccount],
+            sdk.multisig.createAccount(tx, {
+                ...configInput,
+                metadata: accountName.trim() ? { name: accountName.trim() } : undefined,
+                treasuryCoinType: getMultisigTreasuryCoinType(),
             });
 
             await executeTransaction(
