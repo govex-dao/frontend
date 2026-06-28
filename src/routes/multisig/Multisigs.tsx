@@ -125,8 +125,8 @@ export function Multisigs() {
 
       {!account ? (
         /* Not connected */
-        <section className="glass-flow-panel rounded-xl p-4 md:p-6">
-          <div className="flex flex-col items-center justify-center py-10">
+        <section className="flex flex-col items-center justify-center py-8 md:py-10">
+          <div className="flex flex-col items-center justify-center">
             <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center mb-6">
               <Shield className="w-10 h-10 text-text-disabled" />
             </div>

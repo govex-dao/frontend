@@ -57,6 +57,12 @@ const PERMISSION_LABELS = {
     execute: "Execute",
 } as const;
 
+type ConfigMode = "simple" | "advanced";
+
+// Advanced multisig setup remains implemented but hidden from the public create
+// flow for now. Add "advanced" here to restore the selector.
+const VISIBLE_CONFIG_MODES: ConfigMode[] = ["simple"];
+
 const FEE_DISPLAY = "Free";
 const DEFAULT_INTENT_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const SUI_MAINNET_USDC_COIN_TYPE =
@@ -96,7 +102,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
     const [accountName, setAccountName] = useState("");
     const [members, setMembers] = useState<MemberDraft[]>(() => [defaultMember(creatorAddr)]);
     const [globalThreshold, setGlobalThreshold] = useState("1");
-    const [configMode, setConfigMode] = useState<"simple" | "advanced">("simple");
+    const [configMode, setConfigMode] = useState<ConfigMode>("simple");
     const [advancedDraft, setAdvancedDraft] = useState(() => createDefaultAdvancedDraft(creatorAddr));
     const [successAccountId, setSuccessAccountId] = useState<string | null>(null);
 
@@ -233,31 +239,42 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
                 <CreateMultisigSuccessNote accountId={successAccountId} onClose={handleClose} />
             ) : (
                 <div className="space-y-5">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        {(["simple", "advanced"] as const).map((mode) => {
+                    <div className="grid gap-2">
+                        {VISIBLE_CONFIG_MODES.map((mode) => {
                             const selected = configMode === mode;
+                            const isAdvancedOption = mode === "advanced";
                             return (
                                 <button
                                     key={mode}
                                     type="button"
                                     onClick={() => setConfigMode(mode)}
-                                    className={`min-w-0 rounded-lg border p-3 text-left transition-colors ${
+                                    className={`min-w-0 rounded-lg border text-left transition-colors ${
+                                        isAdvancedOption ? "p-2.5" : "p-3"
+                                    } ${
                                         selected
                                             ? "border-primary/40 bg-primary/10 text-primary"
                                             : "border-border-subtle bg-card-elevated text-text-muted hover:border-border-light hover:text-text-primary"
                                     }`}
                                 >
-                                    <span className="block text-xs font-semibold">
+                                    <span
+                                        className={`block font-semibold ${
+                                            isAdvancedOption ? "text-[11px]" : "text-xs"
+                                        }`}
+                                    >
                                         {mode === "simple" ? "Simple" : "Advanced"}
                                     </span>
-                                    <span className="mt-1 block text-[11px] leading-snug text-text-muted">
+                                    <span
+                                        className={`mt-1 block leading-snug text-text-muted ${
+                                            isAdvancedOption ? "text-[10px]" : "text-[11px]"
+                                        }`}
+                                    >
                                         {mode === "simple"
                                             ? "Best for: individuals and non-technical teams."
-                                            : "Best for: professional teams that want multiple approval paths or backup custodians."}
+                                            : "Best for: teams with complex OpSec requirements."}
                                         {/*
                                          * Remove this comment block to use advanced time banding configuration:
                                          * Advanced copy:
-                                         * "Best for: professional teams that want multiple approval paths, backup custodians, or time-weighted approvals."
+                                         * "Best for: teams with complex OpSec requirements or time-weighted approvals."
                                          */}
                                     </span>
                                 </button>

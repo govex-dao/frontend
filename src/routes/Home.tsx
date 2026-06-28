@@ -40,8 +40,6 @@ const multisigTiers: MultisigTier[] = [
             { label: "Whitelisted transfer recipients" },
             { label: "Role-based permissions" },
             { label: "Up to 200 members" },
-            // Remove this comment to use advanced time banding configuration:
-            // { label: "Time weighted recovery" },
             { label: "Change members, weights, and thresholds onchain" },
             { label: "Virtual vaults to isolate funds" },
         ],
