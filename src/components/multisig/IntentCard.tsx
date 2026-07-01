@@ -1160,7 +1160,7 @@ export function IntentCard({
 
     return (
         <div
-            className={`bg-card-elevated border border-border-subtle rounded-xl p-4 flex flex-col gap-3 ${isDone ? "opacity-50" : ""}`}
+            className={`bg-card-elevated border border-border-subtle rounded-xl p-4 flex flex-col gap-3 ${isDone ? "opacity-75" : ""}`}
         >
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
