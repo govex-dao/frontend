@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getActionByFullType } from "@govex/futarchy-sdk";
 import { formatAddress, isValidSuiObjectId, parseStructTag } from "@mysten/sui/utils";
 import { Transaction } from "@mysten/sui/transactions";
 import toast from "react-hot-toast";
@@ -82,7 +83,14 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
     vesting: Gift,
     memo: FileText,
     package: Package,
+    package_registry: Package,
+    package_upgrade: Package,
     config: Settings,
+    dissolution: XCircle,
+    launchpad: Gift,
+    liquidity: Droplets,
+    oracle: Clock,
+    quota: Settings,
     custom: FileText,
     unknown: FileText,
 };
@@ -95,7 +103,14 @@ const CATEGORY_COLORS: Record<string, string> = {
     vesting: "bg-primary/15 text-primary",
     memo: "bg-gray-500/15 text-gray-400",
     package: "bg-teal-500/15 text-teal-400",
+    package_registry: "bg-teal-500/15 text-teal-400",
+    package_upgrade: "bg-teal-500/15 text-teal-400",
     config: "bg-orange-500/15 text-orange-400",
+    dissolution: "bg-red-500/15 text-red-400",
+    launchpad: "bg-primary/15 text-primary",
+    liquidity: "bg-cyan-500/15 text-cyan-400",
+    oracle: "bg-violet-500/15 text-violet-300",
+    quota: "bg-amber-500/15 text-amber-300",
     custom: "bg-card-more-elevated border border-border-subtle text-text-secondary",
     unknown: "bg-card-more-elevated border border-border-subtle text-text-muted",
 };
@@ -110,10 +125,7 @@ function VoterAddressChips({
     tone: "approve" | "reject";
 }) {
     if (addresses.length === 0) return null;
-    const chipClass =
-        tone === "approve"
-            ? "bg-green-500/10 text-green-400"
-            : "bg-red-500/10 text-red-400";
+    const chipClass = tone === "approve" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400";
 
     return (
         <div className="space-y-1">
@@ -138,6 +150,18 @@ function extractModuleType(fullType: string): string {
         const parts = base.split("::");
         return parts.length >= 3 ? `${parts[parts.length - 2]}::${parts[parts.length - 1]}` : base;
     }
+}
+
+function getPrebuiltActionDefinition(fullType: string) {
+    return getActionByFullType(normalizeTypeAddresses(fullType));
+}
+
+function isKnownPrebuiltActionType(fullType: string): boolean {
+    return Boolean(getActionExecInfo(fullType) || getPrebuiltActionDefinition(fullType));
+}
+
+function formatCategoryLabel(category: string): string {
+    return category.replace(/_/g, " ");
 }
 
 const UPGRADE_CAP_OBJECT_TYPE = "0x2::package::UpgradeCap";
@@ -181,9 +205,9 @@ function findPairedLockUpgradeCapActionIndex(actionTypes: string[], provideActio
     return null;
 }
 
-/** Action types the public frontend does not have an execution adapter for yet. */
+/** Action types that are neither recognized SDK actions nor frontend-executable actions. */
 function getCustomActionTypes(actionTypes: string[]): string[] {
-    return actionTypes.filter((t) => !getActionExecInfo(t));
+    return actionTypes.filter((t) => !isKnownPrebuiltActionType(t));
 }
 
 interface UpgradeInputDraft {
@@ -409,11 +433,7 @@ function VoteProgressMeter({
 }) {
     const percent = Math.max(0, Math.min(100, progress.percent));
     const fillClass = tone === "approve" ? "bg-green-500" : "bg-red-500/80";
-    const textClass = progress.satisfied
-        ? tone === "approve"
-            ? "text-green-400"
-            : "text-red-300"
-        : "text-text-muted";
+    const textClass = progress.satisfied ? (tone === "approve" ? "text-green-400" : "text-red-300") : "text-text-muted";
 
     return (
         <div className="space-y-1">
@@ -531,6 +551,12 @@ export function IntentCard({
     const hasUnsupported = unsupportedReasons.length > 0;
     const customActionTypes = !isConfig ? getCustomActionTypes(intent.actionTypes) : [];
     const hasCustomActionTypes = customActionTypes.length > 0;
+    const unsupportedPrebuiltActionTypes = !isConfig
+        ? intent.actionTypes.filter(
+              (actionType) => getPrebuiltActionDefinition(actionType) && !getActionExecInfo(actionType)
+          )
+        : [];
+    const hasUnsupportedPrebuiltActions = unsupportedPrebuiltActionTypes.length > 0;
     const hasUnparsedActions = !isConfig && intent.actionTypes.length === 0 && intent.actionCount > 0;
     const hasGenericExecutionGap = hasCustomActionTypes || hasUnparsedActions;
 
@@ -577,13 +603,20 @@ export function IntentCard({
     const objectIdRequirementKey = objectIdRequirements.map((req) => `${req.actionIndex}:${req.actionType}`).join("|");
     const executeCoinTypeTrimmed = executeCoinType.trim();
 
-    // Resolve action details for display using our own exec map
+    // Resolve action details for display from SDK metadata first, then execution metadata.
     const actionDetails = intent.actionTypes.map((fullType, actionIndex) => {
+        const definition = getPrebuiltActionDefinition(fullType);
         const info = getActionExecInfo(fullType);
+        const actionData = intent.actionDataByAction?.[actionIndex];
+        const decoded = actionData ? decodeActionParams({ fullType, actionData }) : null;
+
         return {
             fullType,
-            name: info?.name || "Custom action",
-            category: info?.category || "custom",
+            name: definition?.name || info?.name || "Custom action",
+            category: definition?.category || info?.category || "custom",
+            description: definition?.description,
+            decodedParams: decoded?.params || [],
+            decodeError: decoded?.error,
             requiresInput: requiredInputByAction.has(actionIndex),
         };
     });
@@ -786,6 +819,7 @@ export function IntentCard({
             !showExecute ||
             isConfig ||
             hasGenericExecutionGap ||
+            hasUnsupportedPrebuiltActions ||
             hasUnsupported ||
             !currentUserAddress ||
             objectIdRequirements.length === 0
@@ -849,6 +883,7 @@ export function IntentCard({
         executeCoinTypeTrimmed,
         hasGenericExecutionGap,
         hasUnsupported,
+        hasUnsupportedPrebuiltActions,
         intent.actionTypes,
         intent.expectedAmountByAction,
         isConfig,
@@ -1145,16 +1180,24 @@ export function IntentCard({
     const executeBlocked = !!(
         showExecute &&
         !isConfig &&
-        (hasMissingInputs || hasUnsupported || hasGenericExecutionGap || upgradeDelayBlocked)
+        (hasMissingInputs ||
+            hasUnsupported ||
+            hasGenericExecutionGap ||
+            hasUnsupportedPrebuiltActions ||
+            upgradeDelayBlocked)
     );
     const genericExecutionGapMessage =
-        "Voting and cancellation are supported in this UI. Execution for custom intents is not currently supported in the public frontend.";
+        "Voting and cancellation are supported in this UI. Execution for unknown custom intents is not currently supported in the public frontend.";
+    const prebuiltExecutionGapMessage =
+        "This prebuilt action is recognized, but execution for this action type is not currently wired into the public frontend.";
 
     const primaryActionName = isConfig
         ? "Config Change"
         : actionDetails.length > 0
           ? actionDetails.map((a) => a.name).join(", ")
           : `${intent.actionCount} action${intent.actionCount !== 1 ? "s" : ""}`;
+    const primaryActionDescription =
+        intent.description || (actionDetails.length === 1 ? actionDetails[0]?.description : undefined);
     const primaryCategory = isConfig ? "config" : actionDetails[0]?.category || "unknown";
     const PrimaryCategoryIcon = CATEGORY_ICONS[primaryCategory] || CATEGORY_ICONS.unknown;
 
@@ -1175,8 +1218,8 @@ export function IntentCard({
                         )}
                         <h4 className="text-sm font-semibold text-text-primary truncate">{primaryActionName}</h4>
                     </div>
-                    {intent.description && (
-                        <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{intent.description}</p>
+                    {primaryActionDescription && (
+                        <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{primaryActionDescription}</p>
                     )}
                 </div>
                 <div className={`flex items-center gap-1.5 shrink-0 ${cfg.color}`}>
@@ -1231,10 +1274,35 @@ export function IntentCard({
                                                 className={`text-[10px] px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 ${CATEGORY_COLORS[action.category] || "bg-card-more-elevated border border-border-subtle text-text-muted"}`}
                                             >
                                                 {CategoryIcon && <CategoryIcon className="w-3 h-3" />}
-                                                {action.category}
+                                                {formatCategoryLabel(action.category)}
                                             </span>
                                             <span className="text-xs text-text-secondary">{action.name}</span>
                                         </div>
+                                        {action.description && (
+                                            <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                                                {action.description}
+                                            </p>
+                                        )}
+                                        {action.decodedParams.length > 0 && (
+                                            <div className="mt-2 grid gap-1">
+                                                {action.decodedParams.map((param) => (
+                                                    <div
+                                                        key={`${action.fullType}-${i}-${param.name}`}
+                                                        className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] gap-2 text-[10px]"
+                                                    >
+                                                        <span className="truncate text-text-muted">{param.name}</span>
+                                                        <span className="break-all font-mono text-text-secondary">
+                                                            {param.value}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {action.decodeError && (
+                                            <p className="mt-1 text-[10px] text-yellow-400">
+                                                Action data could not be decoded: {action.decodeError}
+                                            </p>
+                                        )}
                                         <div className="mt-1 break-all font-mono text-[10px] text-text-muted">
                                             {action.fullType}
                                         </div>
@@ -1284,8 +1352,8 @@ export function IntentCard({
                 >
                     <AlertTriangle className="w-3 h-3" />
                     <span>
-                        Action {warning.actionIndex + 1}: {warning.pastIterations} out of{" "}
-                        {warning.totalIterations} {warning.kind} iterations are in the past.
+                        Action {warning.actionIndex + 1}: {warning.pastIterations} out of {warning.totalIterations}{" "}
+                        {warning.kind} iterations are in the past.
                     </span>
                 </div>
             ))}
@@ -1365,8 +1433,23 @@ export function IntentCard({
                 </div>
             )}
 
+            {hasUnsupportedPrebuiltActions && !hasGenericExecutionGap && (
+                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-2 text-[10px] text-yellow-200">
+                    <div className="flex items-center gap-1 font-semibold text-yellow-300">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Prebuilt action execution unavailable</span>
+                    </div>
+                    <div className="mt-1">{prebuiltExecutionGapMessage}</div>
+                    <div className="mt-1 break-all font-mono text-[9px] text-yellow-100/70">
+                        {unsupportedPrebuiltActionTypes
+                            .map((actionType) => getPrebuiltActionDefinition(actionType)?.name || actionType)
+                            .join(", ")}
+                    </div>
+                </div>
+            )}
+
             {/* Unsupported action warning */}
-            {hasUnsupported && !hasGenericExecutionGap && (
+            {hasUnsupported && !hasGenericExecutionGap && !hasUnsupportedPrebuiltActions && (
                 <div className="space-y-1">
                     {unsupportedReasons.map((reason, i) => (
                         <div key={i} className="text-[10px] flex items-center gap-1 text-yellow-400">
@@ -1389,12 +1472,17 @@ export function IntentCard({
             )}
 
             {/* Missing required execution inputs */}
-            {showExecute && !isConfig && !hasGenericExecutionGap && !hasUnsupported && hasMissingInputs && (
-                <div className="text-[10px] flex items-center gap-1 text-yellow-400">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>Fill required execution inputs to enable Execute</span>
-                </div>
-            )}
+            {showExecute &&
+                !isConfig &&
+                !hasGenericExecutionGap &&
+                !hasUnsupportedPrebuiltActions &&
+                !hasUnsupported &&
+                hasMissingInputs && (
+                    <div className="text-[10px] flex items-center gap-1 text-yellow-400">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Fill required execution inputs to enable Execute</span>
+                    </div>
+                )}
 
             {(approvals.approved.length > 0 || approvals.rejected.length > 0) && (
                 <div className="space-y-2">
@@ -1404,183 +1492,191 @@ export function IntentCard({
             )}
 
             {/* Required execution inputs */}
-            {showExecute && !isConfig && !hasUnsupported && !hasGenericExecutionGap && hasInputRequirements && (
-                <div className="border-t border-border-subtle pt-3 space-y-3">
-                    <p className="text-[10px] text-text-muted">Provide required execution inputs:</p>
+            {showExecute &&
+                !isConfig &&
+                !hasUnsupported &&
+                !hasGenericExecutionGap &&
+                !hasUnsupportedPrebuiltActions &&
+                hasInputRequirements && (
+                    <div className="border-t border-border-subtle pt-3 space-y-3">
+                        <p className="text-[10px] text-text-muted">Provide required execution inputs:</p>
 
-                    {needsCoinType && (
-                        <CoinTypePicker
-                            value={executeCoinType}
-                            onChange={(coinType) => setExecuteCoinType(coinType)}
-                            label="Coin Type"
-                        />
-                    )}
-
-                    {objectTypeRequirements.map((req) =>
-                        (objectIdCandidatesByAction[req.actionIndex] || []).some(
-                            (candidate) => candidate.objectType
-                        ) ? null : (
-                            <Input
-                                key={`object-type-${req.actionIndex}`}
-                                label={`${req.label} (Action ${req.actionIndex + 1}: ${req.actionName})`}
-                                value={executeObjectTypes[req.actionIndex] || ""}
-                                onChange={(value) => {
-                                    setExecuteObjectTypes((prev) => ({ ...prev, [req.actionIndex]: value }));
-                                }}
-                                placeholder={req.placeholder}
-                                error={missingObjectTypeSet.has(req.actionIndex)}
-                                size="sm"
+                        {needsCoinType && (
+                            <CoinTypePicker
+                                value={executeCoinType}
+                                onChange={(coinType) => setExecuteCoinType(coinType)}
+                                label="Coin Type"
                             />
-                        )
-                    )}
+                        )}
 
-                    {objectIdRequirements.map((req) => {
-                        const actionIndex = req.actionIndex;
-                        const val = executeObjectIds[actionIndex] || "";
-                        const fixedIntentId = intentFixedObjectIdsByAction[actionIndex];
-                        const options = objectIdOptionsByAction[actionIndex] || [];
-
-                        if (fixedIntentId) return null;
-
-                        if (options.length > 0) {
-                            return (
-                                <Select
-                                    key={`object-id-${actionIndex}`}
-                                    label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
-                                    options={options}
-                                    value={val}
-                                    onChange={(value) => handleExecutionObjectIdChange(actionIndex, value)}
-                                    placeholder={req.placeholder || "Select an object..."}
-                                    allowSearch
-                                    allowClear={false}
-                                />
-                            );
-                        }
-
-                        return (
-                            <div key={`object-id-${actionIndex}`} className="space-y-1">
+                        {objectTypeRequirements.map((req) =>
+                            (objectIdCandidatesByAction[req.actionIndex] || []).some(
+                                (candidate) => candidate.objectType
+                            ) ? null : (
                                 <Input
-                                    label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
-                                    value={val}
+                                    key={`object-type-${req.actionIndex}`}
+                                    label={`${req.label} (Action ${req.actionIndex + 1}: ${req.actionName})`}
+                                    value={executeObjectTypes[req.actionIndex] || ""}
                                     onChange={(value) => {
-                                        setExecuteObjectIds((prev) => ({ ...prev, [actionIndex]: value }));
+                                        setExecuteObjectTypes((prev) => ({ ...prev, [req.actionIndex]: value }));
                                     }}
                                     placeholder={req.placeholder}
-                                    error={
-                                        missingObjectIdSet.has(actionIndex) ||
-                                        (val.length > 0 && !isValidSuiObjectId(val))
-                                    }
+                                    error={missingObjectTypeSet.has(req.actionIndex)}
                                     size="sm"
                                 />
-                                <p className="text-[11px] text-text-muted">
-                                    No matching derived objects found for this action. Paste the object ID manually.
-                                </p>
-                            </div>
-                        );
-                    })}
+                            )
+                        )}
 
-                    {upgradeRequirements.map((req) => {
-                        const draft = executeUpgradeInputs[req.actionIndex] || {
-                            packageId: "",
-                            modules: "",
-                            dependencies: "",
-                        };
-                        const isMissing = missingUpgradeSet.has(req.actionIndex);
-                        const parsedModules = parseListInput(draft.modules);
-                        const parsedDeps = parseListInput(draft.dependencies);
-                        const isFilled = draft.packageId.trim() && parsedModules.length > 0 && parsedDeps.length > 0;
+                        {objectIdRequirements.map((req) => {
+                            const actionIndex = req.actionIndex;
+                            const val = executeObjectIds[actionIndex] || "";
+                            const fixedIntentId = intentFixedObjectIdsByAction[actionIndex];
+                            const options = objectIdOptionsByAction[actionIndex] || [];
 
-                        return (
-                            <div
-                                key={`upgrade-${req.actionIndex}`}
-                                className="space-y-2 p-2.5 rounded-lg border border-border-subtle bg-card-more-elevated/40"
-                            >
-                                <p className="text-[10px] text-text-muted">
-                                    Action {req.actionIndex + 1}: {req.actionName}
-                                </p>
-                                <Textarea
-                                    label="Build output"
-                                    value={isFilled ? "" : (draft.buildOutputRaw ?? "")}
-                                    onChange={(raw) => {
-                                        const trimmed = raw.trim();
-                                        if (!trimmed) return;
-                                        const parsed = parseUpgradeBuildOutput(trimmed);
-                                        if (!parsed) return;
+                            if (fixedIntentId) return null;
 
-                                        cacheUpgradeBuildOutput(trimmed);
-                                        setExecuteUpgradeInputs((prev) => ({
-                                            ...prev,
-                                            [req.actionIndex]: {
-                                                packageId: prev[req.actionIndex]?.packageId || "",
-                                                modules: parsed.modules.join("\n"),
-                                                dependencies: parsed.dependencies.join("\n"),
-                                                buildOutputRaw: raw,
-                                            },
-                                        }));
-                                    }}
-                                    placeholder="Paste output of: sui move build --dump-bytecode-as-base64"
-                                    rows={isFilled ? 1 : 3}
-                                    error={false}
-                                />
-                                {isFilled ? (
-                                    <div className="text-[10px] text-text-muted space-y-1 p-2 rounded bg-card-more-elevated/60 border border-border-subtle">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-green-400">Parsed</span>
-                                            <span>
-                                                {parsedModules.length} module{parsedModules.length !== 1 ? "s" : ""}
-                                            </span>
-                                            <span>
-                                                {parsedDeps.length} dep{parsedDeps.length !== 1 ? "s" : ""}
-                                            </span>
-                                        </div>
-                                        {draft.packageId.trim() && (
-                                            <div className="font-mono text-[9px] truncate">
-                                                pkg: {draft.packageId.trim()}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-[10px] text-text-muted p-2 rounded bg-card-more-elevated/60 border border-border-subtle space-y-1">
-                                        <p className="font-medium text-text-secondary">
-                                            Step 3 of 3: Provide build output to execute
-                                        </p>
-                                        <p>
-                                            If this browser has the proposal-time build cached it will auto-fill.
-                                            Otherwise re-run:
-                                        </p>
-                                        <UpgradeBuildCommand codeClassName="bg-card-more-elevated/80" />
-                                        <p>The onchain digest will verify the bytecode matches what was approved.</p>
-                                    </div>
-                                )}
-                                {draft.packageId.trim() ? (
-                                    <div className="text-[10px] text-text-muted font-mono truncate">
-                                        Package: {draft.packageId.trim()}
-                                    </div>
-                                ) : (
+                            if (options.length > 0) {
+                                return (
+                                    <Select
+                                        key={`object-id-${actionIndex}`}
+                                        label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
+                                        options={options}
+                                        value={val}
+                                        onChange={(value) => handleExecutionObjectIdChange(actionIndex, value)}
+                                        placeholder={req.placeholder || "Select an object..."}
+                                        allowSearch
+                                        allowClear={false}
+                                    />
+                                );
+                            }
+
+                            return (
+                                <div key={`object-id-${actionIndex}`} className="space-y-1">
                                     <Input
-                                        label="Upgrade Package ID"
-                                        value={draft.packageId}
+                                        label={`${req.label} (Action ${actionIndex + 1}: ${req.actionName})`}
+                                        value={val}
                                         onChange={(value) => {
+                                            setExecuteObjectIds((prev) => ({ ...prev, [actionIndex]: value }));
+                                        }}
+                                        placeholder={req.placeholder}
+                                        error={
+                                            missingObjectIdSet.has(actionIndex) ||
+                                            (val.length > 0 && !isValidSuiObjectId(val))
+                                        }
+                                        size="sm"
+                                    />
+                                    <p className="text-[11px] text-text-muted">
+                                        No matching derived objects found for this action. Paste the object ID manually.
+                                    </p>
+                                </div>
+                            );
+                        })}
+
+                        {upgradeRequirements.map((req) => {
+                            const draft = executeUpgradeInputs[req.actionIndex] || {
+                                packageId: "",
+                                modules: "",
+                                dependencies: "",
+                            };
+                            const isMissing = missingUpgradeSet.has(req.actionIndex);
+                            const parsedModules = parseListInput(draft.modules);
+                            const parsedDeps = parseListInput(draft.dependencies);
+                            const isFilled =
+                                draft.packageId.trim() && parsedModules.length > 0 && parsedDeps.length > 0;
+
+                            return (
+                                <div
+                                    key={`upgrade-${req.actionIndex}`}
+                                    className="space-y-2 p-2.5 rounded-lg border border-border-subtle bg-card-more-elevated/40"
+                                >
+                                    <p className="text-[10px] text-text-muted">
+                                        Action {req.actionIndex + 1}: {req.actionName}
+                                    </p>
+                                    <Textarea
+                                        label="Build output"
+                                        value={isFilled ? "" : (draft.buildOutputRaw ?? "")}
+                                        onChange={(raw) => {
+                                            const trimmed = raw.trim();
+                                            if (!trimmed) return;
+                                            const parsed = parseUpgradeBuildOutput(trimmed);
+                                            if (!parsed) return;
+
+                                            cacheUpgradeBuildOutput(trimmed);
                                             setExecuteUpgradeInputs((prev) => ({
                                                 ...prev,
                                                 [req.actionIndex]: {
-                                                    ...prev[req.actionIndex],
-                                                    packageId: value,
-                                                    modules: prev[req.actionIndex]?.modules || "",
-                                                    dependencies: prev[req.actionIndex]?.dependencies || "",
+                                                    packageId: prev[req.actionIndex]?.packageId || "",
+                                                    modules: parsed.modules.join("\n"),
+                                                    dependencies: parsed.dependencies.join("\n"),
+                                                    buildOutputRaw: raw,
                                                 },
                                             }));
                                         }}
-                                        placeholder="0x... (auto-filled if package is locked in account)"
-                                        error={isMissing && !draft.packageId.trim()}
-                                        size="sm"
+                                        placeholder="Paste output of: sui move build --dump-bytecode-as-base64"
+                                        rows={isFilled ? 1 : 3}
+                                        error={false}
                                     />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                                    {isFilled ? (
+                                        <div className="text-[10px] text-text-muted space-y-1 p-2 rounded bg-card-more-elevated/60 border border-border-subtle">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-green-400">Parsed</span>
+                                                <span>
+                                                    {parsedModules.length} module{parsedModules.length !== 1 ? "s" : ""}
+                                                </span>
+                                                <span>
+                                                    {parsedDeps.length} dep{parsedDeps.length !== 1 ? "s" : ""}
+                                                </span>
+                                            </div>
+                                            {draft.packageId.trim() && (
+                                                <div className="font-mono text-[9px] truncate">
+                                                    pkg: {draft.packageId.trim()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-[10px] text-text-muted p-2 rounded bg-card-more-elevated/60 border border-border-subtle space-y-1">
+                                            <p className="font-medium text-text-secondary">
+                                                Step 3 of 3: Provide build output to execute
+                                            </p>
+                                            <p>
+                                                If this browser has the proposal-time build cached it will auto-fill.
+                                                Otherwise re-run:
+                                            </p>
+                                            <UpgradeBuildCommand codeClassName="bg-card-more-elevated/80" />
+                                            <p>
+                                                The onchain digest will verify the bytecode matches what was approved.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {draft.packageId.trim() ? (
+                                        <div className="text-[10px] text-text-muted font-mono truncate">
+                                            Package: {draft.packageId.trim()}
+                                        </div>
+                                    ) : (
+                                        <Input
+                                            label="Upgrade Package ID"
+                                            value={draft.packageId}
+                                            onChange={(value) => {
+                                                setExecuteUpgradeInputs((prev) => ({
+                                                    ...prev,
+                                                    [req.actionIndex]: {
+                                                        ...prev[req.actionIndex],
+                                                        packageId: value,
+                                                        modules: prev[req.actionIndex]?.modules || "",
+                                                        dependencies: prev[req.actionIndex]?.dependencies || "",
+                                                    },
+                                                }));
+                                            }}
+                                            placeholder="0x... (auto-filled if package is locked in account)"
+                                            error={isMissing && !draft.packageId.trim()}
+                                            size="sm"
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
             {/* Action buttons */}
             {hasActions && (
@@ -1593,8 +1689,8 @@ export function IntentCard({
                                 previewMode
                                     ? "Example preview only."
                                     : hasAlreadyRejected
-                                    ? "Approving will clear your prior reject vote."
-                                    : "Cast an approval vote."
+                                      ? "Approving will clear your prior reject vote."
+                                      : "Cast an approval vote."
                             }
                             className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -1623,10 +1719,10 @@ export function IntentCard({
                                 previewMode
                                     ? "Example preview only."
                                     : hasAlreadyApproved
-                                    ? "Rejecting will clear your prior approval vote."
-                                    : isApproved
-                                      ? "Reject the already-approved intent. If the cancel quorum is met, cancellation unlocks."
-                                      : "Cast a reject vote. Reaches the cancel quorum and the intent can be cancelled."
+                                      ? "Rejecting will clear your prior approval vote."
+                                      : isApproved
+                                        ? "Reject the already-approved intent. If the cancel quorum is met, cancellation unlocks."
+                                        : "Cast a reject vote. Reaches the cancel quorum and the intent can be cancelled."
                             }
                             className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -1670,7 +1766,9 @@ export function IntentCard({
                                     ? "Example preview only."
                                     : hasGenericExecutionGap
                                       ? genericExecutionGapMessage
-                                      : undefined
+                                      : hasUnsupportedPrebuiltActions
+                                        ? prebuiltExecutionGapMessage
+                                        : undefined
                             }
                             className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
