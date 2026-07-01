@@ -258,7 +258,11 @@ export function migrationPlanSizeError(plan: MigrationPlan): string | null {
         return `This migration selects ${objectInputs} object inputs. Split it into batches of ${MAX_MIGRATION_OBJECT_INPUTS} or fewer.`;
     }
 
-    const capLockBatches = Math.ceil(plan.selectedCapLockEntries.length / LOCKABLE_CAPS_PER_INTENT);
+    const upgradeCapLockCount = plan.selectedCapLockEntries.filter((entry) => entry.kind === "upgrade").length;
+    const controlledCapLockCount = plan.selectedCapLockEntries.length - upgradeCapLockCount;
+    const capLockBatches =
+        Math.ceil(upgradeCapLockCount / LOCKABLE_CAPS_PER_INTENT) +
+        Math.ceil(controlledCapLockCount / LOCKABLE_CAPS_PER_INTENT);
     const estimatedCoinCommands = plan.selectedCoinRows.reduce((total, row) => {
         if (row.coinType === SUI_TYPE_ARG) return total + 2;
         const mergeCommand = row.coinObjectCount > 1 ? 1 : 0;

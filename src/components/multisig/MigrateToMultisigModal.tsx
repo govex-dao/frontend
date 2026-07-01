@@ -55,6 +55,10 @@ export function MigrateToMultisigModal({ isOpen, onClose, accountId, canStageLoc
         coins.selectedCoinRows.length > 0 ||
         objects.selectedMoveObjects.length > 0 ||
         objects.selectedCapLockEntries.length > 0;
+    const selectedPackageUpgradeLockCount = objects.selectedCapLockEntries.filter(
+        (entry) => entry.kind === "upgrade"
+    ).length;
+    const selectedControlledCapLockCount = objects.selectedCapLockEntries.length - selectedPackageUpgradeLockCount;
     const plan = useMemo<MigrationPlan>(
         () => ({
             selectedCoinRows: coins.selectedCoinRows,
@@ -88,7 +92,8 @@ export function MigrateToMultisigModal({ isOpen, onClose, accountId, canStageLoc
 
     const vaultOptions = useMemo(() => vaultNames.map((name) => ({ value: name, label: name })), [vaultNames]);
     const sizeError = useMemo(() => migrationPlanSizeError(plan), [plan]);
-    const migrationBlockingError = sizeError ?? (!plan.isReady ? (plan.selectedCoinErrors[0] ?? plan.capLockErrors[0] ?? null) : null);
+    const migrationBlockingError =
+        sizeError ?? (!plan.isReady ? (plan.selectedCoinErrors[0] ?? plan.capLockErrors[0] ?? null) : null);
     const submitDisabled =
         submittingRef.current ||
         isLoading ||
@@ -149,8 +154,8 @@ export function MigrateToMultisigModal({ isOpen, onClose, accountId, canStageLoc
                     <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <div>
                         Assets selected here move from your connected address to this Govex multisig in one wallet
-                        transaction. Coins deposit into the selected vault; objects and caps move into multisig custody.
-                        Cap locks are staged as intents for later multisig execution.
+                        transaction. Coins deposit into the selected vault; objects move into multisig custody. Package
+                        upgrade locks and controlled-cap locks are staged as intents for later multisig execution.
                     </div>
                 </div>
 
@@ -221,7 +226,8 @@ export function MigrateToMultisigModal({ isOpen, onClose, accountId, canStageLoc
                     submitDisabled={submitDisabled}
                     selectedCoinCount={coins.selectedCoinRows.length}
                     selectedMoveObjectCount={objects.selectedMoveObjects.length}
-                    selectedCapLockCount={objects.selectedCapLockEntries.length}
+                    selectedPackageUpgradeLockCount={selectedPackageUpgradeLockCount}
+                    selectedControlledCapLockCount={selectedControlledCapLockCount}
                     migrationBlockingError={migrationBlockingError}
                     onClose={onClose}
                     onMigrate={handleMigrate}

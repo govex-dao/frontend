@@ -79,10 +79,18 @@ export async function submitMigration({
         },
         {
             loadingMessage: "Migrating to Govex multisig...",
-            successMessage:
-                plan.selectedCapLockEntries.length > 0
-                    ? "Migration submitted. Cap lock intents are staged."
-                    : "Migration submitted.",
+            successMessage: migrationSuccessMessage(plan),
         }
     );
+}
+
+function migrationSuccessMessage(plan: MigrationPlan): string {
+    const hasUpgradeLocks = plan.selectedCapLockEntries.some((entry) => entry.kind === "upgrade");
+    const hasControlledCapLocks = plan.selectedCapLockEntries.some((entry) => entry.kind !== "upgrade");
+    if (hasUpgradeLocks && hasControlledCapLocks) {
+        return "Migration submitted. Package upgrade lock and controlled-cap lock intents are staged.";
+    }
+    if (hasUpgradeLocks) return "Migration submitted. Package upgrade lock intents are staged.";
+    if (hasControlledCapLocks) return "Migration submitted. Controlled-cap lock intents are staged.";
+    return "Migration submitted.";
 }

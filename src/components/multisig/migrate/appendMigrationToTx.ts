@@ -11,7 +11,7 @@ import {
 } from "@/lib/sui/multisig-tx";
 import { DEFAULT_UPGRADE_DELAY_DAYS, LOCKABLE_CAPS_PER_INTENT, MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";
 import { fetchCoinObjectsForAmount } from "./queries";
-import type { MigrationPlan } from "./types";
+import type { MigrationCapLockEntry, MigrationPlan } from "./types";
 import {
     daysToMs,
     defaultUpgradeCapName,
@@ -42,6 +42,99 @@ function keepObject(tx: Transaction, accountProtocolPackage: string, accountId: 
         typeArguments: [object.objectType],
         arguments: [tx.object(accountId), tx.object(object.objectId)],
     });
+}
+
+function stageUpgradeCapLockIntents(
+    tx: Transaction,
+    accountId: string,
+    entries: MigrationCapLockEntry[],
+    lockTimestamp: number
+) {
+    for (let start = 0; start < entries.length; start += LOCKABLE_CAPS_PER_INTENT) {
+        const batch = entries.slice(start, start + LOCKABLE_CAPS_PER_INTENT);
+        const batchIndex = Math.floor(start / LOCKABLE_CAPS_PER_INTENT);
+        stageActionsIntent(
+            tx,
+            accountId,
+            `migrate-lock-upgrade-caps-${lockTimestamp}-${batchIndex}`,
+            `Lock migrated package upgrade caps (${batch.length})`,
+            0n,
+            (tx, builder) => {
+                for (const entry of batch) {
+                    const resourceName = `upgrade_cap_${resourceSlug(entry.object.objectId)}`;
+                    addWithdrawObjectSpec(tx, builder, entry.object.objectType, entry.object.objectId, resourceName);
+                    addLockUpgradeCapSpec(
+                        tx,
+                        builder,
+                        entry.packageName?.trim() || defaultUpgradeCapName(entry.object.objectId, undefined),
+                        daysToMs(entry.delayDays ?? DEFAULT_UPGRADE_DELAY_DAYS),
+                        resourceName,
+                        entry.object.objectId
+                    );
+                }
+            }
+        );
+    }
+}
+
+function stageControlledCapLockIntents(
+    tx: Transaction,
+    accountId: string,
+    entries: MigrationCapLockEntry[],
+    lockTimestamp: number
+) {
+    for (let start = 0; start < entries.length; start += LOCKABLE_CAPS_PER_INTENT) {
+        const batch = entries.slice(start, start + LOCKABLE_CAPS_PER_INTENT);
+        const batchIndex = Math.floor(start / LOCKABLE_CAPS_PER_INTENT);
+        stageActionsIntent(
+            tx,
+            accountId,
+            `migrate-lock-controlled-caps-${lockTimestamp}-${batchIndex}`,
+            `Lock migrated controlled caps (${batch.length})`,
+            0n,
+            (tx, builder) => {
+                for (const entry of batch) {
+                    if (!entry.coinType) {
+                        throw new Error(`Missing coin type for ${formatAddress(entry.object.objectId)}`);
+                    }
+
+                    const slug = resourceSlug(entry.object.objectId);
+                    if (entry.kind === "treasury") {
+                        const resourceName = `treasury_cap_${slug}`;
+                        addWithdrawObjectSpec(
+                            tx,
+                            builder,
+                            entry.object.objectType,
+                            entry.object.objectId,
+                            resourceName
+                        );
+                        addLockTreasuryCapSpec(
+                            tx,
+                            builder,
+                            entry.coinType,
+                            null,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            resourceName
+                        );
+                    } else {
+                        const resourceName = `metadata_cap_${slug}`;
+                        addWithdrawObjectSpec(
+                            tx,
+                            builder,
+                            entry.object.objectType,
+                            entry.object.objectId,
+                            resourceName
+                        );
+                        addLockMetadataCapSpec(tx, builder, entry.coinType, true, true, true, resourceName);
+                    }
+                }
+            }
+        );
+    }
 }
 
 export async function appendMigrationToTx({
@@ -127,76 +220,8 @@ export async function appendMigrationToTx({
     }
 
     const lockTimestamp = Date.now();
-    for (let start = 0; start < plan.selectedCapLockEntries.length; start += LOCKABLE_CAPS_PER_INTENT) {
-        const batch = plan.selectedCapLockEntries.slice(start, start + LOCKABLE_CAPS_PER_INTENT);
-        const batchIndex = Math.floor(start / LOCKABLE_CAPS_PER_INTENT);
-        stageActionsIntent(
-            tx,
-            accountId,
-            `migrate-lock-caps-${lockTimestamp}-${batchIndex}`,
-            `Lock migrated capability objects (${batch.length})`,
-            0n,
-            (tx, builder) => {
-                for (const entry of batch) {
-                    const slug = resourceSlug(entry.object.objectId);
-                    if (entry.kind === "upgrade") {
-                        const resourceName = `upgrade_cap_${slug}`;
-                        addWithdrawObjectSpec(
-                            tx,
-                            builder,
-                            entry.object.objectType,
-                            entry.object.objectId,
-                            resourceName
-                        );
-                        addLockUpgradeCapSpec(
-                            tx,
-                            builder,
-                            entry.packageName?.trim() || defaultUpgradeCapName(entry.object.objectId, undefined),
-                            daysToMs(entry.delayDays ?? DEFAULT_UPGRADE_DELAY_DAYS),
-                            resourceName,
-                            entry.object.objectId
-                        );
-                        continue;
-                    }
-
-                    if (!entry.coinType) {
-                        throw new Error(`Missing coin type for ${formatAddress(entry.object.objectId)}`);
-                    }
-
-                    if (entry.kind === "treasury") {
-                        const resourceName = `treasury_cap_${slug}`;
-                        addWithdrawObjectSpec(
-                            tx,
-                            builder,
-                            entry.object.objectType,
-                            entry.object.objectId,
-                            resourceName
-                        );
-                        addLockTreasuryCapSpec(
-                            tx,
-                            builder,
-                            entry.coinType,
-                            null,
-                            true,
-                            true,
-                            true,
-                            true,
-                            true,
-                            resourceName
-                        );
-                    } else {
-                        const resourceName = `metadata_cap_${slug}`;
-                        addWithdrawObjectSpec(
-                            tx,
-                            builder,
-                            entry.object.objectType,
-                            entry.object.objectId,
-                            resourceName
-                        );
-                        addLockMetadataCapSpec(tx, builder, entry.coinType, true, true, true, resourceName);
-                    }
-                }
-            }
-        );
-    }
+    const upgradeCapLockEntries = plan.selectedCapLockEntries.filter((entry) => entry.kind === "upgrade");
+    const controlledCapLockEntries = plan.selectedCapLockEntries.filter((entry) => entry.kind !== "upgrade");
+    stageUpgradeCapLockIntents(tx, accountId, upgradeCapLockEntries, lockTimestamp);
+    stageControlledCapLockIntents(tx, accountId, controlledCapLockEntries, lockTimestamp);
 }

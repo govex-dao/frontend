@@ -3,7 +3,7 @@ import { formatAddress } from "@mysten/sui/utils";
 import { Input } from "@/components/inputs/Input";
 import { Select, type SelectOption } from "@/components/inputs/Select";
 import type { OwnedObjectInfo } from "@/lib/sui/multisig";
-import { DEFAULT_UPGRADE_DELAY_DAYS } from "./constants";
+import { DEFAULT_UPGRADE_DELAY_DAYS, UPGRADE_CAP_TYPE } from "./constants";
 import type { CapMigrationMode } from "./types";
 import {
     capLabel,
@@ -13,6 +13,12 @@ import {
     managedCapKind,
     shortType,
 } from "./utils";
+
+const RAW_OBJECT_MODE_OPTIONS: SelectOption[] = [{ value: "move", label: "Add as raw object" }];
+const UPGRADE_CAP_MODE_OPTIONS: SelectOption[] = [
+    { value: "lock", label: "Stage package upgrade lock intent" },
+    { value: "move", label: "Add as raw object" },
+];
 
 interface ObjectRowProps {
     object: OwnedObjectInfo;
@@ -53,6 +59,13 @@ function ObjectRow({
     const upgradeCapName = upgradeCapNames[object.objectId] ?? defaultUpgradeCapName(object.objectId, packageId);
     const upgradeDelayDays = upgradeCapDelayDays[object.objectId] ?? DEFAULT_UPGRADE_DELAY_DAYS;
     const objectDisabled = !!transferBlockReason;
+    const isUpgradeCap = kind === "upgrade";
+    const rowCapModeOptions = isUpgradeCap
+        ? canStageLockIntents
+            ? UPGRADE_CAP_MODE_OPTIONS
+            : RAW_OBJECT_MODE_OPTIONS
+        : capModeOptions;
+    const modeLabel = isUpgradeCap ? "Package upgrade action" : "Add as";
 
     return (
         <div
@@ -99,8 +112,8 @@ function ObjectRow({
                     {kind ? (
                         <>
                             <Select
-                                label="Add as"
-                                options={capModeOptions}
+                                label={modeLabel}
+                                options={rowCapModeOptions}
                                 value={mode}
                                 onChange={(value) =>
                                     onCapModeChange(object.objectId, value === "move" ? "move" : "lock")
@@ -110,14 +123,16 @@ function ObjectRow({
                             />
                             {!canStageLockIntents && (
                                 <p className="text-[11px] text-yellow-200">
-                                    This signer cannot add controlled caps in this multisig config.
+                                    {isUpgradeCap
+                                        ? "This signer cannot stage package upgrade lock intents in this multisig config."
+                                        : "This signer cannot add controlled caps in this multisig config."}
                                 </p>
                             )}
                             {mode === "lock" && kind === "upgrade" && (
                                 <div className="space-y-2">
                                     <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
                                         <Input
-                                            label="Package name"
+                                            label="Govex package name"
                                             value={upgradeCapName}
                                             onChange={(value) => onUpgradeCapNameChange(object.objectId, value)}
                                             size="sm"
@@ -140,8 +155,8 @@ function ObjectRow({
                                     </div>
                                     <p className="text-[11px] text-text-muted">
                                         {packageId
-                                            ? `Package ${formatAddress(packageId)} will be registered under this name when the staged lock intent executes.`
-                                            : "Package ID will be verified from the UpgradeCap when the staged lock intent executes."}
+                                            ? `Stages package upgrade locking for package ${formatAddress(packageId)} under this Govex package name.`
+                                            : "The package ID will be read from the UpgradeCap when the package upgrade lock intent executes."}
                                     </p>
                                 </div>
                             )}
@@ -223,6 +238,8 @@ export function ObjectMigrationSections({
     onUpgradeCapNameChange,
     onUpgradeDelayDaysChange,
 }: ObjectSectionsProps) {
+    const upgradeCapObjects = filteredCapObjects.filter((object) => managedCapKind(object.objectType) === "upgrade");
+    const otherCapObjects = filteredCapObjects.filter((object) => managedCapKind(object.objectType) !== "upgrade");
     const renderObjectRow = (object: OwnedObjectInfo) => (
         <ObjectRow
             key={object.objectId}
@@ -248,7 +265,7 @@ export function ObjectMigrationSections({
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
                         <Box className="h-4 w-4 text-primary" />
-                        Capability objects
+                        Package upgrade caps and capability caps
                     </div>
                     <button
                         type="button"
@@ -264,7 +281,7 @@ export function ObjectMigrationSections({
                     <Input
                         value={objectSearch}
                         onChange={onObjectSearchChange}
-                        placeholder="Search caps or types"
+                        placeholder="Search upgrade caps, caps, or types"
                         className="pl-9"
                     />
                 </div>
@@ -279,7 +296,32 @@ export function ObjectMigrationSections({
                             {hasObjects ? "No matching caps found." : "No non-coin objects found for this address."}
                         </p>
                     ) : (
-                        filteredCapObjects.map(renderObjectRow)
+                        <div className="space-y-3">
+                            {upgradeCapObjects.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-3 px-1 text-xs font-semibold text-text-secondary">
+                                        <span>Package upgrade caps</span>
+                                        <span>{upgradeCapObjects.length}</span>
+                                    </div>
+                                    <p className="px-1 text-[11px] text-text-muted">
+                                        Standard Sui type {shortType(UPGRADE_CAP_TYPE)}. These stage Govex package
+                                        upgrade lock intents, not TreasuryCap or MetadataCap controls.
+                                    </p>
+                                    {upgradeCapObjects.map(renderObjectRow)}
+                                </div>
+                            )}
+                            {otherCapObjects.length > 0 && (
+                                <div className="space-y-2">
+                                    {upgradeCapObjects.length > 0 && (
+                                        <div className="flex items-center justify-between gap-3 px-1 text-xs font-semibold text-text-secondary">
+                                            <span>Other capability caps</span>
+                                            <span>{otherCapObjects.length}</span>
+                                        </div>
+                                    )}
+                                    {otherCapObjects.map(renderObjectRow)}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
                 {capLockErrors.length > 0 && (
