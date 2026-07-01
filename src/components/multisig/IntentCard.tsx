@@ -142,10 +142,31 @@ function extractModuleType(fullType: string): string {
 
 const UPGRADE_CAP_OBJECT_TYPE = "0x2::package::UpgradeCap";
 
+function compactAddress(address: string): string {
+    const noPrefix = address.trim().toLowerCase().replace(/^0x/, "");
+    return noPrefix.replace(/^0+/, "") || "0";
+}
+
+function isUpgradeCapTypeArg(typeArg: string | undefined): boolean {
+    const normalized = typeArg?.trim() ? normalizeTypeAddresses(typeArg.trim()) : "";
+    if (!normalized) return false;
+    try {
+        const tag = parseStructTag(normalized);
+        return (
+            compactAddress(tag.address) === compactAddress("0x2") &&
+            tag.module === "package" &&
+            tag.name === "UpgradeCap" &&
+            tag.typeParams.length === 0
+        );
+    } catch {
+        return normalized === UPGRADE_CAP_OBJECT_TYPE;
+    }
+}
+
 function isUpgradeCapProvideAction(fullType: string): boolean {
     return (
         extractModuleType(fullType) === "owned::ProvideObjectToResources" &&
-        normalizeTypeAddresses(extractTypeArgs(fullType)[0]?.trim() || "") === UPGRADE_CAP_OBJECT_TYPE
+        isUpgradeCapTypeArg(extractTypeArgs(fullType)[0])
     );
 }
 

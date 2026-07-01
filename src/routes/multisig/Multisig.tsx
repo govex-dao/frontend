@@ -17,6 +17,7 @@ import {
     Hourglass,
     Trash2,
     Archive,
+    ArrowRightLeft,
 } from "lucide-react";
 import { formatAddress } from "@mysten/sui/utils";
 import { useCurrentAccount } from "@mysten/dapp-kit";
@@ -33,6 +34,7 @@ import { VestingCard } from "@/components/VestingCard";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { ProposeIntentModal } from "@/components/multisig/ProposeIntentModal";
 import { DepositModal } from "@/components/multisig/DepositModal";
+import { MigrateToMultisigModal } from "@/components/multisig/MigrateToMultisigModal";
 import {
     useMultisigConfig,
     useMultisigIntents,
@@ -276,6 +278,7 @@ export function Multisig() {
 
     const [showProposeModal, setShowProposeModal] = useState(false);
     const [showDepositModal, setShowDepositModal] = useState(false);
+    const [showMigrateModal, setShowMigrateModal] = useState(false);
     const [showAllExecuted, setShowAllExecuted] = useState(false);
     const [copiedAccountId, setCopiedAccountId] = useState(false);
 
@@ -283,6 +286,7 @@ export function Multisig() {
     useEffect(() => {
         setShowProposeModal(false);
         setShowDepositModal(false);
+        setShowMigrateModal(false);
         setShowAllExecuted(false);
         setCopiedAccountId(false);
     }, [accountId]);
@@ -464,12 +468,12 @@ export function Multisig() {
                         {config?.name || "Multisig Account"}
                     </h1>
                     {accountId && (
-                        <div className="mt-1 flex max-w-full items-start gap-1.5">
-                            <p className="min-w-0 break-all font-mono text-sm text-text-muted">{accountId}</p>
+                        <div className="mt-1 max-w-full text-sm text-text-muted">
+                            <span className="break-all font-mono">{accountId}</span>
                             <button
                                 type="button"
                                 onClick={copyAccountId}
-                                className="mt-0.5 shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
+                                className="ml-1 inline-flex align-[-2px] rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
                                 title="Copy multisig address"
                                 aria-label="Copy multisig address"
                             >
@@ -554,13 +558,22 @@ export function Multisig() {
                                 ) : null}
                             </h2>
                             {account && (
-                                <button
-                                    onClick={() => setShowDepositModal(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
-                                >
-                                    <ArrowDownToLine className="w-3.5 h-3.5" />
-                                    Deposit
-                                </button>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <button
+                                        onClick={() => setShowMigrateModal(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-medium hover:bg-primary/25 transition-colors"
+                                    >
+                                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                                        Migrate to this Govex multisig
+                                    </button>
+                                    <button
+                                        onClick={() => setShowDepositModal(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
+                                    >
+                                        <ArrowDownToLine className="w-3.5 h-3.5" />
+                                        Deposit
+                                    </button>
+                                </div>
                             )}
                         </div>
                         <VaultHoldings balances={vaultBalances} coins={coins} isLoading={vaultBalancesLoading} />
@@ -852,6 +865,13 @@ export function Multisig() {
                         isOpen={showDepositModal}
                         onClose={() => setShowDepositModal(false)}
                         accountId={accountId}
+                        onSuccess={handleIntentAction}
+                    />
+                    <MigrateToMultisigModal
+                        isOpen={showMigrateModal}
+                        onClose={() => setShowMigrateModal(false)}
+                        accountId={accountId}
+                        canStageLockIntents={!!canPropose}
                         onSuccess={handleIntentAction}
                     />
                 </>

@@ -13,6 +13,7 @@ interface InputProps {
     className?: string;
     required?: boolean;
     error?: boolean;
+    disabled?: boolean;
     autoFocus?: boolean;
     size?: "sm" | "md";
     leftIcon?: React.ReactNode;
@@ -34,6 +35,7 @@ export function Input(props: InputProps) {
         className = "",
         required = false,
         error = false,
+        disabled = false,
         autoFocus = false,
         size = "md",
         leftIcon,
@@ -55,7 +57,9 @@ export function Input(props: InputProps) {
                 </label>
             )}
             <div
-                className={`relative flex items-center gap-2 bg-card-elevated border rounded-lg text-text-primary placeholder:text-text-lighter transition-colors ${sizeClasses[size]} ${error ? "border-error/30 focus-within:border-error/50 bg-error/5 focus-within:bg-error/10" : "border-border focus-within:border-border-light focus-within:bg-card-more-elevated"} ${className}`}
+                className={`relative flex items-center gap-2 bg-card-elevated border rounded-lg text-text-primary placeholder:text-text-lighter transition-colors ${sizeClasses[size]} ${
+                    disabled ? "cursor-not-allowed opacity-50" : ""
+                } ${error ? "border-error/30 focus-within:border-error/50 bg-error/5 focus-within:bg-error/10" : "border-border focus-within:border-border-light focus-within:bg-card-more-elevated"} ${className}`}
             >
                 {leftIcon && <div className="">{leftIcon}</div>}
                 <input
@@ -70,8 +74,9 @@ export function Input(props: InputProps) {
                     inputMode={inputMode}
                     pattern={pattern}
                     required={required}
+                    disabled={disabled}
                     autoFocus={autoFocus}
-                    className="min-w-0 flex-1 ring-0 outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-80"
+                    className="min-w-0 flex-1 ring-0 outline-none disabled:cursor-not-allowed [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-80"
                 />
             </div>
         </div>

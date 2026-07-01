@@ -7,7 +7,7 @@
  */
 
 import { bcs } from "@mysten/sui/bcs";
-import { type TransactionResult, Transaction } from "@mysten/sui/transactions";
+import { type TransactionArgument, type TransactionResult, Transaction } from "@mysten/sui/transactions";
 import { parseStructTag, SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
 
@@ -55,8 +55,27 @@ export function stageActionsIntent(
     executionTimeMs: bigint | number,
     builderSetup: (tx: Transaction, builder: ActionSpecBuilder) => void
 ) {
+    stageActionsIntentWithAccountArg(
+        tx,
+        tx.object(accountId),
+        tx.pure.id(accountId),
+        key,
+        description,
+        executionTimeMs,
+        builderSetup
+    );
+}
+
+function stageActionsIntentWithAccountArg(
+    tx: Transaction,
+    account: TransactionArgument,
+    sourceId: TransactionArgument,
+    key: string,
+    description: string,
+    executionTimeMs: bigint | number,
+    builderSetup: (tx: Transaction, builder: ActionSpecBuilder) => void
+) {
     const p = pkgs();
-    const account = tx.object(accountId);
 
     const auth = tx.moveCall({
         target: `${p.multisig}::multisig::authenticate`,
@@ -75,7 +94,7 @@ export function stageActionsIntent(
 
     const builder = tx.moveCall({
         target: `${p.actions}::action_spec_builder::new`,
-        arguments: [tx.pure.u8(0), tx.pure.id(accountId), tx.pure.u64(0)],
+        arguments: [tx.pure.u8(0), sourceId, tx.pure.u64(0)],
     });
 
     builderSetup(tx, builder);
@@ -741,10 +760,27 @@ export function isMultisigConfigChangeActionType(actionType: string): boolean {
 
 const UPGRADE_CAP_OBJECT_TYPE = "0x2::package::UpgradeCap";
 
-function isUpgradeCapProvideAction(fullType: string): boolean {
+function isUpgradeCapTypeArg(typeArg: string | undefined): boolean {
+    const normalized = typeArg?.trim() ? normalizeTypeAddresses(typeArg.trim()) : "";
+    if (!normalized) return false;
+    try {
+        const tag = parseStructTag(normalized);
+        return (
+            normalizeAddressForCompare(tag.address) === normalizeAddressForCompare("0x2") &&
+            tag.module === "package" &&
+            tag.name === "UpgradeCap" &&
+            tag.typeParams.length === 0
+        );
+    } catch {
+        return normalized === UPGRADE_CAP_OBJECT_TYPE;
+    }
+}
+
+function isUpgradeCapResourceProviderAction(fullType: string): boolean {
+    const modType = extractModuleType(fullType);
     return (
-        extractModuleType(fullType) === "owned::ProvideObjectToResources" &&
-        getActionTypeArg(fullType) === UPGRADE_CAP_OBJECT_TYPE
+        (modType === "owned::ProvideObjectToResources" || modType === "owned::OwnedWithdrawObject") &&
+        isUpgradeCapTypeArg(getActionTypeArg(fullType))
     );
 }
 
@@ -752,7 +788,7 @@ function findExplicitUpgradeCapProviderForLock(actionTypes: string[], lockAction
     for (let i = lockActionIndex - 1; i >= 0; i -= 1) {
         const modType = extractModuleType(actionTypes[i]);
         if (modType === "package_upgrade::LockUpgradeCap") return null;
-        if (isUpgradeCapProvideAction(actionTypes[i])) return i;
+        if (isUpgradeCapResourceProviderAction(actionTypes[i])) return i;
     }
     return null;
 }

@@ -73,7 +73,11 @@ const SUI_TESTNET_USDC_COIN_TYPE =
 function getMultisigTreasuryCoinType(): string {
     const override = import.meta.env.VITE_MULTISIG_TREASURY_COIN_TYPE?.trim();
     if (override) return override;
-    return network === "testnet" ? SUI_TESTNET_USDC_COIN_TYPE : SUI_MAINNET_USDC_COIN_TYPE;
+    if (network === "mainnet") return SUI_MAINNET_USDC_COIN_TYPE;
+    if (network === "testnet") return SUI_TESTNET_USDC_COIN_TYPE;
+    throw new Error(
+        "Multisig creation on devnet/localnet requires VITE_MULTISIG_TREASURY_COIN_TYPE for the treasury coin type."
+    );
 }
 
 function defaultMember(address: string): MemberDraft {

@@ -21,6 +21,9 @@ export function CreateMultisigSuccessNote({ accountId, onClose }: Props) {
                         Thanks for trusting Govex to help secure your assets.
                     </p>
                     <p className="mt-4 text-sm leading-6 text-text-muted">
+                        You can migrate assets from your existing address to this Govex multisig from the multisig page.
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-text-muted">
                         Reach out to Gresham on Telegram at{" "}
                         <a
                             href="https://t.me/ggccggccc"
@@ -36,6 +39,7 @@ export function CreateMultisigSuccessNote({ accountId, onClose }: Props) {
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
                     {accountId && (
                         <Button
+                            variant="primary"
                             onClick={() => {
                                 onClose();
                                 navigate(`/multisig/${accountId}`);
