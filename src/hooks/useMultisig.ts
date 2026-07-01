@@ -15,6 +15,7 @@ import {
     fetchAccountPackageNames,
     fetchAccountPackageInfo,
     fetchAccountLockedCurrencies,
+    fetchAccountLockedCaps,
     fetchAccountOwnedObjects,
 } from "../lib/sui/multisig";
 import type {
@@ -24,6 +25,7 @@ import type {
     AccountVestingInfo,
     VaultCoinBalance,
     LockedCurrency,
+    LockedCapInfo,
     LockedPackageInfo,
     OwnedObjectInfo,
 } from "../lib/sui/multisig";
@@ -40,6 +42,7 @@ export const multisigRpcKeys = {
     packageNames: (id: string) => ["multisig-rpc", "package-names", id] as const,
     packageInfo: (id: string) => ["multisig-rpc", "package-info", id] as const,
     lockedCurrencies: (id: string) => ["multisig-rpc", "locked-currencies", id] as const,
+    lockedCaps: (id: string) => ["multisig-rpc", "locked-caps", id] as const,
     ownedObjects: (id: string) => ["multisig-rpc", "owned-objects", id] as const,
 };
 
@@ -187,6 +190,21 @@ export function useMultisigLockedCurrencies(accountId: string | undefined) {
     return useQuery<LockedCurrency[]>({
         queryKey: multisigRpcKeys.lockedCurrencies(accountId!),
         queryFn: () => fetchAccountLockedCurrencies(client, accountId!),
+        enabled: !!accountId,
+        staleTime: 30_000,
+        refetchInterval: REFRESH_INTERVALS.DISCOVERY,
+    });
+}
+
+/**
+ * Fetch non-package capability objects locked on the account (controlled caps and currency caps).
+ */
+export function useMultisigLockedCaps(accountId: string | undefined) {
+    const client = useSuiClient();
+
+    return useQuery<LockedCapInfo[]>({
+        queryKey: multisigRpcKeys.lockedCaps(accountId!),
+        queryFn: () => fetchAccountLockedCaps(client, accountId!),
         enabled: !!accountId,
         staleTime: 30_000,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,

@@ -100,6 +100,7 @@ export interface IntentSummary {
     description: string;
     account: string;
     createdAtMs: number;
+    executionTimesMs?: number[];
     expirationMs: number;
     intentType?: string;
     isConfigIntent?: boolean;
@@ -1064,6 +1065,9 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                     description: intentFields.description || "",
                     account: intentFields.account || accountId,
                     createdAtMs: Number(intentFields.creation_time || 0),
+                    executionTimesMs: parseVector(intentFields.execution_times || intentFields.executionTimes)
+                        .map((value) => parseNumberLike(value))
+                        .filter((value) => Number.isFinite(value) && value >= 0),
                     expirationMs: Number(intentFields.expiration_time || 0),
                     intentType,
                     isConfigIntent,
@@ -1629,6 +1633,25 @@ export interface LockedCurrency {
     hasMetadataCap: boolean;
 }
 
+export type LockedCapKind = "controlled" | "treasury" | "metadata";
+
+export interface LockedCapInfo {
+    kind: LockedCapKind;
+    capType: string;
+    objectId: string;
+    objectType: string;
+    keyType: string;
+    coinType?: string;
+}
+
+interface LockedCapFieldInfo {
+    df: any;
+    keyType: string;
+    kind: LockedCapKind;
+    capType: string;
+    coinType?: string;
+}
+
 /**
  * Fetch coin types that have locked TreasuryCap or MetadataCap on the Account.
  * Scans dynamic fields for TreasuryCapKey<T> and MetadataCapKey<T> entries.
@@ -1665,6 +1688,112 @@ export async function fetchAccountLockedCurrencies(client: SuiClient, accountId:
         }));
     } catch (error) {
         console.error(`[fetchAccountLockedCurrencies] Error for ${accountId}:`, error);
+        return [];
+    }
+}
+
+function lockedCurrencyCapType(kind: Extract<LockedCapKind, "treasury" | "metadata">, coinType: string): string {
+    return kind === "treasury" ? `0x2::coin::TreasuryCap<${coinType}>` : `0x2::coin_registry::MetadataCap<${coinType}>`;
+}
+
+function dynamicObjectFieldValue(content: any): { fields: any; objectType: string } {
+    const contentFields = content?.fields;
+    const value = contentFields?.value;
+    if (value && typeof value === "object") {
+        return {
+            fields: value.fields ?? value,
+            objectType: typeof value.type === "string" ? value.type : "",
+        };
+    }
+    return {
+        fields: contentFields,
+        objectType: typeof content?.type === "string" ? content.type : "",
+    };
+}
+
+/**
+ * Fetch non-package capability objects locked as managed assets on the Account.
+ * Package UpgradeCaps are shown by fetchAccountPackageInfo; this scans the other
+ * smart-account cap keys: access_control::CapKey<Cap>, TreasuryCapKey<T>, MetadataCapKey<T>.
+ */
+export async function fetchAccountLockedCaps(client: SuiClient, accountId: string): Promise<LockedCapInfo[]> {
+    try {
+        const dynFields = await getAllDynamicFields(client, accountId);
+        const capFields: LockedCapFieldInfo[] = dynFields.flatMap((df: any): LockedCapFieldInfo[] => {
+            const keyType = (df.name as any)?.type || "";
+            if (keyType.includes("UpgradeCapKey")) return [];
+
+            if (keyType.includes("access_control::CapKey")) {
+                const capType = extractTypeParam(keyType);
+                return capType ? [{ df, keyType, kind: "controlled", capType }] : [];
+            }
+
+            if (keyType.includes("TreasuryCapKey")) {
+                const coinType = extractTypeParam(keyType);
+                if (!coinType) return [];
+                const normalized = normalizeCoinType(coinType);
+                return [
+                    {
+                        df,
+                        keyType,
+                        kind: "treasury",
+                        capType: lockedCurrencyCapType("treasury", normalized),
+                        coinType: normalized,
+                    },
+                ];
+            }
+
+            if (keyType.includes("MetadataCapKey")) {
+                const coinType = extractTypeParam(keyType);
+                if (!coinType) return [];
+                const normalized = normalizeCoinType(coinType);
+                return [
+                    {
+                        df,
+                        keyType,
+                        kind: "metadata",
+                        capType: lockedCurrencyCapType("metadata", normalized),
+                        coinType: normalized,
+                    },
+                ];
+            }
+
+            return [];
+        });
+
+        const caps = await Promise.all(
+            capFields.map(async ({ df, keyType, kind, capType, coinType }) => {
+                let objectId = (df as any).objectId ?? "";
+                let objectType = (df as any).objectType || capType;
+
+                try {
+                    const capObj = await client.getDynamicFieldObject({
+                        parentId: accountId,
+                        name: df.name as any,
+                    });
+                    const value = dynamicObjectFieldValue(capObj.data?.content);
+                    objectId = normalizeIdString(value.fields?.id) ?? objectId;
+                    objectType = value.objectType || objectType;
+                } catch {
+                    /* best-effort display; dynamic field metadata usually includes objectId */
+                }
+
+                return {
+                    kind,
+                    capType,
+                    objectId,
+                    objectType,
+                    keyType,
+                    coinType,
+                } satisfies LockedCapInfo;
+            })
+        );
+
+        return caps
+            .filter((cap) => cap.objectId || cap.capType)
+            .sort((a, b) => a.capType.localeCompare(b.capType) || a.objectId.localeCompare(b.objectId));
+    } catch (error) {
+        console.error(`[fetchAccountLockedCaps] Error for ${accountId}:`, error);
         return [];
     }
 }

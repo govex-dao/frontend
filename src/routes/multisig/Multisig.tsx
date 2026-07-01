@@ -19,7 +19,7 @@ import {
     Archive,
     ArrowRightLeft,
 } from "lucide-react";
-import { formatAddress } from "@mysten/sui/utils";
+import { formatAddress, parseStructTag } from "@mysten/sui/utils";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ import {
     useMultisigStreams,
     useMultisigVaultBalances,
     useMultisigPackageInfo,
+    useMultisigLockedCaps,
     useMultisigVestings,
     multisigRpcKeys,
 } from "@/hooks/useMultisig";
@@ -60,7 +61,7 @@ import {
     permissionLabels,
     policyLabel,
 } from "@/lib/sui/multisig";
-import type { IntentSummary, VaultCoinBalance } from "@/lib/sui/multisig";
+import type { IntentSummary, LockedCapInfo, VaultCoinBalance } from "@/lib/sui/multisig";
 import {
     cancelExpiredActions,
     cancelExpiredConfigChange,
@@ -82,6 +83,38 @@ interface CleanupIntentTarget {
     intent: IntentSummary;
     action: CleanupIntentAction;
     isConfig: boolean;
+}
+
+const LOCKED_CAP_KIND_LABELS: Record<LockedCapInfo["kind"], string> = {
+    controlled: "Controlled",
+    treasury: "TreasuryCap",
+    metadata: "MetadataCap",
+};
+
+function addMoveTypeAddressPrefixes(type: string): string {
+    return type.replace(/(^|[<,\s])([0-9a-fA-F]{1,64})(?=::)/g, (_match, prefix: string, address: string) => {
+        if (address.startsWith("0x")) return `${prefix}${address}`;
+        return `${prefix}0x${address}`;
+    });
+}
+
+function shortMoveType(fullType: string): string {
+    try {
+        const label = shortStructTag(parseStructTag(addMoveTypeAddressPrefixes(fullType)));
+        return label.length > 96 ? `${label.slice(0, 93)}...` : label;
+    } catch {
+        return fullType.length > 96 ? `${fullType.slice(0, 93)}...` : fullType;
+    }
+}
+
+function shortStructTag(tag: ReturnType<typeof parseStructTag>): string {
+    let label = `${formatAddress(tag.address)}::${tag.module}::${tag.name}`;
+    if (tag.typeParams.length > 0) {
+        label += `<${tag.typeParams
+            .map((param) => (typeof param === "string" ? param : shortStructTag(param)))
+            .join(", ")}>`;
+    }
+    return label;
 }
 
 interface CollapsibleSectionProps {
@@ -261,6 +294,80 @@ function VaultHoldings({
     );
 }
 
+function LockedCapsTable({ caps }: { caps: LockedCapInfo[] }) {
+    if (caps.length === 0) return null;
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-text-primary">
+                    Locked Caps <span className="text-xs font-semibold text-text-muted">({caps.length})</span>
+                </h3>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full">
+                    <thead>
+                        <tr className="border-b border-border bg-card-elevated">
+                            <th className="w-32 text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                Kind
+                            </th>
+                            <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                Type
+                            </th>
+                            <th className="w-[34%] text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                Object
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {caps.map((cap) => (
+                            <tr
+                                key={`${cap.keyType}:${cap.objectId || cap.capType}`}
+                                className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
+                            >
+                                <td className="py-3 px-4">
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                        {LOCKED_CAP_KIND_LABELS[cap.kind]}
+                                    </span>
+                                </td>
+                                <td className="min-w-0 py-3 px-4">
+                                    <div
+                                        className="max-w-[520px] truncate font-mono text-xs text-text-primary"
+                                        title={cap.capType}
+                                    >
+                                        {shortMoveType(cap.capType)}
+                                    </div>
+                                    {cap.coinType ? (
+                                        <div
+                                            className="mt-1 max-w-[520px] truncate font-mono text-[10px] text-text-muted"
+                                            title={cap.coinType}
+                                        >
+                                            {shortMoveType(cap.coinType)}
+                                        </div>
+                                    ) : null}
+                                </td>
+                                <td className="min-w-0 py-3 px-4">
+                                    {cap.objectId ? (
+                                        <CopyableAddress
+                                            address={cap.objectId}
+                                            className="min-w-0 w-full"
+                                            textClassName="text-xs text-text-muted"
+                                            copyLabel="Copy cap object ID"
+                                            toastMessage="Cap object ID copied"
+                                        />
+                                    ) : (
+                                        <span className="text-xs text-text-muted">—</span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 export function Multisig() {
     const { accountId } = useParams<{ accountId: string }>();
     const account = useCurrentAccount();
@@ -272,6 +379,7 @@ export function Multisig() {
     const { data: accountVestings = [], isLoading: vestingsLoading } = useMultisigVestings(accountId);
     const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(accountId);
     const { data: packageInfos, isLoading: packagesLoading } = useMultisigPackageInfo(accountId);
+    const { data: lockedCaps, isLoading: lockedCapsLoading } = useMultisigLockedCaps(accountId);
     const { data: backendCoins } = useCoins();
     const vaultCoinTypes = useMemo(() => (vaultBalances ?? []).map((b) => b.coinType), [vaultBalances]);
     const coins = useMergedCoinMetadata(vaultCoinTypes, backendCoins);
@@ -376,7 +484,9 @@ export function Multisig() {
     const showIntentStorageSection = closedIntents.length > 0 || cleanupTargets.length > 0;
     const showStreamsAndSpendingLimitsSection = !streamsLoading && accountStreamsAndSpendingLimits.length > 0;
     const showVestingsSection = !vestingsLoading && accountVestings.length > 0;
-    const showPackagesSection = packagesLoading || (packageInfos?.length ?? 0) > 0;
+    const packageInfoCount = packageInfos?.length ?? 0;
+    const lockedCapCount = lockedCaps?.length ?? 0;
+    const showPackagesSection = packagesLoading || lockedCapsLoading || packageInfoCount > 0 || lockedCapCount > 0;
     const openMaintenanceByDefault = cleanupTargets.length >= CLOSED_INTENTS_WARNING_THRESHOLD;
 
     const handleIntentAction = useCallback(() => {
@@ -386,6 +496,9 @@ export function Multisig() {
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.streams(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vestings(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vaultBalances(accountId) });
+        queryClient.invalidateQueries({ queryKey: multisigRpcKeys.packageInfo(accountId) });
+        queryClient.invalidateQueries({ queryKey: multisigRpcKeys.lockedCaps(accountId) });
+        queryClient.invalidateQueries({ queryKey: multisigRpcKeys.lockedCurrencies(accountId) });
     }, [accountId, queryClient]);
 
     const handleCleanupOldIntents = useCallback(async () => {
@@ -691,74 +804,83 @@ export function Multisig() {
                     {showPackagesSection && (
                         <CollapsibleSection
                             title="Packages"
-                            count={packageInfos?.length ?? 0}
+                            count={packageInfoCount + lockedCapCount}
                             icon={<Package className="h-4 w-4 text-primary" />}
                         >
-                            {packagesLoading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                                </div>
-                            ) : packageInfos && packageInfos.length > 0 ? (
-                                <div className="overflow-x-auto rounded-xl border border-border">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b border-border bg-card-elevated">
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                    Name
-                                                </th>
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                    Package
-                                                </th>
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                    Policy
-                                                </th>
-                                                <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                                                    Timelock
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {packageInfos.map((pkg) => (
-                                                <tr
-                                                    key={pkg.name}
-                                                    className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
-                                                >
-                                                    <td className="py-3 px-4">
-                                                        <span className="text-sm font-medium text-text-primary">
-                                                            {pkg.name}
-                                                        </span>
-                                                    </td>
-                                                    <td className="min-w-0 py-3 px-4">
-                                                        {pkg.packageAddress ? (
-                                                            <CopyableAddress
-                                                                address={pkg.packageAddress}
-                                                                className="min-w-0 w-full"
-                                                                textClassName="text-xs text-text-muted"
-                                                                copyLabel="Copy package address"
-                                                                toastMessage="Package address copied"
-                                                            />
-                                                        ) : (
-                                                            <span className="text-xs text-text-muted">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-4">
-                                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                                                            {policyLabel(pkg.policy)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right">
-                                                        <span className="font-mono text-sm text-text-primary">
-                                                            {pkg.delayMs > 0
-                                                                ? `${Math.round(pkg.delayMs / 3_600_000)}h`
-                                                                : "None"}
-                                                        </span>
-                                                    </td>
+                            <div className="space-y-4">
+                                {packagesLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                    </div>
+                                ) : packageInfos && packageInfos.length > 0 ? (
+                                    <div className="overflow-x-auto rounded-xl border border-border">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-border bg-card-elevated">
+                                                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                        Name
+                                                    </th>
+                                                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                        Package
+                                                    </th>
+                                                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                        Policy
+                                                    </th>
+                                                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                        Timelock
+                                                    </th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : null}
+                                            </thead>
+                                            <tbody>
+                                                {packageInfos.map((pkg) => (
+                                                    <tr
+                                                        key={pkg.name}
+                                                        className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
+                                                    >
+                                                        <td className="py-3 px-4">
+                                                            <span className="text-sm font-medium text-text-primary">
+                                                                {pkg.name}
+                                                            </span>
+                                                        </td>
+                                                        <td className="min-w-0 py-3 px-4">
+                                                            {pkg.packageAddress ? (
+                                                                <CopyableAddress
+                                                                    address={pkg.packageAddress}
+                                                                    className="min-w-0 w-full"
+                                                                    textClassName="text-xs text-text-muted"
+                                                                    copyLabel="Copy package address"
+                                                                    toastMessage="Package address copied"
+                                                                />
+                                                            ) : (
+                                                                <span className="text-xs text-text-muted">—</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                                {policyLabel(pkg.policy)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right">
+                                                            <span className="font-mono text-sm text-text-primary">
+                                                                {pkg.delayMs > 0
+                                                                    ? `${Math.round(pkg.delayMs / 3_600_000)}h`
+                                                                    : "None"}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : null}
+                                {lockedCapsLoading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                                    </div>
+                                ) : lockedCaps && lockedCaps.length > 0 ? (
+                                    <LockedCapsTable caps={lockedCaps} />
+                                ) : null}
+                            </div>
                         </CollapsibleSection>
                     )}
 
