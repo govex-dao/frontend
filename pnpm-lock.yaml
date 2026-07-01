@@ -25,8 +25,8 @@ importers:
   .:
     dependencies:
       '@govex/futarchy-sdk':
-        specifier: git+https://github.com/govex-dao/sdk.git#e9c7224530e30847b5f908e3f1e054475e52d815
-        version: govex-sdk-v3@git+https://github.com/govex-dao/sdk.git#e9c7224530e30847b5f908e3f1e054475e52d815(@mysten/sui@1.45.2(typescript@5.9.3))
+        specifier: file:vendor/govex-futarchy-sdk-0.2.1-e9c7224.tgz
+        version: govex-sdk-v3@file:vendor/govex-futarchy-sdk-0.2.1-e9c7224.tgz(@mysten/sui@1.45.2(typescript@5.9.3))
       '@mysten/dapp-kit':
         specifier: ^0.19.8
         version: 0.19.11(@tanstack/react-query@5.90.12(react@19.2.6))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@5.9.3)
@@ -1848,8 +1848,8 @@ packages:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
 
-  govex-sdk-v3@git+https://github.com/govex-dao/sdk.git#e9c7224530e30847b5f908e3f1e054475e52d815:
-    resolution: {commit: e9c7224530e30847b5f908e3f1e054475e52d815, repo: https://github.com/govex-dao/sdk.git, type: git}
+  govex-sdk-v3@file:vendor/govex-futarchy-sdk-0.2.1-e9c7224.tgz:
+    resolution: {integrity: sha512-Kya3QWRmoXoj1l/opTwf3LaRmxC2KoDs8vsZxQrhI4ekxFQ09DK1+yYX+l7PPJiJk1RX5/Vv59lpHHMREM8xSg==, tarball: file:vendor/govex-futarchy-sdk-0.2.1-e9c7224.tgz}
     version: 0.2.1
     engines: {node: '>=18.0.0'}
     peerDependencies:
@@ -4938,7 +4938,7 @@ snapshots:
 
   gopd@1.2.0: {}
 
-  govex-sdk-v3@git+https://github.com/govex-dao/sdk.git#e9c7224530e30847b5f908e3f1e054475e52d815(@mysten/sui@1.45.2(typescript@5.9.3)):
+  govex-sdk-v3@file:vendor/govex-futarchy-sdk-0.2.1-e9c7224.tgz(@mysten/sui@1.45.2(typescript@5.9.3)):
     dependencies:
       '@mysten/sui': 1.45.2(typescript@5.9.3)
 
