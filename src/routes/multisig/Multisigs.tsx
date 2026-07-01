@@ -125,9 +125,16 @@ export function Multisigs() {
 
       {!account ? (
         /* Not connected */
-        <section className="flex items-center gap-2 px-1 py-1 text-sm text-text-muted">
-          <Shield className="h-4 w-4 shrink-0 text-text-disabled" />
-          <span>Connect a wallet to create and manage your multisig accounts.</span>
+        <section className="flex flex-col items-center justify-center py-8 md:py-10">
+          <div className="flex flex-col items-center justify-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full">
+              <Shield className="h-10 w-10 text-text-disabled" />
+            </div>
+            <h3 className="mb-2">Connect Wallet</h3>
+            <p className="max-w-md text-center text-text-muted">
+              Connect your wallet to create and manage your own multisig accounts.
+            </p>
+          </div>
         </section>
       ) : (
         <section className="glass-flow-panel flex flex-col gap-4 rounded-xl p-4 md:p-6 lg:p-8">
