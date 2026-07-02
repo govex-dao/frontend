@@ -109,7 +109,7 @@ export interface IntentSummary {
     expectedAmountByAction?: Record<number, string>;
     /** Package upgrade actions: expected UpgradeCap object ID from the action spec, keyed by action index. */
     expectedCapIdByAction?: Record<number, string>;
-    /** PackageUpgrade: package name from the action spec, keyed by action index. */
+    /** Package upgrade action package name from the action spec, keyed by action index. */
     upgradePackageNameByAction?: Record<number, string>;
     /** PackageUpgrade: digest hex from the action spec, keyed by action index. */
     upgradeDigestByAction?: Record<number, string>;
@@ -1030,15 +1030,15 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                             expectedAmountByAction[i] = expectedAmount;
                         }
                     } else if (modType.startsWith("package_upgrade::")) {
+                        const pkgName = parseActionSpecPackageName(actionData);
+                        if (pkgName) {
+                            upgradePackageNameByAction[i] = pkgName;
+                        }
                         const expectedCapId = parsePackageUpgradeExpectedCapId(actionData);
                         if (expectedCapId) {
                             expectedCapIdByAction[i] = expectedCapId;
                         }
                         if (modType === "package_upgrade::PackageUpgrade") {
-                            const pkgName = parseActionSpecPackageName(actionData);
-                            if (pkgName) {
-                                upgradePackageNameByAction[i] = pkgName;
-                            }
                             const digest = parsePackageUpgradeDigest(actionData);
                             if (digest) {
                                 upgradeDigestByAction[i] = digest;

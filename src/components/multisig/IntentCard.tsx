@@ -1051,6 +1051,19 @@ export function IntentCard({
             ),
         [intent.actionTypes, intent.upgradePackageNameByAction]
     );
+    const packageActionNames = useMemo(() => {
+        const names = intent.actionTypes.flatMap((actionType, actionIndex) => {
+            if (!extractModuleType(actionType).startsWith("package_upgrade::")) return [];
+            const packageName = intent.upgradePackageNameByAction?.[actionIndex]?.trim();
+            return packageName ? [packageName] : [];
+        });
+        return Array.from(new Set(names));
+    }, [intent.actionTypes, intent.upgradePackageNameByAction]);
+    const relevantPackageInfoList = useMemo(() => {
+        if (packageActionNames.length === 0) return [];
+        const names = new Set(packageActionNames);
+        return packageInfoList.filter((pkg) => names.has(pkg.name));
+    }, [packageActionNames, packageInfoList]);
     const packageUpgradeDelayKnown =
         !hasUpgradeAction ||
         (packageUpgradeNames.length > 0 &&
@@ -1468,9 +1481,9 @@ export function IntentCard({
             )}
 
             {/* Package info for package-related intents */}
-            {hasPackageAction && packageInfoList.length > 0 && actionsExpanded && (
+            {hasPackageAction && relevantPackageInfoList.length > 0 && actionsExpanded && (
                 <div className="text-[10px] text-text-muted space-y-0.5 pl-1 border-l-2 border-border-subtle ml-1">
-                    {packageInfoList.map((pkg) => (
+                    {relevantPackageInfoList.map((pkg) => (
                         <div key={pkg.name} className="flex items-center gap-2">
                             <span className="font-medium">{pkg.name}</span>
                             <span className="font-mono">{pkg.packageAddress.slice(0, 10)}...</span>
