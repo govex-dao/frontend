@@ -1240,16 +1240,16 @@ export function IntentCard({
         "Voting and cancellation are supported in this UI. Execution for unknown custom intents is not currently supported in the public frontend.";
     const prebuiltExecutionGapMessage =
         "This prebuilt action is recognized, but execution for this action type is not currently wired into the public frontend.";
-    const approveButtonLabel = !previewMode && shouldApproveAndExecute ? "Approve & Execute" : "Approve";
+    const approveButtonLabel = shouldApproveAndExecute ? "Approve & Execute" : "Approve";
     const approveButtonTitle = previewMode
         ? "Example preview only."
         : shouldApproveAndExecute
           ? "Cast the final approval and execute this intent in one transaction."
           : approveExecuteBlocked
             ? "Cast an approval vote. Fill required execution inputs first to approve and execute in one transaction."
-          : hasAlreadyRejected
-            ? "Approving will clear your prior reject vote."
-            : "Cast an approval vote.";
+            : hasAlreadyRejected
+              ? "Approving will clear your prior reject vote."
+              : "Cast an approval vote.";
 
     const primaryActionName = isConfig
         ? "Config Change"

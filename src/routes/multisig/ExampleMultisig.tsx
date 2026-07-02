@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router";
-import {
-    ArrowLeft,
-    ChevronDown,
-    ChevronUp,
-    Coins,
-    Hourglass,
-    Shield,
-    WalletCards,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Coins, Hourglass, Shield, WalletCards } from "lucide-react";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
@@ -215,6 +207,15 @@ function useExampleIntents(): IntentSummary[] {
                 approved: [ALICE],
             }),
             makeIntent({
+                key: "top-up-market-maker-vault",
+                description: "Move 25,000 USDC into the market maker vault for next week's operations.",
+                createdAtMs: now - 6 * HOUR_MS,
+                expirationMs: now + 14 * DAY_MS,
+                actionTypes: [actionType("vault::VaultSpend")],
+                status: MULTISIG_INTENT_STATUS.ACTIVE,
+                approved: [],
+            }),
+            makeIntent({
                 key: "create-monthly-stream",
                 description: "Create a monthly USDC spending limit from Payroll to a contributor.",
                 createdAtMs: now - 4 * DAY_MS,
@@ -347,13 +348,15 @@ function VaultHoldings({ balances }: { balances: VaultCoinBalance[] }) {
 
 export function ExampleMultisig() {
     const intents = useExampleIntents();
-    const pendingIntents = intents.filter((intent) =>
-        (intent.approvals.status === MULTISIG_INTENT_STATUS.ACTIVE ||
-            intent.approvals.status === MULTISIG_INTENT_STATUS.APPROVED)
+    const pendingIntents = intents.filter(
+        (intent) =>
+            intent.approvals.status === MULTISIG_INTENT_STATUS.ACTIVE ||
+            intent.approvals.status === MULTISIG_INTENT_STATUS.APPROVED
     );
-    const closedIntents = intents.filter((intent) =>
-        intent.approvals.status === MULTISIG_INTENT_STATUS.REJECTED ||
-        intent.approvals.status === MULTISIG_INTENT_STATUS.EXECUTED
+    const closedIntents = intents.filter(
+        (intent) =>
+            intent.approvals.status === MULTISIG_INTENT_STATUS.REJECTED ||
+            intent.approvals.status === MULTISIG_INTENT_STATUS.EXECUTED
     );
     const scheduledPayments = STREAMS;
 
@@ -363,11 +366,7 @@ export function ExampleMultisig() {
                 <title>Example Multisig</title>
             </Helmet>
             <Breadcrumbs
-                items={[
-                    { label: "Home", href: "/" },
-                    { label: "Multisigs", href: "/multisig" },
-                    { label: "Example" },
-                ]}
+                items={[{ label: "Home", href: "/" }, { label: "Multisigs", href: "/multisig" }, { label: "Example" }]}
             />
 
             <div className="flex items-start justify-between gap-4">
