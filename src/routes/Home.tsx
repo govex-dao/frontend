@@ -98,10 +98,7 @@ export function Home() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {multisigTiers.map((tier) => (
-                            <div
-                                key={tier.name}
-                                className="glass-flow-panel rounded-lg p-4 sm:p-5"
-                            >
+                            <div key={tier.name} className="glass-flow-panel home-tier-panel rounded-lg p-4 sm:p-5">
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <p className="text-base font-semibold text-text-primary">{tier.name}</p>
