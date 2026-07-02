@@ -55,17 +55,14 @@ export function appendCreateMultisigAccount(
     params: {
         configInput: SimpleMultisigConfigInput;
         metadata?: Record<string, string>;
-        treasuryCoinType: string;
         paymentCoin?: TransactionObjectArgument;
     }
 ): Transaction {
     const pkg = sdk.packages.accountMultisig;
-    const actionsPackage = sdk.packages.accountActions;
     const feeVault = sdk.sharedObjects.multisigFeeVault;
     const registryId = sdk.sharedObjects.packageRegistry.id;
 
     if (!pkg) throw new Error("accountMultisig package not configured");
-    if (!actionsPackage) throw new Error("accountActions package not configured");
     if (!feeVault) throw new Error("multisigFeeVault shared object not configured");
 
     const keys = Object.keys(params.metadata ?? {});
@@ -105,12 +102,6 @@ export function appendCreateMultisigAccount(
             tx.pure(bcs.vector(bcs.u64()).serialize(configArgs.cancelGroups).toBytes()),
             tx.pure.u64(configArgs.intentExpiryMs),
         ],
-    });
-
-    tx.moveCall({
-        target: `${actionsPackage}::vault::init_treasury_vault_with_coin_type`,
-        typeArguments: [params.treasuryCoinType],
-        arguments: [accountObject, tx.object(registryId)],
     });
 
     tx.moveCall({

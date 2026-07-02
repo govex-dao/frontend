@@ -29,7 +29,6 @@ import {
     VISIBLE_CONFIG_MODES,
     defaultMember,
     extractCreatedMultisigAccountId,
-    getMultisigTreasuryCoinType,
     memberToPermissions,
     type ConfigMode,
     type MemberDraft,
@@ -176,7 +175,6 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
             appendCreateMultisigAccount(tx, sdk, {
                 configInput,
                 metadata: accountName.trim() ? { name: accountName.trim() } : undefined,
-                treasuryCoinType: getMultisigTreasuryCoinType(),
                 paymentCoin,
             });
 
