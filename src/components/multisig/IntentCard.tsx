@@ -18,6 +18,7 @@ import {
     FileText,
     Package,
     Settings,
+    Wallet,
     type LucideIcon,
 } from "lucide-react";
 import type { IntentSummary, MultisigConfig } from "@/lib/sui/multisig";
@@ -1041,8 +1042,23 @@ export function IntentCard({
         prepareExecutionInputs,
     ]);
 
+    const packageUpgradeNames = useMemo(
+        () =>
+            intent.actionTypes.flatMap((actionType, actionIndex) =>
+                extractModuleType(actionType) === "package_upgrade::PackageUpgrade"
+                    ? [intent.upgradePackageNameByAction?.[actionIndex]?.trim() || ""]
+                    : []
+            ),
+        [intent.actionTypes, intent.upgradePackageNameByAction]
+    );
+    const packageUpgradeDelayKnown =
+        !hasUpgradeAction ||
+        (packageUpgradeNames.length > 0 &&
+            packageUpgradeNames.every(
+                (packageName) => packageName && packageInfoList.some((pkg) => pkg.name === packageName)
+            ));
     const upgradeDelayInfo = useMemo(() => {
-        if (!hasUpgradeAction || packageInfoList.length === 0 || intent.createdAtMs <= 0) return null;
+        if (!hasUpgradeAction || !packageUpgradeDelayKnown || intent.createdAtMs <= 0) return null;
 
         const relevantDelays = intent.actionTypes.flatMap((actionType, actionIndex) => {
             if (extractModuleType(actionType) !== "package_upgrade::PackageUpgrade") return [];
@@ -1065,6 +1081,7 @@ export function IntentCard({
         intent.createdAtMs,
         intent.upgradePackageNameByAction,
         nowMs,
+        packageUpgradeDelayKnown,
         packageInfoList,
     ]);
     const upgradeDelayBlocked = !!(upgradeDelayInfo && !upgradeDelayInfo.isDelayElapsed);
@@ -1073,7 +1090,11 @@ export function IntentCard({
     const autoExecutionUnavailable =
         !isConfig && (hasUnsupported || hasGenericExecutionGap || hasUnsupportedPrebuiltActions);
     const canPrepareApproveAndExecute =
-        finalApprovalByExecutor && !autoExecutionUnavailable && !upgradeDelayBlocked && !executionTimeBlocked;
+        finalApprovalByExecutor &&
+        !autoExecutionUnavailable &&
+        packageUpgradeDelayKnown &&
+        !upgradeDelayBlocked &&
+        !executionTimeBlocked;
     const approveExecuteBlocked = !!(canPrepareApproveAndExecute && !isConfig && hasMissingInputs);
     const shouldApproveAndExecute = canPrepareApproveAndExecute && !approveExecuteBlocked;
     const showExecutionInputControls = !!(
@@ -1235,6 +1256,7 @@ export function IntentCard({
 
     const hasActions =
         showApprove || showUndoApproval || showReject || showEvaluate || showExecute || showCancelPending;
+    const showConnectWalletPrompt = !previewMode && !currentUserAddress && (isActive || isApproved);
 
     const genericExecutionGapMessage =
         "Voting and cancellation are supported in this UI. Execution for unknown custom intents is not currently supported in the public frontend.";
@@ -1736,8 +1758,14 @@ export function IntentCard({
             )}
 
             {/* Action buttons */}
-            {hasActions && (
+            {(hasActions || showConnectWalletPrompt) && (
                 <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
+                    {showConnectWalletPrompt && (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-card-more-elevated/45 px-3 py-1.5 text-xs font-medium text-text-muted">
+                            <Wallet className="h-3.5 w-3.5" />
+                            Connect wallet to interact
+                        </div>
+                    )}
                     {showApprove && (
                         <button
                             onClick={previewMode ? () => handlePreviewAction(approveButtonLabel) : handleApprove}
