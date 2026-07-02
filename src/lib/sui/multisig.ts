@@ -580,6 +580,9 @@ function parseAddressVector(value: any): string[] {
 function parseVecMapEntries(value: any): Array<{ key: any; value: any }> {
     if (!value) return [];
 
+    const fields = fieldsOf(value);
+    if (fields.inner) return parseVecMapEntries(fields.inner);
+
     const contents = value?.fields?.contents || value?.contents;
     if (Array.isArray(contents)) {
         return contents
@@ -597,6 +600,27 @@ function parseVecMapEntries(value: any): Array<{ key: any; value: any }> {
     }
 
     return [];
+}
+
+function parseStringLike(value: any): string | null {
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
+    const fields = fieldsOf(value);
+    const nestedValue = fields.value ?? fields.bytes ?? fields.name;
+    if (typeof nestedValue === "string") {
+        const trimmed = nestedValue.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
+    return null;
+}
+
+function parseMetadataString(metadata: any, key: string): string {
+    const entry = parseVecMapEntries(metadata).find((item) => parseStringLike(item.key) === key);
+    return parseStringLike(entry?.value) ?? "";
 }
 
 function extractModuleType(fullType: string): string {
@@ -877,17 +901,7 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
         const fields = (accountObj.data?.content as any)?.fields;
         if (!fields) return null;
 
-        // Extract account name from metadata (VecMap<String, String>)
-        let accountName = "";
-        const metadataFields = fields.metadata?.fields;
-        if (metadataFields) {
-            const keys: string[] =
-                metadataFields.keys ?? metadataFields.contents?.map((c: any) => c?.fields?.key) ?? [];
-            const values: string[] =
-                metadataFields.values ?? metadataFields.contents?.map((c: any) => c?.fields?.value) ?? [];
-            const nameIdx = keys.indexOf("name");
-            if (nameIdx >= 0 && values[nameIdx]) accountName = values[nameIdx];
-        }
+        const accountName = parseMetadataString(fields.metadata, "name");
 
         // MultisigConfig is stored as a dynamic field directly on the Account object,
         // keyed by account::ConfigKey. List dynamic fields on the Account ID.

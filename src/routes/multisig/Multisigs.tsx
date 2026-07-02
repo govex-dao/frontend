@@ -8,6 +8,7 @@ import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
 import { useMyLinkedMultisigAccounts } from "@/hooks/useMyVestingsAndStreams";
+import { useMultisigConfig } from "@/hooks/useMultisig";
 import type { MultisigListItem } from "@/lib/api";
 import { normalizeSuiAddress } from "@/lib/sui/multisig";
 
@@ -25,6 +26,23 @@ type MultisigItem =
 
 function accountKey(id: string | undefined): string {
   return normalizeSuiAddress(id) || "";
+}
+
+function ResolvedAccountCard({
+  accountId,
+  accountName: fallbackName,
+  memberCount,
+  onRemove,
+}: {
+  accountId: string;
+  accountName: string;
+  memberCount: number;
+  onRemove?: () => void;
+}) {
+  const { data: config } = useMultisigConfig(accountId);
+  const accountName = config?.name?.trim() || fallbackName;
+
+  return <AccountCard accountId={accountId} accountName={accountName} memberCount={memberCount} onRemove={onRemove} />;
 }
 
 function Pagination({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (p: number) => void }) {
@@ -184,14 +202,14 @@ export function Multisigs() {
                   .slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE)
                   .map((item) =>
                     item.type === "backend" ? (
-                      <AccountCard
+                      <ResolvedAccountCard
                         key={item.ms.account_id}
                         accountId={item.ms.account_id}
                         accountName={item.ms.name}
                         memberCount={item.ms.member_count}
                       />
                     ) : item.type === "saved" ? (
-                      <AccountCard
+                      <ResolvedAccountCard
                         key={item.id}
                         accountId={item.id}
                         accountName="Saved Multisig"
@@ -199,7 +217,7 @@ export function Multisigs() {
                         onRemove={() => removeId(item.id)}
                       />
                     ) : (
-                      <AccountCard
+                      <ResolvedAccountCard
                         key={item.id}
                         accountId={item.id}
                         accountName="Linked Multisig"

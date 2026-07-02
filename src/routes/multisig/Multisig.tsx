@@ -41,6 +41,7 @@ import {
     useMultisigIntents,
     useMultisigStreams,
     useMultisigVaultBalances,
+    useMultisigVaultNames,
     useMultisigPackageInfo,
     useMultisigLockedCaps,
     useMultisigVestings,
@@ -211,16 +212,33 @@ function aggregateBalances(
 function VaultHoldings({
     balances,
     coins,
+    vaultNames,
     isLoading,
 }: {
     balances?: VaultCoinBalance[];
     coins?: CoinMetadata[];
+    vaultNames?: string[];
     isLoading: boolean;
 }) {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (vaultNames && vaultNames.length === 0) {
+        return (
+            <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                        <WalletCards className="h-4 w-4" />
+                    </div>
+                    <p className="text-sm font-medium text-text-primary">
+                        Create your first vault to hold coins through an intent.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -372,6 +390,7 @@ export function Multisig() {
     const { data: streams, isLoading: streamsLoading } = useMultisigStreams(accountId);
     const { data: accountVestings = [], isLoading: vestingsLoading } = useMultisigVestings(accountId);
     const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(accountId);
+    const { data: vaultNames, isLoading: vaultNamesLoading } = useMultisigVaultNames(accountId);
     const { data: packageInfos, isLoading: packagesLoading } = useMultisigPackageInfo(accountId);
     const { data: lockedCaps, isLoading: lockedCapsLoading } = useMultisigLockedCaps(accountId);
     const { data: backendCoins } = useCoins();
@@ -490,6 +509,7 @@ export function Multisig() {
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.config(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.streams(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vestings(accountId) });
+        queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vaultNames(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.vaultBalances(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.packageInfo(accountId) });
         queryClient.invalidateQueries({ queryKey: multisigRpcKeys.lockedCaps(accountId) });
@@ -684,7 +704,12 @@ export function Multisig() {
                                 </div>
                             )}
                         </div>
-                        <VaultHoldings balances={vaultBalances} coins={coins} isLoading={vaultBalancesLoading} />
+                        <VaultHoldings
+                            balances={vaultBalances}
+                            coins={coins}
+                            vaultNames={vaultNames}
+                            isLoading={vaultBalancesLoading || vaultNamesLoading}
+                        />
                     </div>
 
                     {/* Pending Intents */}
