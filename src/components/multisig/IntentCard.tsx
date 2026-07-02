@@ -1240,7 +1240,7 @@ export function IntentCard({
         "Voting and cancellation are supported in this UI. Execution for unknown custom intents is not currently supported in the public frontend.";
     const prebuiltExecutionGapMessage =
         "This prebuilt action is recognized, but execution for this action type is not currently wired into the public frontend.";
-    const approveButtonLabel = shouldApproveAndExecute ? "Approve & Execute" : "Approve";
+    const approveButtonLabel = !previewMode && shouldApproveAndExecute ? "Approve & Execute" : "Approve";
     const approveButtonTitle = previewMode
         ? "Example preview only."
         : shouldApproveAndExecute
