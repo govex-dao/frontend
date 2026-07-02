@@ -10,6 +10,7 @@ import { SpotSwapCard } from "@/components/org/page/SpotSwapCard";
 import { OrdersTab } from "@/components/org/page/OrdersTab";
 import { VerifiedBadge } from "@/components/badges/VerifiedBadge";
 import { Button } from "@/components/inputs/Button";
+import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useSpotPrice } from "@/hooks/useSpotPrice";
 import { useDAO, useDAOProposalsDisplay, useCoins } from "@/hooks/api";
@@ -19,7 +20,7 @@ import { CoinAvatar } from "@/components/CoinAvatar";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import { formatNumberWithCommas } from "@/lib/formatNumber";
 import { getProtocolVersionForDAO } from "@/lib/sdk";
-import { toDAODisplay, type DAODisplay } from "@/types";
+import { toDAODisplay, type DAO, type DAODisplay } from "@/types";
 import type { VaultCoinBalance } from "@/lib/sui/multisig";
 import type { CoinMetadata } from "@/lib/api/coins";
 
@@ -27,6 +28,101 @@ interface OrgHeaderProps {
     dao: DAODisplay;
     isFavorited: boolean;
     onToggleFavorite: () => void;
+}
+
+const COMPACT_ID_EDGE_CHARS = 4;
+
+function compactMiddle(value: string, edgeChars = COMPACT_ID_EDGE_CHARS): string {
+    const text = value.trim();
+    if (text.length <= edgeChars * 2 + 3) return text;
+    return `${text.slice(0, edgeChars)}...${text.slice(-edgeChars)}`;
+}
+
+function OrgIdentifier({
+    label,
+    value,
+    copyLabel,
+    toastMessage,
+}: {
+    label: string;
+    value: string;
+    copyLabel: string;
+    toastMessage: string;
+}) {
+    return (
+        <div className="min-w-0">
+            <p className="text-text-muted">{label}</p>
+            <CopyableAddress
+                address={value}
+                displayText={compactMiddle(value)}
+                className="mt-1 text-sm"
+                textClassName="font-medium tabular-nums text-text-primary"
+                copyLabel={copyLabel}
+                toastMessage={toastMessage}
+            />
+        </div>
+    );
+}
+
+function OrgInfo({
+    dao,
+    daoRaw,
+    spotPriceFormatted,
+}: {
+    dao: DAODisplay;
+    daoRaw: DAO;
+    spotPriceFormatted?: string | null;
+}) {
+    const daoId = daoRaw.canonical_uuid ?? daoRaw.id;
+    const accountId = daoRaw.id;
+
+    return (
+        <div className="glass-flow-panel rounded-xl p-6">
+            <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-1">{dao.name}</h3>
+                <p className="text-text-muted text-sm">{dao.description || "No description"}</p>
+            </div>
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                    {spotPriceFormatted && (
+                        <div>
+                            <p className="text-text-muted">{dao.assetSymbol || "Asset"} Price</p>
+                            <p className="font-medium tabular-nums">${spotPriceFormatted}</p>
+                        </div>
+                    )}
+                    <div>
+                        <p className="text-text-muted">Decisions</p>
+                        <p className="font-medium">{dao.proposalCount}</p>
+                    </div>
+                    <div>
+                        <p className="text-text-muted">Created</p>
+                        <p className="font-medium">
+                            {dao.createdAt.toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                            })}
+                        </p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border-light pt-4 text-sm">
+                    <OrgIdentifier
+                        label="Asset Type"
+                        value={daoRaw.asset_type}
+                        copyLabel="Copy asset type"
+                        toastMessage="Asset type copied"
+                    />
+                    <OrgIdentifier label="DAO ID" value={daoId} copyLabel="Copy DAO ID" toastMessage="DAO ID copied" />
+                    <OrgIdentifier
+                        label="Account ID"
+                        value={accountId}
+                        copyLabel="Copy account ID"
+                        toastMessage="Account ID copied"
+                    />
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function OrgHeader({ dao, isFavorited, onToggleFavorite }: OrgHeaderProps) {
@@ -299,34 +395,7 @@ export function Org() {
                     {activeTab === "overview" && (
                         <div className="flex flex-col gap-6">
                             {/* Org Info */}
-                            <div className="glass-flow-panel rounded-xl p-6">
-                                <div className="mb-4">
-                                    <h3 className="text-lg font-semibold mb-1">{dao.name}</h3>
-                                    <p className="text-text-muted text-sm">{dao.description || "No description"}</p>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                                    {spotPrice?.formatted && (
-                                        <div>
-                                            <p className="text-text-muted">{dao.assetSymbol || "Asset"} Price</p>
-                                            <p className="font-medium tabular-nums">${spotPrice.formatted}</p>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <p className="text-text-muted">Decisions</p>
-                                        <p className="font-medium">{dao.proposalCount}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-text-muted">Created</p>
-                                        <p className="font-medium">
-                                            {dao.createdAt.toLocaleDateString("en-US", {
-                                                month: "short",
-                                                day: "numeric",
-                                                year: "numeric",
-                                            })}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={spotPrice?.formatted} />
 
                             {/* Vault Holdings */}
                             <div>
