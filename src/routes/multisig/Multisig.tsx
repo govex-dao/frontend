@@ -75,7 +75,7 @@ import {
 import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTransaction";
 import { getSDK } from "@/lib/sdk";
 import type { CoinMetadata } from "@/lib/api/coins";
-import { formatNumberWithCommas } from "@/lib/formatNumber";
+import { formatUnits, normalizeUnitsForSort } from "@/lib/units";
 
 const CLEANUP_INTENTS_LIMIT = 25;
 
@@ -149,7 +149,9 @@ function CollapsibleSection({
                 onClick={() => setIsOpen((open) => !open)}
                 className="flex w-full items-center justify-between gap-3 border-b border-border-subtle pb-2 text-left transition-colors hover:border-border-light"
             >
-                <span className={`flex items-center gap-2 text-lg font-semibold ${muted ? "text-text-muted" : "text-text-primary"}`}>
+                <span
+                    className={`flex items-center gap-2 text-lg font-semibold ${muted ? "text-text-muted" : "text-text-primary"}`}
+                >
                     {icon}
                     {title}
                     {count != null && count > 0 ? (
@@ -202,10 +204,9 @@ function aggregateBalances(
             };
         })
         .sort((a, b) => {
-            // Sort by formatted balance descending
-            const aVal = Number(a.amount) / Math.pow(10, a.decimals);
-            const bVal = Number(b.amount) / Math.pow(10, b.decimals);
-            return bVal - aVal;
+            const aVal = normalizeUnitsForSort(a.amount, a.decimals);
+            const bVal = normalizeUnitsForSort(b.amount, b.decimals);
+            return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
         });
 }
 
@@ -236,7 +237,7 @@ function VaultHoldings({
                         <WalletCards className="h-4 w-4" />
                     </div>
                     <p className="text-sm font-medium text-text-primary">
-                        Create your first vault to hold coins through an intent.
+                        Create your first vault to hold coins with through an intent.
                     </p>
                 </div>
             </div>
@@ -267,7 +268,9 @@ function VaultHoldings({
                 </thead>
                 <tbody>
                     {rows.map((row) => {
-                        const formatted = Number(row.amount) / Math.pow(10, row.decimals);
+                        const formatted = formatUnits(row.amount, row.decimals, {
+                            maxFractionDigits: Math.min(row.decimals, 9),
+                        });
                         return (
                             <tr
                                 key={row.coinType}
@@ -300,9 +303,7 @@ function VaultHoldings({
                                     </div>
                                 </td>
                                 <td className="py-3 px-4 text-right">
-                                    <span className="font-mono font-medium text-text-primary">
-                                        {formatNumberWithCommas(formatted)}
-                                    </span>
+                                    <span className="font-mono font-medium text-text-primary">{formatted}</span>
                                 </td>
                             </tr>
                         );
@@ -318,17 +319,17 @@ function LockedCapsTable({ caps }: { caps: LockedCapInfo[] }) {
 
     return (
         <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full">
+            <table className="w-full table-fixed">
                 <thead>
                     <tr className="border-b border-border bg-card-elevated">
-                        <th className="w-32 text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                            Kind
-                        </th>
                         <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                             Type
                         </th>
                         <th className="w-[34%] text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                            Object
+                            Object ID
+                        </th>
+                        <th className="w-32 text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                            Kind
                         </th>
                     </tr>
                 </thead>
@@ -338,11 +339,6 @@ function LockedCapsTable({ caps }: { caps: LockedCapInfo[] }) {
                             key={`${cap.keyType}:${cap.objectId || cap.capType}`}
                             className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
                         >
-                            <td className="py-3 px-4">
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                                    {LOCKED_CAP_KIND_LABELS[cap.kind]}
-                                </span>
-                            </td>
                             <td className="min-w-0 py-3 px-4">
                                 <div
                                     className="max-w-[520px] truncate font-mono text-xs text-text-primary"
@@ -371,6 +367,11 @@ function LockedCapsTable({ caps }: { caps: LockedCapInfo[] }) {
                                 ) : (
                                     <span className="text-xs text-text-muted">—</span>
                                 )}
+                            </td>
+                            <td className="py-3 px-4">
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                    {LOCKED_CAP_KIND_LABELS[cap.kind]}
+                                </span>
                             </td>
                         </tr>
                     ))}
@@ -450,14 +451,8 @@ export function Multisig() {
         () => (intents ?? []).filter((i) => isClosedIntentStatus(i.approvals.status)),
         [intents]
     );
-    const accountPaymentStreams = useMemo(
-        () => (streams ?? []).filter((stream) => !stream.isSpendingLimit),
-        [streams]
-    );
-    const accountSpendingLimits = useMemo(
-        () => (streams ?? []).filter((stream) => stream.isSpendingLimit),
-        [streams]
-    );
+    const accountPaymentStreams = useMemo(() => (streams ?? []).filter((stream) => !stream.isSpendingLimit), [streams]);
+    const accountSpendingLimits = useMemo(() => (streams ?? []).filter((stream) => stream.isSpendingLimit), [streams]);
     const accountStreamsAndSpendingLimits = useMemo(
         () => [...accountPaymentStreams, ...accountSpendingLimits],
         [accountPaymentStreams, accountSpendingLimits]
@@ -833,19 +828,22 @@ export function Multisig() {
                                 </div>
                             ) : packageInfos && packageInfos.length > 0 ? (
                                 <div className="overflow-x-auto rounded-xl border border-border">
-                                    <table className="w-full">
+                                    <table className="w-full table-fixed">
                                         <thead>
                                             <tr className="border-b border-border bg-card-elevated">
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                <th className="w-[18%] text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                                                     Name
                                                 </th>
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                <th className="w-[28%] text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                    Object ID
+                                                </th>
+                                                <th className="w-[28%] text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                                                     Package
                                                 </th>
-                                                <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                <th className="w-28 text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                                                     Policy
                                                 </th>
-                                                <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                                                <th className="w-24 text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                                                     Timelock
                                                 </th>
                                             </tr>
@@ -862,13 +860,26 @@ export function Multisig() {
                                                         </span>
                                                     </td>
                                                     <td className="min-w-0 py-3 px-4">
+                                                        {pkg.capObjectId ? (
+                                                            <CopyableAddress
+                                                                address={pkg.capObjectId}
+                                                                className="min-w-0 w-full"
+                                                                textClassName="text-xs text-text-muted"
+                                                                copyLabel="Copy package cap object ID"
+                                                                toastMessage="Package cap object ID copied"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-xs text-text-muted">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="min-w-0 py-3 px-4">
                                                         {pkg.packageAddress ? (
                                                             <CopyableAddress
                                                                 address={pkg.packageAddress}
                                                                 className="min-w-0 w-full"
                                                                 textClassName="text-xs text-text-muted"
-                                                                copyLabel="Copy package address"
-                                                                toastMessage="Package address copied"
+                                                                copyLabel="Copy package ID"
+                                                                toastMessage="Package ID copied"
                                                             />
                                                         ) : (
                                                             <span className="text-xs text-text-muted">—</span>

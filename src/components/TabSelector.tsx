@@ -25,20 +25,11 @@ export function TabSelector({
     const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
     if (variant === "filled" && tabs.length === 2) {
-        const toggleOptions: [
-            { label: string; value: string },
-            { label: string; value: string },
-        ] = [
+        const toggleOptions: [{ label: string; value: string }, { label: string; value: string }] = [
             { label: tabs[0].label, value: tabs[0].id },
             { label: tabs[1].label, value: tabs[1].id },
         ];
-        return (
-            <Toggle
-                options={toggleOptions}
-                value={activeTab}
-                onChange={(value) => onTabChange(value)}
-            />
-        );
+        return <Toggle options={toggleOptions} value={activeTab} onChange={(value) => onTabChange(value)} />;
     }
 
     return (

@@ -67,16 +67,10 @@ export function WalletBalances({ balances, isLoading, isConnected }: Props) {
                     <div className="text-xs text-text-muted uppercase tracking-wide">Spot</div>
                     <div className="grid grid-cols-2 gap-2">
                         {balances.spot.asset.raw > 0n && (
-                            <BalanceRow
-                                name={balances.spot.asset.name}
-                                amount={balances.spot.asset.formatted}
-                            />
+                            <BalanceRow name={balances.spot.asset.name} amount={balances.spot.asset.formatted} />
                         )}
                         {balances.spot.stable.raw > 0n && (
-                            <BalanceRow
-                                name={balances.spot.stable.name}
-                                amount={balances.spot.stable.formatted}
-                            />
+                            <BalanceRow name={balances.spot.stable.name} amount={balances.spot.stable.formatted} />
                         )}
                     </div>
                 </div>
@@ -174,12 +168,8 @@ function BalanceWrapperCard({ wrapper, outcomeCount }: { wrapper: BalanceWrapper
                         <div key={index} className="flex items-center gap-2 text-xs">
                             <div className={`w-1.5 h-1.5 rounded-full ${colorClass}`} />
                             <span className="text-text-muted">#{index}</span>
-                            {outcome.asset.raw > 0n && (
-                                <span className="font-mono">{outcome.asset.formatted} A</span>
-                            )}
-                            {outcome.stable.raw > 0n && (
-                                <span className="font-mono">{outcome.stable.formatted} S</span>
-                            )}
+                            {outcome.asset.raw > 0n && <span className="font-mono">{outcome.asset.formatted} A</span>}
+                            {outcome.stable.raw > 0n && <span className="font-mono">{outcome.stable.formatted} S</span>}
                         </div>
                     );
                 })}

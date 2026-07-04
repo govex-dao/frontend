@@ -31,13 +31,7 @@ function middleEllipsize(text: string, availableWidth: number, font: string): st
     return measureText(tailCandidate, font) <= availableWidth ? tailCandidate : ELLIPSIS;
 }
 
-export function MiddleEllipsizedAddress({
-    address,
-    className = "",
-}: {
-    address: string;
-    className?: string;
-}) {
+export function MiddleEllipsizedAddress({ address, className = "" }: { address: string; className?: string }) {
     const text = address.trim();
     const textRef = useRef<HTMLSpanElement>(null);
     const [displayText, setDisplayText] = useState(text);
@@ -115,10 +109,7 @@ export function CopyableAddress({
     return (
         <span className={`inline-flex min-w-0 max-w-full items-start gap-1.5 ${className}`}>
             {wrap ? (
-                <span
-                    className={`min-w-0 flex-1 break-all font-mono leading-relaxed ${textClassName}`}
-                    title={text}
-                >
+                <span className={`min-w-0 flex-1 break-all font-mono leading-relaxed ${textClassName}`} title={text}>
                     {displayText ?? text}
                 </span>
             ) : displayText ? (

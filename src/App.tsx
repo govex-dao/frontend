@@ -12,6 +12,7 @@ const GovexDashboard = lazy(() =>
 );
 const CreateOrg = lazy(() => import("./routes/org/Create").then(({ CreateOrg }) => ({ default: CreateOrg })));
 const Org = lazy(() => import("./routes/org/Org").then(({ Org }) => ({ default: Org })));
+const OrgRaises = lazy(() => import("./routes/org/OrgRaises").then(({ OrgRaises }) => ({ default: OrgRaises })));
 const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ default: Orgs })));
 const Proposal = lazy(() => import("./routes/proposal/Proposal").then(({ Proposal }) => ({ default: Proposal })));
 const Proposals = lazy(() => import("./routes/proposal/Proposals").then(({ Proposals }) => ({ default: Proposals })));
@@ -23,6 +24,8 @@ const ExampleMultisig = lazy(() =>
 );
 const Multisig = lazy(() => import("./routes/multisig/Multisig").then(({ Multisig }) => ({ default: Multisig })));
 const Docs = lazy(() => import("./routes/docs/Docs").then(({ Docs }) => ({ default: Docs })));
+const Blog = lazy(() => import("./routes/blog/Blog").then(({ Blog }) => ({ default: Blog })));
+const BlogPost = lazy(() => import("./routes/blog/BlogPost").then(({ BlogPost }) => ({ default: BlogPost })));
 const NotFoundPage = lazy(() => import("./routes/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })));
 
 function RouteLoading() {
@@ -103,13 +106,7 @@ function AppLayout() {
                     }}
                 />
                 <RouteScrollContainer>
-                    {isHome ? (
-                        <Navbar homeHero />
-                    ) : isDocs ? (
-                        <Navbar heroContent={<DocsNavbarHero />} />
-                    ) : (
-                        <Navbar />
-                    )}
+                    {isHome ? <Navbar homeHero /> : isDocs ? <Navbar heroContent={<DocsNavbarHero />} /> : <Navbar />}
                     <Suspense fallback={<RouteLoading />}>
                         <Outlet />
                     </Suspense>
@@ -129,8 +126,10 @@ export const router = createBrowserRouter([
             { path: "/raises/:raiseId", element: wrap(<Raise />) },
             { path: "/raises", element: wrap(<Raises />) },
             { path: "/orgs/create", element: wrap(<CreateOrg />) },
-            { path: "/orgs/:orgId", element: wrap(<Org />) },
             { path: "/orgs/:orgId/proposals/:proposalId", element: wrap(<Proposal />) },
+            { path: "/orgs/:orgId/raises/:raiseId", element: wrap(<Raise />) },
+            { path: "/orgs/:orgId/raises", element: wrap(<OrgRaises />) },
+            { path: "/orgs/:orgId", element: wrap(<Org />) },
             { path: "/orgs", element: wrap(<Orgs />) },
             { path: "/proposal/:id", element: wrap(<Proposal />) },
             { path: "/proposals/:proposalId", element: wrap(<Proposal />) },
@@ -140,6 +139,8 @@ export const router = createBrowserRouter([
             { path: "/multisig/:accountId", element: wrap(<Multisig />) },
             { path: "/docs", element: wrap(<Docs />) },
             { path: "/docs/:slug", element: wrap(<Docs />) },
+            { path: "/blog", element: wrap(<Blog />) },
+            { path: "/blog/:slug", element: wrap(<BlogPost />) },
             { path: "/doc", element: wrap(<DocAliasRedirect />) },
             { path: "/doc/:slug", element: wrap(<DocAliasRedirect />) },
             { path: "*", element: <NotFoundPage /> },

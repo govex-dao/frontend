@@ -190,9 +190,7 @@ export function ProgressCard({
                         </div>
                         <div className="text-center p-2 rounded-lg bg-white/5">
                             <p className="text-xs text-white/50">{raise.maxRaise !== null ? "Goal" : "Min Goal"}</p>
-                            <p className="text-sm font-semibold">
-                                ${formatNumber(raise.maxRaise ?? raise.raising)}
-                            </p>
+                            <p className="text-sm font-semibold">${formatNumber(raise.maxRaise ?? raise.raising)}</p>
                         </div>
                         {raise.maxRaise !== null && (
                             <div className="text-center p-2 rounded-lg bg-white/5">
@@ -236,12 +234,14 @@ export function ProgressCard({
                         raised of {raise.maxRaise === null ? "min " : ""}$
                         {formatNumber(raise.maxRaise ?? raise.raising)} goal
                     </p>
-                    {raise.maxRaise !== null && <p className="text-xs text-white/30">Min: ${formatNumber(raise.raising)}</p>}
+                    {raise.maxRaise !== null && (
+                        <p className="text-xs text-white/30">Min: ${formatNumber(raise.raising)}</p>
+                    )}
                     {raise.pendingReserved > 0 && raise.maxRaise !== null && (
                         <p className="text-xs text-amber-400/70">
                             ${formatNumber(raise.pendingReserved)} reserved
-                            {" \u00B7 "}
-                            ${formatNumber(Math.max(raise.maxRaise - raise.pendingReserved - raise.raised, 0))} open
+                            {" \u00B7 "}$
+                            {formatNumber(Math.max(raise.maxRaise - raise.pendingReserved - raise.raised, 0))} open
                         </p>
                     )}
                 </div>
@@ -275,21 +275,38 @@ export function ProgressCard({
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-4 h-4 shrink-0">
                                 <svg className="animate-spin text-blue-400" viewBox="0 0 24 24" fill="none">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                    />
+                                    <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                    />
                                 </svg>
                             </div>
                             <p className="text-sm font-semibold text-blue-300">Finalizing Onchain</p>
                         </div>
                         <p className="text-xs text-white/60">
-                            The raise has closed and onchain actions are being executed.
-                            This typically completes within a few minutes.
+                            The raise has closed and onchain actions are being executed. This typically completes within
+                            a few minutes.
                         </p>
                         <div className="mt-2 flex items-center gap-1.5">
                             <div className="flex gap-1">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400/60 animate-pulse" style={{ animationDelay: "0.2s" }} />
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-400/30 animate-pulse" style={{ animationDelay: "0.4s" }} />
+                                <div
+                                    className="w-1.5 h-1.5 rounded-full bg-blue-400/60 animate-pulse"
+                                    style={{ animationDelay: "0.2s" }}
+                                />
+                                <div
+                                    className="w-1.5 h-1.5 rounded-full bg-blue-400/30 animate-pulse"
+                                    style={{ animationDelay: "0.4s" }}
+                                />
                             </div>
                             <p className="text-xs text-white/40">Processing completion intents</p>
                         </div>

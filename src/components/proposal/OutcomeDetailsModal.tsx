@@ -65,7 +65,13 @@ export function OutcomeDetailsModal(props: OutcomeDetailsModalProps) {
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={<Title />} className="sm:max-w-3xl">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={<Title />}
+            ariaLabel={`Outcome details: ${outcome.message}`}
+            className="sm:max-w-3xl"
+        >
             {/* Metrics */}
             <div className="space-y-3">
                 <div className={`${showTwapMetric ? "grid-cols-2" : "grid-cols-1"} grid gap-3 sm:gap-4`}>

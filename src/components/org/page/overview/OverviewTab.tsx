@@ -43,9 +43,7 @@ export function OverviewTab({ org, pool, raise, setActiveTab }: OverviewTabProps
                     clickable
                     onClick={() => setActiveTab("proposals")}
                     badge={hasActiveProposal && <LiveChip label="Live" size="small" color="blue" />}
-                    secondaryMetrics={[
-                        { label: "Volume", value: pool?.tvl ? `$${formatNumber(pool.tvl)}` : "—" },
-                    ]}
+                    secondaryMetrics={[{ label: "Volume", value: pool?.tvl ? `$${formatNumber(pool.tvl)}` : "—" }]}
                 />
                 <OverviewCard
                     title="Treasury"

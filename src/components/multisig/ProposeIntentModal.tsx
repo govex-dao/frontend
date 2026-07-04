@@ -90,7 +90,7 @@ function memberFromConfig(m: MultisigMember): MemberDraft {
 }
 
 function memberToPermissions(m: MemberDraft): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? (4 | 8) : 0);
+    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 | 8 : 0);
 }
 
 function validateConfigChange(data: ConfigChangeData): boolean {
@@ -802,33 +802,31 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                                                         </button>
                                                     </div>
                                                     <div className="flex gap-1.5 text-xs">
-                                                        {(["propose", "vote", "execute"] as const).map(
-                                                            (permission) => (
-                                                                <button
-                                                                    key={permission}
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        updateMembers((prev) =>
-                                                                            prev.map((x, i) =>
-                                                                                i === idx
-                                                                                    ? {
-                                                                                          ...x,
-                                                                                          [permission]: !x[permission],
-                                                                                      }
-                                                                                    : x
-                                                                            )
+                                                        {(["propose", "vote", "execute"] as const).map((permission) => (
+                                                            <button
+                                                                key={permission}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    updateMembers((prev) =>
+                                                                        prev.map((x, i) =>
+                                                                            i === idx
+                                                                                ? {
+                                                                                      ...x,
+                                                                                      [permission]: !x[permission],
+                                                                                  }
+                                                                                : x
                                                                         )
-                                                                    }
-                                                                    className={`px-2 py-0.5 rounded-full transition-colors ${
-                                                                        m[permission]
-                                                                            ? "bg-primary/10 text-primary"
-                                                                            : "bg-white/5 text-text-muted hover:text-text-primary"
-                                                                    }`}
-                                                                >
-                                                                    {CONFIG_PERMISSION_LABELS[permission]}
-                                                                </button>
-                                                            )
-                                                        )}
+                                                                    )
+                                                                }
+                                                                className={`px-2 py-0.5 rounded-full transition-colors ${
+                                                                    m[permission]
+                                                                        ? "bg-primary/10 text-primary"
+                                                                        : "bg-white/5 text-text-muted hover:text-text-primary"
+                                                                }`}
+                                                            >
+                                                                {CONFIG_PERMISSION_LABELS[permission]}
+                                                            </button>
+                                                        ))}
                                                     </div>
                                                 </div>
                                             ))}

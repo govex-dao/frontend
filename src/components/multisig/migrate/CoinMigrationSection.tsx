@@ -44,7 +44,11 @@ export function CoinMigrationSection({
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs">
                     {selectedCoinRowsCount > 0 && (
-                        <button type="button" onClick={onClearCoins} className="font-medium text-text-muted hover:text-text-primary">
+                        <button
+                            type="button"
+                            onClick={onClearCoins}
+                            className="font-medium text-text-muted hover:text-text-primary"
+                        >
                             Clear
                         </button>
                     )}

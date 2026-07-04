@@ -30,9 +30,7 @@ export function getProposalFeeSummary(dao: DAO, customOutcomeCount: number): Pro
     const additionalOutcomeFeeTotalRaw = perAdditionalOutcomeFeeRaw * BigInt(extraOutcomeCount);
     const totalFeeRaw = baseFeeRaw + additionalOutcomeFeeTotalRaw;
     const decimals = feeInAssetToken ? dao.asset_decimals : dao.stable_decimals;
-    const symbol = feeInAssetToken
-        ? dao.asset_symbol || "ASSET"
-        : dao.stable_symbol || "STABLE";
+    const symbol = feeInAssetToken ? dao.asset_symbol || "ASSET" : dao.stable_symbol || "STABLE";
 
     return {
         baseFeeRaw,

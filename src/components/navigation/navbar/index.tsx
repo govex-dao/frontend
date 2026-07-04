@@ -77,6 +77,11 @@ export function Navbar(props: Props) {
                                 isActive={pathname.startsWith("/docs") || pathname.startsWith("/doc")}
                                 onClick={() => navigate("/docs")}
                             />
+                            <NavButton
+                                label="Blog"
+                                isActive={pathname.startsWith("/blog")}
+                                onClick={() => navigate("/blog")}
+                            />
                         </div>
                     </div>
 
@@ -159,6 +164,17 @@ function MobileMenuContent({
                     onClick={() => handleNavigation("/docs")}
                 >
                     Docs
+                </button>
+
+                <button
+                    className={`px-4 py-3 rounded-lg transition-colors w-full text-left ${
+                        pathname.startsWith("/blog")
+                            ? "bg-white/10 text-white"
+                            : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                    onClick={() => handleNavigation("/blog")}
+                >
+                    Blog
                 </button>
             </nav>
 

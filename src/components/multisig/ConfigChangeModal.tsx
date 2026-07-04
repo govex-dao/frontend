@@ -38,7 +38,7 @@ const PERMISSION_LABELS = {
 } as const;
 
 function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean }): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? (4 | 8) : 0);
+    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 | 8 : 0);
 }
 
 function memberFromConfig(m: MultisigMember): MemberDraft {
@@ -96,10 +96,7 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
     }, [isOpen, config]);
 
     const addMember = () =>
-        setMembers((prev) => [
-            ...prev,
-            { address: "", weight: "1", propose: true, vote: true, execute: true },
-        ]);
+        setMembers((prev) => [...prev, { address: "", weight: "1", propose: true, vote: true, execute: true }]);
 
     const removeMember = (idx: number) => setMembers((prev) => prev.filter((_, i) => i !== idx));
 

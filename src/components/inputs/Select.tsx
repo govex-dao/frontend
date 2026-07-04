@@ -144,13 +144,9 @@ export function Select(props: Props) {
             {label && <label className="block text-sm font-medium text-text-light mb-2">{label}</label>}
 
             <div ref={containerRef} className="relative">
-                {/* Trigger Button */}
-                <button
-                    type="button"
-                    onClick={() => !disabled && setIsOpen(!isOpen)}
-                    disabled={disabled}
+                <div
                     className={`
-          w-full px-3 py-2 rounded-xl border transition-all duration-200
+          flex w-full items-center rounded-xl border transition-all duration-200
           ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
           ${!selectedOption?.color && (isOpen ? "bg-card-elevated shadow-lg" : "bg-card hover:border-border-light")}
           ${!selectedOption?.color ? (isOpen ? "border-border-light" : "border-border") : ""}
@@ -161,33 +157,40 @@ export function Select(props: Props) {
                         backgroundColor: selectedOption?.color ? hexToRgba(selectedOption.color, 0.15) : undefined,
                     }}
                 >
-                    <span
-                        className={`text-sm flex items-center gap-2 min-w-0 ${selectedOption ? "text-text-primary" : "text-text-muted"}`}
+                    <button
+                        type="button"
+                        onClick={() => !disabled && setIsOpen(!isOpen)}
+                        disabled={disabled}
+                        className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-left"
+                        aria-haspopup="listbox"
+                        aria-expanded={isOpen}
                     >
-                        {selectedOption?.color && (
-                            <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: selectedOption.color }}
-                            />
-                        )}
-                        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-                    </span>
-                    <div className="flex items-center gap-2">
-                        {allowClear && selectedOption && value && !disabled && (
-                            <button
-                                type="button"
-                                onClick={handleClear}
-                                className="p-1 hover:bg-white/5 rounded transition-colors"
-                                aria-label="Clear selection"
-                            >
-                                <X className="w-4 h-4 text-white/40" />
-                            </button>
-                        )}
+                        <span
+                            className={`text-sm flex items-center gap-2 min-w-0 ${selectedOption ? "text-text-primary" : "text-text-muted"}`}
+                        >
+                            {selectedOption?.color && (
+                                <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: selectedOption.color }}
+                                />
+                            )}
+                            <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+                        </span>
                         <ChevronDownIcon
                             className={`w-4 h-4 text-white/40 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                         />
-                    </div>
-                </button>
+                    </button>
+                    {allowClear && selectedOption && value && !disabled && (
+                        <button
+                            type="button"
+                            onClick={handleClear}
+                            className="mr-2 rounded p-1 transition-colors hover:bg-white/5"
+                            aria-label="Clear selection"
+                        >
+                            <X className="w-4 h-4 text-white/40" />
+                        </button>
+                    )}
+                </div>
 
                 {/* Dropdown */}
                 {isOpen && (
@@ -207,7 +210,7 @@ export function Select(props: Props) {
                         )}
 
                         {/* Options List */}
-                        <div className="max-h-64 overflow-y-auto">
+                        <div className="max-h-64 overflow-y-auto" role="listbox">
                             {filteredOptions.length === 0 ? (
                                 <div className="px-4 py-8 text-center text-sm text-text-muted">No options found</div>
                             ) : (
@@ -224,6 +227,8 @@ export function Select(props: Props) {
                                         <button
                                             key={option.value}
                                             type="button"
+                                            role="option"
+                                            aria-selected={selected}
                                             onClick={() => !isDisabled && handleSelectOption(option.value)}
                                             disabled={isDisabled}
                                             className={`

@@ -29,9 +29,7 @@ export function ExecutionNotice({ countdown, expired }: ExecutionNoticeProps) {
                         {countdown}
                     </span>
                     <span className="text-[10px] text-text-tertiary/50">
-                        {expired
-                            ? "Awaiting execution..."
-                            : "Trading still open during execution"}
+                        {expired ? "Awaiting execution..." : "Trading still open during execution"}
                     </span>
                 </div>
             </div>

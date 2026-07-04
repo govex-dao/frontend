@@ -4,7 +4,10 @@ import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
 
-async function getAllDynamicFields(client: SuiClient, parentId: string): Promise<Array<{ name: unknown; objectType?: string }>> {
+async function getAllDynamicFields(
+    client: SuiClient,
+    parentId: string
+): Promise<Array<{ name: unknown; objectType?: string }>> {
     const all: Array<{ name: unknown; objectType?: string }> = [];
     let cursor: string | null | undefined = null;
 
@@ -27,8 +30,13 @@ async function resolveAccountConfigType(client: SuiClient, accountId: string): P
     const configField = fields.find((field) => {
         const objectType = field.objectType ?? "";
         const nameType = (field.name as { type?: string } | undefined)?.type ?? "";
-        return nameType.includes("ConfigKey") && !nameType.includes("Proposed") && !nameType.includes("ManagedData") &&
-            (objectType.includes("::multisig::MultisigConfig") || objectType.includes("::futarchy_config::FutarchyConfig"));
+        return (
+            nameType.includes("ConfigKey") &&
+            !nameType.includes("Proposed") &&
+            !nameType.includes("ManagedData") &&
+            (objectType.includes("::multisig::MultisigConfig") ||
+                objectType.includes("::futarchy_config::FutarchyConfig"))
+        );
     });
 
     const objectType = configField?.objectType ?? "";
@@ -48,11 +56,12 @@ async function resolveAccountConfigType(client: SuiClient, accountId: string): P
 export async function buildCollectStreamTransaction(
     client: SuiClient,
     stream: VaultStreamInfo,
-    recipient: string,
+    recipient: string
 ): Promise<Transaction> {
     if (!stream.capId) throw new Error("StreamCap is required to collect this stream");
     if (!stream.accountId) throw new Error("Account ID is required to collect this stream");
-    if (!stream.coinType || stream.coinType === "unknown") throw new Error("Coin type is required to collect this stream");
+    if (!stream.coinType || stream.coinType === "unknown")
+        throw new Error("Coin type is required to collect this stream");
 
     const sdk = getSDK();
     const configType = await resolveAccountConfigType(client, stream.accountId);

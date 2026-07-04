@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getProtocolVersionForDAO, getSDKForDAO, isLegacyV2DAO } from "@/lib/sdk";
+import { getProtocolVersionForDAO, getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 import type { DAO } from "@/types";
 
 /**
@@ -11,7 +11,7 @@ import type { DAO } from "@/types";
 export function useSpotPrice(dao: DAO | undefined) {
     const poolId = dao?.spot_pool_id;
     const protocolVersion = getProtocolVersionForDAO(dao);
-    const isLegacyV2 = isLegacyV2DAO(dao);
+    const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
     return useQuery({
         queryKey: [
@@ -47,7 +47,7 @@ export function useSpotPrice(dao: DAO | undefined) {
 
             return { price, formatted, reserves };
         },
-        enabled: !!poolId && !isLegacyV2,
+        enabled: !!poolId && isSupportedProtocol,
         staleTime: 15_000,
         refetchInterval: 30_000,
     });

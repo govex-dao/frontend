@@ -5,12 +5,7 @@ import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import { MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";
 import { useSelectedCoinObjectScans, useWalletBalances } from "./queries";
 import type { MigrationCoinRow } from "./types";
-import {
-    defaultCoinAmount,
-    maxCoinObjectAmount,
-    normalizedType,
-    tryParseAmount,
-} from "./utils";
+import { defaultCoinAmount, maxCoinObjectAmount, normalizedType, tryParseAmount } from "./utils";
 
 interface Args {
     owner: string | undefined;
@@ -151,9 +146,7 @@ export function useMigrationCoins({ owner, queryEnabled, isOpen, resolvedVaultNa
         if (!resolvedVaultName) return;
         setSelectedCoinTypes(
             new Set(
-                coinRows
-                    .filter((row) => allowedCoinTypes.has(normalizedType(row.coinType)))
-                    .map((row) => row.coinType)
+                coinRows.filter((row) => allowedCoinTypes.has(normalizedType(row.coinType))).map((row) => row.coinType)
             )
         );
     }, [allowedCoinTypes, coinRows, resolvedVaultName]);

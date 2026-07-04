@@ -225,7 +225,11 @@ export function CoinTypePicker({
         <div className={className}>
             {selectedCoin && value && (
                 <div className="flex items-center gap-2 mb-2">
-                    <CoinAvatar coinType={selectedCoin.coin_type} symbol={selectedCoin.symbol} iconUrl={selectedCoin.icon_url} />
+                    <CoinAvatar
+                        coinType={selectedCoin.coin_type}
+                        symbol={selectedCoin.symbol}
+                        iconUrl={selectedCoin.icon_url}
+                    />
                     <span className="text-xs text-text-secondary font-medium">{selectedCoin.symbol}</span>
                     <span className="text-[10px] text-text-muted">{selectedCoin.decimals} decimals</span>
                 </div>

@@ -58,9 +58,7 @@ export function TokenInput(props: Props) {
     };
     const maxFillValue =
         maxBalanceValue ??
-        (typeof displayBalance === "number"
-            ? displayBalance.toString()
-            : normalizeNumericString(displayBalance));
+        (typeof displayBalance === "number" ? displayBalance.toString() : normalizeNumericString(displayBalance));
 
     // Close dropdown on outside click
     useEffect(() => {

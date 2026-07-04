@@ -5,10 +5,13 @@ import remarkGfm from "remark-gfm";
 interface Props {
     content: string;
     className?: string;
+    variant?: "compact" | "article";
 }
 
 export function MarkdownRenderer(props: Props) {
-    const { content, className = "" } = props;
+    const { content, className = "", variant = "compact" } = props;
+    const isArticle = variant === "article";
+    const articleTextClass = "text-sm leading-7 text-text-secondary sm:text-[15px]";
 
     // Validate that content is a string
     if (typeof content !== "string") {
@@ -50,19 +53,84 @@ export function MarkdownRenderer(props: Props) {
                 rehypePlugins={[rehypeSanitize]}
                 components={{
                     h1: ({ children, ...props }) => (
-                        <h1 {...props} className=" text-xl font-bold mb-3">
+                        <h1
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "mb-4 mt-0 text-2xl font-semibold leading-tight text-text-primary sm:text-3xl"
+                                    : "text-xl font-bold mb-3"
+                            }
+                        >
                             {children}
                         </h1>
                     ),
                     h2: ({ children, ...props }) => (
-                        <h2 {...props} className=" text-lg font-bold mt-2 mb-1">
+                        <h2
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "mb-3 mt-8 text-xl font-semibold leading-tight text-text-primary"
+                                    : "text-lg font-bold mt-2 mb-1"
+                            }
+                        >
                             {children}
                         </h2>
                     ),
                     h3: ({ children, ...props }) => (
-                        <h3 {...props} className=" text-base font-semibold mt-1">
+                        <h3
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "mb-2 mt-6 text-base font-semibold leading-tight text-text-primary"
+                                    : "text-base font-semibold mt-1"
+                            }
+                        >
                             {children}
                         </h3>
+                    ),
+                    ul: ({ children, ...props }) => (
+                        <ul
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "my-4 list-disc space-y-2 pl-5 text-sm leading-7 text-text-secondary sm:text-[15px]"
+                                    : undefined
+                            }
+                        >
+                            {children}
+                        </ul>
+                    ),
+                    ol: ({ children, ...props }) => (
+                        <ol
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "my-4 list-decimal space-y-2 pl-5 text-sm leading-7 text-text-secondary sm:text-[15px]"
+                                    : undefined
+                            }
+                        >
+                            {children}
+                        </ol>
+                    ),
+                    li: ({ children, ...props }) => (
+                        <li {...props} className={isArticle ? "pl-1" : undefined}>
+                            {children}
+                        </li>
+                    ),
+                    a: ({ children, ...props }) => (
+                        <a
+                            {...props}
+                            className={
+                                isArticle
+                                    ? "text-primary underline underline-offset-4 transition-colors hover:text-primary-light"
+                                    : undefined
+                            }
+                        >
+                            {children}
+                        </a>
+                    ),
+                    hr: ({ ...props }) => (
+                        <hr {...props} className={isArticle ? "my-8 border-border-light" : undefined} />
                     ),
                     code(props) {
                         const { className, children, ...rest } = props;
@@ -87,7 +155,10 @@ export function MarkdownRenderer(props: Props) {
                     },
                     p: ({ children, ...props }) => {
                         return (
-                            <p {...props} className="text-text-secondary text-xs">
+                            <p
+                                {...props}
+                                className={isArticle ? `my-4 ${articleTextClass}` : "text-text-secondary text-xs"}
+                            >
                                 {children}
                             </p>
                         );

@@ -49,9 +49,7 @@ export function AdvancedMultisigOverview({ draft }: Props) {
                 <div
                     key={stat.label}
                     className={`rounded-lg border px-3 py-2 ${
-                        stat.overLimit
-                            ? "border-error/40 bg-error/10"
-                            : "border-border-subtle bg-card-more-elevated/40"
+                        stat.overLimit ? "border-error/40 bg-error/10" : "border-border-subtle bg-card-more-elevated/40"
                     }`}
                 >
                     <div className="text-[10px] uppercase tracking-wide text-text-muted/70">{stat.label}</div>

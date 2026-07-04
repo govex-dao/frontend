@@ -435,8 +435,7 @@ const RECOMMENDED_EXPIRY_DAYS_MAX = 365n;
 export function AdvancedMultisigConfig({ draft, onChange, error }: Props) {
     const expiryDays = parseU64Input(draft.intentExpiryDays);
     const expiryInvalid =
-        draft.intentExpiryDays.trim().length > 0 &&
-        (expiryDays === null || expiryDays < RECOMMENDED_EXPIRY_DAYS_MIN);
+        draft.intentExpiryDays.trim().length > 0 && (expiryDays === null || expiryDays < RECOMMENDED_EXPIRY_DAYS_MIN);
     const expiryTooHigh = expiryDays !== null && expiryDays > RECOMMENDED_EXPIRY_DAYS_MAX;
     return (
         <div className="space-y-4">

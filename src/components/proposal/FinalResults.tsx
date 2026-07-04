@@ -15,7 +15,7 @@ import { useProposalBalances } from "@/hooks/api";
 import { balanceKeys } from "@/hooks/api/useBalances";
 import { proposalKeys } from "@/hooks/api/useProposals";
 import { useSuiTransaction } from "@/hooks/useSuiTransaction";
-import { getSDKForProposal, isLegacyV2Proposal } from "@/lib/sdk";
+import { getSDKForProposal, isSupportedProtocolProposal } from "@/lib/sdk";
 import {
     buildWalletSettlementPlan,
     buildWalletSettlementTransaction,
@@ -38,9 +38,8 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
     const { executeTransaction, isLoading: txLoading } = useSuiTransaction();
-    const isLegacyV1 = apiProposal.version?.trim().toLowerCase() === "v1";
-    const isLegacyV2 = isLegacyV2Proposal(apiProposal);
-    const { data: proposalBalances } = useProposalBalances(isLegacyV1 || isLegacyV2 ? undefined : apiProposal);
+    const isSupportedProtocol = isSupportedProtocolProposal(apiProposal);
+    const { data: proposalBalances } = useProposalBalances(isSupportedProtocol ? apiProposal : undefined);
     const [isRedeeming, setIsRedeeming] = useState(false);
     const submittingRef = useRef(false);
 
@@ -109,9 +108,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
                             {isAwaitingExecution ? "Awaiting Execution" : "TWAP not fixed yet"}
                         </p>
                         <p className="text-xs opacity-60">
-                            {isAwaitingExecution
-                                ? "Awaiting execution..."
-                                : "TWAP not fixed yet"}
+                            {isAwaitingExecution ? "Awaiting execution..." : "TWAP not fixed yet"}
                         </p>
                     </div>
                 </div>
@@ -127,7 +124,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
     const winningColor = getOutcomeColor(winningOutcome.originalIndex, rawOutcomes.length, "normal");
 
     const handleRedeem = async () => {
-        if (isLegacyV1 || isLegacyV2) return;
+        if (!isSupportedProtocol) return;
         if (!account?.address) {
             toast.error("Connect wallet to withdraw");
             return;
@@ -188,7 +185,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
 
     const isRejectOutcome = winningOutcome.message.toLowerCase().includes("reject");
     const resultSubtitle =
-        isLegacyV1 || isLegacyV2 || isRejectOutcome
+        !isSupportedProtocol || isRejectOutcome
             ? "Final result"
             : isAwaitingExecution
               ? "Outcome will be executed"
@@ -239,7 +236,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
                 </div>
             </div>
 
-            {!isLegacyV1 && !isLegacyV2 && hasWinningCoins && (
+            {isSupportedProtocol && hasWinningCoins && (
                 <div className="flex flex-col -mt-10 rounded-lg overflow-hidden">
                     <div
                         className="p-px rounded-lg relative bg-linear-to-br from-border-light via-border to-border-light"

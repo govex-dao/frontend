@@ -8,6 +8,7 @@ import { Modal } from "@/components/overlays/Modal";
 import { formatNumber } from "@/lib/formatNumber";
 import { resolveCoinIcon } from "@/lib/coin/icons";
 import { parseAmountToBigInt } from "@/lib/parseAmount";
+import { formatUnitsForInput } from "@/lib/units";
 import { useCoins } from "@/hooks/api";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
 import { getSDK } from "@/lib/sdk";
@@ -18,6 +19,7 @@ import type { RaiseView } from "@/types/RaiseView";
 interface UserInvestment {
     hasInvested: boolean;
     amount: number;
+    amountDisplay?: string;
     percentage: number;
     rank: number;
 }
@@ -47,12 +49,12 @@ export function InvestModal(props: Props) {
 
     const amount = amountStr ? parseFloat(amountStr) : 0;
     const rawRaise = raise._raw;
+    const decimals = rawRaise.stable_decimals || 9;
+    const amountRaw = amountStr ? parseAmountToBigInt(amountStr, decimals) : 0n;
 
     const maxRaise = raise.maxRaise;
     // Public remaining = max - pending_reserved - already_raised
-    const remainingCapacity = maxRaise !== null
-        ? Math.max(maxRaise - raise.pendingReserved - raise.raised, 0)
-        : null;
+    const remainingCapacity = maxRaise !== null ? Math.max(maxRaise - raise.pendingReserved - raise.raised, 0) : null;
 
     // Query user's stable coin balance — uses same key namespace as balanceKeys
     const { data: stableBalance } = useQuery({
@@ -62,8 +64,11 @@ export function InvestModal(props: Props) {
                 owner: account!.address,
                 coinType: rawRaise.stable_type,
             });
-            const decimals = rawRaise.stable_decimals || 9;
-            return Number(balance.totalBalance) / Math.pow(10, decimals);
+            const raw = BigInt(balance.totalBalance);
+            return {
+                raw,
+                display: formatUnitsForInput(raw, decimals),
+            };
         },
         enabled: !!account?.address && isOpen,
         refetchInterval: 15000,
@@ -82,14 +87,14 @@ export function InvestModal(props: Props) {
                   symbol: stableCoin.symbol,
                   iconUrl: stableCoin.icon_url,
               }),
-              balance: stableBalance ?? 0,
+              balance: 0,
           }
         : {
               name: stableSymbol,
               symbol: stableSymbol,
               coinType: rawRaise.stable_type,
               image: resolveCoinIcon({ coinType: rawRaise.stable_type, symbol: stableSymbol }),
-              balance: stableBalance ?? 0,
+              balance: 0,
           };
 
     const handleAmountChange = useCallback((value: string) => {
@@ -97,10 +102,7 @@ export function InvestModal(props: Props) {
     }, []);
 
     // Calculate how the amount is split between reservation and public bid
-    const decimals = rawRaise.stable_decimals || 9;
-    const reservationRaw = pendingReservation > 0
-        ? parseAmountToBigInt(String(pendingReservation), decimals)
-        : 0n;
+    const reservationRaw = pendingReservation > 0 ? parseAmountToBigInt(String(pendingReservation), decimals) : 0n;
     const reservationPortion = Math.min(amount, pendingReservation);
     const publicPortion = Math.max(amount - pendingReservation, 0);
 
@@ -173,10 +175,28 @@ export function InvestModal(props: Props) {
         } finally {
             submittingRef.current = false;
         }
-    }, [account, amount, amountStr, decimals, rawRaise, reservationRaw, stableSymbol, suiClient, executeTransaction, queryClient, onClose]);
+    }, [
+        account,
+        amount,
+        amountStr,
+        decimals,
+        rawRaise,
+        reservationRaw,
+        stableSymbol,
+        suiClient,
+        executeTransaction,
+        queryClient,
+        onClose,
+    ]);
 
+    const exceedsStableBalance = stableBalance !== undefined && amountRaw > stableBalance.raw;
     const isButtonDisabled =
-        submittingRef.current || !account || amount <= 0 || (stableBalance !== undefined && amount > stableBalance) || (remainingCapacity !== null && amount > remainingCapacity) || status !== "active";
+        submittingRef.current ||
+        !account ||
+        amount <= 0 ||
+        exceedsStableBalance ||
+        (remainingCapacity !== null && amount > remainingCapacity) ||
+        status !== "active";
 
     const buttonText = !account
         ? "Connect Wallet"
@@ -190,13 +210,13 @@ export function InvestModal(props: Props) {
                   : "Raise Ended"
           : amount <= 0
             ? "Enter Amount"
-            : stableBalance !== undefined && amount > stableBalance
+            : exceedsStableBalance
               ? "Insufficient Balance"
               : remainingCapacity !== null && amount > remainingCapacity
                 ? "Exceeds Remaining Capacity"
                 : userInvestment.hasInvested
-                ? "Add Investment"
-                : "Confirm Investment";
+                  ? "Add Investment"
+                  : "Confirm Investment";
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Invest" subTitle={`Invest in ${raise.name}`}>
@@ -211,7 +231,9 @@ export function InvestModal(props: Props) {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-white/40 text-xs">Amount Invested</p>
-                                <p className="text-lg font-bold">${formatNumber(userInvestment.amount ?? 0)}</p>
+                                <p className="text-lg font-bold">
+                                    ${userInvestment.amountDisplay ?? formatNumber(userInvestment.amount ?? 0)}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-white/40 text-xs">Share of Raise</p>
@@ -228,7 +250,8 @@ export function InvestModal(props: Props) {
                         <div className="flex justify-between text-xs">
                             <span className="text-white/50">Reserved allocation</span>
                             <span className="text-amber-300 font-medium">
-                                ${formatNumber(reservationPortion)} {reservationPortion >= pendingReservation ? "(full)" : "(partial)"}
+                                ${formatNumber(reservationPortion)}{" "}
+                                {reservationPortion >= pendingReservation ? "(full)" : "(partial)"}
                             </span>
                         </div>
                         {publicPortion > 0 && (
@@ -269,7 +292,8 @@ export function InvestModal(props: Props) {
                         onChange={handleAmountChange}
                         placeholder="Enter amount"
                         tokens={[tokenForInput]}
-                        balance={stableBalance ?? 0}
+                        balance={stableBalance?.display ?? "0"}
+                        maxBalanceValue={stableBalance?.display ?? "0"}
                     />
                 </div>
 

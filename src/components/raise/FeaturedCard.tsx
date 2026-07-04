@@ -85,7 +85,9 @@ export function FeaturedCard(props: Props) {
                     <div className="flex flex-row items-baseline justify-between gap-2">
                         <div className="flex items-baseline gap-2 sm:gap-3">
                             <p className="text-2xl sm:text-3xl font-bold">${formatNumber(raised)}</p>
-                            <p className="text-sm sm:text-base text-text-muted">of {goalLabel}${formatNumber(goalAmount)}</p>
+                            <p className="text-sm sm:text-base text-text-muted">
+                                of {goalLabel}${formatNumber(goalAmount)}
+                            </p>
                         </div>
                         <p className="text-sm sm:text-base">{Math.round(progress)}%</p>
                     </div>

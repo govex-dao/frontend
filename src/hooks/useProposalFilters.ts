@@ -47,7 +47,10 @@ export function useProposalFilters({ proposals, filter, sort, favorites, selecte
                 case "traders":
                     return (b.traderCount ?? b.trader_count ?? 0) - (a.traderCount ?? a.trader_count ?? 0);
                 case "date":
-                    return (b.start?.getTime() ?? Number(b.timestamp ?? 0)) - (a.start?.getTime() ?? Number(a.timestamp ?? 0));
+                    return (
+                        (b.start?.getTime() ?? Number(b.timestamp ?? 0)) -
+                        (a.start?.getTime() ?? Number(a.timestamp ?? 0))
+                    );
                 default:
                     return 0;
             }

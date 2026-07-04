@@ -225,7 +225,9 @@ export function useProposalDrafts({
     const autoSaveDraftRef = useRef(autoSaveDraft);
     autoSaveDraftRef.current = autoSaveDraft;
     useEffect(() => {
-        return () => { autoSaveDraftRef.current(); };
+        return () => {
+            autoSaveDraftRef.current();
+        };
     }, []);
 
     // Clear all drafts (call this after successful submission)

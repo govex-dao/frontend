@@ -8,10 +8,7 @@ import { DropdownWrapper } from "./DropdownWrapper";
 /** Hook used by LiveDropdown to count active fundraises */
 export function useActiveFundraises() {
     const { data: raises, ...rest } = useRaises();
-    const data = useMemo(
-        () => raises?.filter((r) => !r.deadline || Number(r.deadline) > Date.now()) ?? [],
-        [raises]
-    );
+    const data = useMemo(() => raises?.filter((r) => !r.deadline || Number(r.deadline) > Date.now()) ?? [], [raises]);
     return { data, ...rest };
 }
 
@@ -25,10 +22,11 @@ export function FundraisesDropdownContent({ onItemClick, onMouseLeave }: Fundrai
     const { data: raises, isLoading } = useRaises();
 
     // Filter for active raises (deadline in the future or no deadline set)
-    const activeRaises = raises?.filter((r) => {
-        if (!r.deadline) return true;
-        return Number(r.deadline) > Date.now();
-    }) ?? [];
+    const activeRaises =
+        raises?.filter((r) => {
+            if (!r.deadline) return true;
+            return Number(r.deadline) > Date.now();
+        }) ?? [];
 
     return (
         <DropdownWrapper
@@ -37,9 +35,7 @@ export function FundraisesDropdownContent({ onItemClick, onMouseLeave }: Fundrai
             onViewAll={() => navigate("/raises")}
             onMouseLeave={onMouseLeave}
         >
-            {isLoading && (
-                <p className="text-text-muted text-sm py-4 text-center">Loading...</p>
-            )}
+            {isLoading && <p className="text-text-muted text-sm py-4 text-center">Loading...</p>}
             {!isLoading && activeRaises.length === 0 && (
                 <p className="text-text-muted text-sm py-4 text-center">No active raises</p>
             )}

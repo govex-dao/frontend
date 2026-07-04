@@ -54,7 +54,8 @@ function useMigrationObjectInventory({ owner, queryEnabled, objectSearch }: Inve
         (object: OwnedObjectInfo): string | null => {
             const ability = objectTransferAbilities[objectTypeAbilityKey(object.objectType)];
             if (objectTransferAbilitiesLoading || !ability?.checked) return "Checking object transfer ability...";
-            if (ability.error) return "Cannot add: RPC could not verify key + store abilities. Try reopening this modal.";
+            if (ability.error)
+                return "Cannot add: RPC could not verify key + store abilities. Try reopening this modal.";
             if (!ability.canKeep) return "Cannot add: this object type does not have key + store abilities.";
             return null;
         },
@@ -203,7 +204,8 @@ function useMigrationObjectSelection({
             selectedCapLockEntries
                 .map((entry) => {
                     if (entry.kind === "upgrade") {
-                        if (!entry.packageName?.trim()) return `${formatAddress(entry.object.objectId)} needs a package name`;
+                        if (!entry.packageName?.trim())
+                            return `${formatAddress(entry.object.objectId)} needs a package name`;
                         const delay = Number.parseFloat(entry.delayDays ?? "");
                         if (!Number.isFinite(delay) || delay < 0) {
                             return `${formatAddress(entry.object.objectId)} has an invalid delay`;

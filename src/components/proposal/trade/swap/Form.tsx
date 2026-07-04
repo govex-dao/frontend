@@ -11,7 +11,7 @@ import { swapKeys } from "@/hooks/api/useSwaps";
 import { tradeKeys } from "@/hooks/api/useTrades";
 import { twapHistoryKeys } from "@/hooks/api/useTwapHistory";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
-import { getProtocolVersionForProposal, getSDKForProposal, isLegacyV2Proposal } from "@/lib/sdk";
+import { getProtocolVersionForProposal, getSDKForProposal, isSupportedProtocolProposal } from "@/lib/sdk";
 import { parseAmountToBigInt } from "@/lib/parseAmount";
 import { formatUnits, formatUnitsForInput } from "@/lib/units";
 import { resolveCoinIcon } from "@/lib/coin/icons";
@@ -120,7 +120,7 @@ export function TradeForm({
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
     const { executeTransaction, isLoading: txLoading } = useSuiTransaction();
-    const isLegacyV2 = isLegacyV2Proposal(proposal);
+    const isSupportedProtocol = isSupportedProtocolProposal(proposal);
     const { data: balances } = useProposalBalances(proposal);
 
     const [isBuy, setIsBuy] = useState(true);
@@ -330,7 +330,7 @@ export function TradeForm({
         !!proposal?.escrow_id &&
         !!proposal?.spot_pool_id &&
         !!proposal?.lp_type &&
-        !isLegacyV2 &&
+        isSupportedProtocol &&
         (proposal?.state === "active" || proposal?.state === "awaiting_execution") &&
         debouncedAmountRaw > 0n;
     const isQuoteStaleForInput = fromAmountRaw !== debouncedAmountRaw;
@@ -431,7 +431,16 @@ export function TradeForm({
                 newReserveOut: 0,
             } as SwapBreakdown,
         };
-    }, [quoteResult, outputDecimals, inputDecimals, isBuy, debouncedAmountRaw, stableDecimals, assetDecimals, slippageBps]);
+    }, [
+        quoteResult,
+        outputDecimals,
+        inputDecimals,
+        isBuy,
+        debouncedAmountRaw,
+        stableDecimals,
+        assetDecimals,
+        slippageBps,
+    ]);
 
     // Handle trade submission
     const handleTrade = useCallback(async () => {
@@ -446,7 +455,7 @@ export function TradeForm({
             !proposal?.market_state_id ||
             !proposal?.spot_pool_id ||
             !proposal?.lp_type ||
-            isLegacyV2 ||
+            !isSupportedProtocol ||
             !account
         )
             return;
@@ -528,7 +537,7 @@ export function TradeForm({
         quoteResult,
         proposal,
         account,
-        isLegacyV2,
+        isSupportedProtocol,
         isBuy,
         selectedOutcome,
         executeTransaction,
@@ -560,8 +569,8 @@ export function TradeForm({
         if (!account) {
             return { isButtonDisabled: true, buttonText: "Connect Wallet" };
         }
-        if (isLegacyV2) {
-            return { isButtonDisabled: true, buttonText: "Market Closed" };
+        if (!isSupportedProtocol) {
+            return { isButtonDisabled: true, buttonText: "Unavailable" };
         }
         if (fromAmountRaw === 0n) {
             return { isButtonDisabled: true, buttonText: "Enter Amount" };
@@ -587,7 +596,7 @@ export function TradeForm({
         };
     }, [
         account,
-        isLegacyV2,
+        isSupportedProtocol,
         fromAmountRaw,
         isQuoteStaleForInput,
         isBuy,

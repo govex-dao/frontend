@@ -32,9 +32,7 @@ export const docsPages: DocsPage[] = [
             {
                 id: "create-account",
                 title: "1. Create the account",
-                paragraphs: [
-                    "Choose member addresses, weights, a vote threshold, and an intent expiry.",
-                ],
+                paragraphs: ["Choose member addresses, weights, a vote threshold, and an intent expiry."],
             },
             {
                 id: "open-vaults",
@@ -136,9 +134,7 @@ export const docsPages: DocsPage[] = [
             {
                 id: "vesting",
                 title: "Vesting coins",
-                paragraphs: [
-                    "Vesting coins isolate funds and release them to a recipient over time.",
-                ],
+                paragraphs: ["Vesting coins isolate funds and release them to a recipient over time."],
             },
         ],
     },

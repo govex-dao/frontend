@@ -202,27 +202,24 @@ export function InvestorsModal({ contributors, isOpen, setIsOpen }: Props) {
             { label: "Large ($10K-$100K)", min: 10_000, max: 100_000, color: "#3B82F6" },
             { label: "Whale (>$100K)", min: 100_000, max: Infinity, color: "#8B5CF6" },
         ];
-        return tierDefs.map((def) => {
-            const matching = contributors.filter((c) => c.amount >= def.min && c.amount < def.max);
-            return {
-                label: def.label,
-                count: matching.length,
-                amount: matching.reduce((sum, c) => sum + c.amount, 0),
-                color: def.color,
-            };
-        }).filter((tier) => tier.count > 0);
+        return tierDefs
+            .map((def) => {
+                const matching = contributors.filter((c) => c.amount >= def.min && c.amount < def.max);
+                return {
+                    label: def.label,
+                    count: matching.length,
+                    amount: matching.reduce((sum, c) => sum + c.amount, 0),
+                    color: def.color,
+                };
+            })
+            .filter((tier) => tier.count > 0);
     }, [contributors]);
 
     const totalRaised = investorTiers.reduce((sum, tier) => sum + tier.amount, 0);
 
     if (contributors.length === 0) {
         return (
-            <Modal
-                isOpen={isOpen}
-                onClose={() => setIsOpen(false)}
-                title="Investors"
-                className="w-full max-w-6xl"
-            >
+            <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Investors" className="w-full max-w-6xl">
                 <p className="text-text-muted text-sm py-8 text-center">No investor data available</p>
             </Modal>
         );

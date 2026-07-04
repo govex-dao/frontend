@@ -69,12 +69,10 @@ export function StreamForm({ accountId, data, onChange }: Props) {
     const pastIterations = getPastIterationsForStreamData(data);
     const totalIterations = Number(data.iterationsTotal || "0");
     const firstAvailableLabel = "First Spend Date (optional)";
-    const startTimeError =
-        (data.startTime ?? "").length > 0 && (startTimeMs == null || BigInt(startTimeMs) < periodMs);
+    const startTimeError = (data.startTime ?? "").length > 0 && (startTimeMs == null || BigInt(startTimeMs) < periodMs);
     const hasPastIterationWarning = pastIterations > 2;
     const expiryMs = dateTimeToMs(data.expiryTime ?? "");
-    const expiryReferenceMs =
-        startTimeMs ?? (periodMs > 0n ? Date.now() + Number(periodMs) : Date.now());
+    const expiryReferenceMs = startTimeMs ?? (periodMs > 0n ? Date.now() + Number(periodMs) : Date.now());
     const expiryError =
         isSpendingLimitMode &&
         (data.expiryTime ?? "").length > 0 &&

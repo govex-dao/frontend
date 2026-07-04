@@ -96,7 +96,8 @@ export function TradeDetails(props: TradeDetailsProps) {
                 <div className="flex justify-between items-center">
                     <p className="text-text-tertiary text-xs">Min Received</p>
                     <p className="text-text-primary font-medium text-xs">
-                        {minAmountOutDisplay || formatDisplayNumber(swapDetails.minAmountOut)} {isBuy ? assetSymbol : stableSymbol}
+                        {minAmountOutDisplay || formatDisplayNumber(swapDetails.minAmountOut)}{" "}
+                        {isBuy ? assetSymbol : stableSymbol}
                     </p>
                 </div>
             </div>

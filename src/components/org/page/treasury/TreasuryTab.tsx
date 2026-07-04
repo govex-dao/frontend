@@ -44,7 +44,7 @@ function HoldingsTable({ holdings, isLoading }: { holdings?: TreasuryHolding[]; 
                             </div>
                         </TableCell>
                         <TableCell align="right">
-                            <span className="font-mono font-medium text-white">{formatNumber(holding.balance)}</span>
+                            <span className="font-mono font-medium text-white">{holding.balanceDisplay}</span>
                         </TableCell>
                     </TableRow>
                 ))}
@@ -65,8 +65,16 @@ const TreasuryMetricCard = ({ org }: { org: Org }) => (
                 <MetricItem size="3xl" label="Total Value" value={`$${formatNumber(org.treasuryValue)}`} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-                <MetricItem size="lg" label="Revenue" value={org.monthlyRevenue > 0 ? `$${formatNumber(org.monthlyRevenue / 1000)}k` : "\u2014"} />
-                <MetricItem size="lg" label="Allowance" value={org.monthlyAllowance > 0 ? `$${formatNumber(org.monthlyAllowance / 1000)}k` : "\u2014"} />
+                <MetricItem
+                    size="lg"
+                    label="Revenue"
+                    value={org.monthlyRevenue > 0 ? `$${formatNumber(org.monthlyRevenue / 1000)}k` : "\u2014"}
+                />
+                <MetricItem
+                    size="lg"
+                    label="Allowance"
+                    value={org.monthlyAllowance > 0 ? `$${formatNumber(org.monthlyAllowance / 1000)}k` : "\u2014"}
+                />
             </div>
         </CardContent>
     </Card>

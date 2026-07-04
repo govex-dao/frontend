@@ -37,9 +37,7 @@ export function BalancesTable(props: Props) {
         <table className={`w-full ${className}`}>
             <thead>
                 <tr>
-                    {title && (
-                        <th className={headerClass + " text-left"}>{title}</th>
-                    )}
+                    {title && <th className={headerClass + " text-left"}>{title}</th>}
                     <th className={headerClass + " text-right"}>TOKEN</th>
                     <th className={headerClass + " text-right"}>USDC</th>
                 </tr>

@@ -8,14 +8,15 @@ import { getFullnodeUrl } from "@mysten/sui/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { FavoritesProvider } from "./hooks/useFavorites";
+import { network, rpcUrl } from "./lib/config";
 import { router } from "./App.tsx";
 import "./index.css";
 
 const { networkConfig } = createNetworkConfig({
-    localnet: { url: getFullnodeUrl("localnet") },
-    devnet: { url: getFullnodeUrl("devnet") },
-    testnet: { url: getFullnodeUrl("testnet") },
-    mainnet: { url: getFullnodeUrl("mainnet") },
+    localnet: { url: network === "localnet" ? rpcUrl : getFullnodeUrl("localnet") },
+    devnet: { url: network === "devnet" ? rpcUrl : getFullnodeUrl("devnet") },
+    testnet: { url: network === "testnet" ? rpcUrl : getFullnodeUrl("testnet") },
+    mainnet: { url: network === "mainnet" ? rpcUrl : getFullnodeUrl("mainnet") },
 });
 
 const queryClient = new QueryClient({
@@ -33,10 +34,7 @@ createRoot(document.getElementById("root")!).render(
     <StrictMode>
         <HelmetProvider>
             <QueryClientProvider client={queryClient}>
-                <SuiClientProvider
-                    networks={networkConfig}
-                    defaultNetwork={(import.meta.env.VITE_NETWORK as keyof typeof networkConfig) || "localnet"}
-                >
+                <SuiClientProvider networks={networkConfig} defaultNetwork={network}>
                     <WalletProvider>
                         <FavoritesProvider>
                             <RouterProvider router={router} />

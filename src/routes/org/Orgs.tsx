@@ -87,7 +87,13 @@ export function Orgs() {
                 <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">Filter</p>
                 <div className="flex flex-col gap-2">
                     <FilterButton filterKey="all" label="All" activeKey={filter} onClick={setFilter} />
-                    <FilterButton filterKey="favorites" label="Favorites" Icon={Star} activeKey={filter} onClick={setFilter} />
+                    <FilterButton
+                        filterKey="favorites"
+                        label="Favorites"
+                        Icon={Star}
+                        activeKey={filter}
+                        onClick={setFilter}
+                    />
                 </div>
             </div>
 
@@ -156,7 +162,10 @@ export function Orgs() {
                             <Loader2 className="w-8 h-8 animate-spin text-primary" />
                         </div>
                     ) : (
-                        <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                        <motion.div
+                            layout
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3"
+                        >
                             {filteredAndSortedDaos.map((dao: DAODisplay) => (
                                 <OrgCard
                                     key={dao.id}

@@ -69,25 +69,13 @@ export function Raises() {
 
             <div className="flex flex-col gap-6 sm:gap-16">
                 {/* Active Fundraises */}
-                <Section
-                    title="Active Raises"
-                    count={activeRaises.length}
-                    raises={activeRaises}
-                />
+                <Section title="Active Raises" count={activeRaises.length} raises={activeRaises} />
 
                 {/* Upcoming Fundraises */}
-                <Section
-                    title="Upcoming Raises"
-                    count={upcomingRaises.length}
-                    raises={upcomingRaises}
-                />
+                <Section title="Upcoming Raises" count={upcomingRaises.length} raises={upcomingRaises} />
 
                 {/* Past Fundraises */}
-                <Section
-                    title="Past Raises"
-                    count={completedRaises.length}
-                    raises={completedRaises}
-                />
+                <Section title="Past Raises" count={completedRaises.length} raises={completedRaises} />
             </div>
 
             {/* Empty State */}

@@ -67,9 +67,7 @@ export function Proposals() {
         }
 
         // Sort by date (most recent first)
-        filtered.sort((a: ProposalDisplay, b: ProposalDisplay) =>
-            b.timestamp.getTime() - a.timestamp.getTime()
-        );
+        filtered.sort((a: ProposalDisplay, b: ProposalDisplay) => b.timestamp.getTime() - a.timestamp.getTime());
 
         return filtered;
     }, [proposals, filter, favorites, selectedDaoId]);
@@ -80,8 +78,20 @@ export function Proposals() {
                 <h3 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">Filter</h3>
                 <div className="flex flex-col gap-2">
                     <FilterButton filterKey="all" label="All" activeKey={filter} onClick={setFilter} />
-                    <FilterButton filterKey="active" label="Active" Icon={Coins} activeKey={filter} onClick={setFilter} />
-                    <FilterButton filterKey="favorites" label="Favorites" Icon={Star} activeKey={filter} onClick={setFilter} />
+                    <FilterButton
+                        filterKey="active"
+                        label="Active"
+                        Icon={Coins}
+                        activeKey={filter}
+                        onClick={setFilter}
+                    />
+                    <FilterButton
+                        filterKey="favorites"
+                        label="Favorites"
+                        Icon={Star}
+                        activeKey={filter}
+                        onClick={setFilter}
+                    />
                 </div>
             </div>
 
@@ -101,7 +111,6 @@ export function Proposals() {
                     }
                 />
             </div>
-
         </div>
     );
 

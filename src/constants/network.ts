@@ -1,7 +1,9 @@
+import { network } from "@/lib/config";
+
 export type Network = "mainnet" | "testnet" | "devnet" | "localnet";
 
 /** Current network - configured via VITE_NETWORK env var, defaults to localnet */
-export const NETWORK: Network = (import.meta.env.VITE_NETWORK as Network) ?? "localnet";
+export const NETWORK: Network = network;
 
 /**
  * Explorer URL for the current network

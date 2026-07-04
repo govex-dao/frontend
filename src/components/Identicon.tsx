@@ -10,7 +10,7 @@ export function Identicon({ seed, size = 18 }: { seed?: string; size?: number })
             h = Math.imul(h, 16777619) >>> 0;
         }
         const color = `hsl(${h % 360}, 60%, 50%)`;
-        const bits = Array.from({ length: 15 }, (_, i) => ((h >> i % 31) & 1) === 1);
+        const bits = Array.from({ length: 15 }, (_, i) => ((h >> (i % 31)) & 1) === 1);
         return { color, bits };
     }, [seed]);
 

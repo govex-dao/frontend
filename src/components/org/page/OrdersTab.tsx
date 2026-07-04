@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 import type { DAO } from "@/types";
 import { useCoins } from "@/hooks/api";
-import { getProtocolVersionForDAO, getSDKForDAO, isLegacyV2DAO } from "@/lib/sdk";
+import { getProtocolVersionForDAO, getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 
 const NAV_PRECISION = 1_000_000_000_000n;
 
@@ -96,10 +96,7 @@ function getBalanceValue(fields: Record<string, unknown>, key: string): bigint {
 
 // ── data fetching ────────────────────────────────────────────────────────────
 
-async function fetchOrders(
-    suiClient: ReturnType<typeof useSuiClient>,
-    dao: DAO,
-): Promise<OrdersData> {
+async function fetchOrders(suiClient: ReturnType<typeof useSuiClient>, dao: DAO): Promise<OrdersData> {
     const sdk = getSDKForDAO(dao);
     const packageRegistryId = sdk.sharedObjects.packageRegistry.id;
     const marketsCorePackageId = sdk.packages.futarchyMarketsCore;
@@ -170,7 +167,9 @@ async function fetchOrders(
                 const raw = navInspect.results?.[idx]?.returnValues?.[0]?.[0];
                 if (raw) navResults[wallId] = decodeU64(raw);
             }
-        } catch { /* ok */ }
+        } catch {
+            /* ok */
+        }
     }
 
     const orders: OrderDisplay[] = [];
@@ -181,11 +180,16 @@ async function fetchOrders(
         const maxMint = getU64Field(f, "max_mint_amount");
         const minted = getU64Field(f, "minted_amount");
         orders.push({
-            id: askIds[i], side: "Ask", active: getBoolField(f, "active"),
-            remainingRaw: maxMint - minted, remainingDecimals: dao.asset_decimals,
+            id: askIds[i],
+            side: "Ask",
+            active: getBoolField(f, "active"),
+            remainingRaw: maxMint - minted,
+            remainingDecimals: dao.asset_decimals,
             remainingSymbol: dao.asset_symbol || "ASSET",
-            wallNavRaw: navResults[askIds[i]] ?? null, feeBps: null,
-            mintedRaw: minted, maxMintRaw: maxMint,
+            wallNavRaw: navResults[askIds[i]] ?? null,
+            feeBps: null,
+            mintedRaw: minted,
+            maxMintRaw: maxMint,
         });
     }
     for (let i = 0; i < bidIds.length; i++) {
@@ -193,8 +197,11 @@ async function fetchOrders(
         if (!content || content.dataType !== "moveObject") continue;
         const f = content.fields as Record<string, unknown>;
         orders.push({
-            id: bidIds[i], side: "Bid", active: getBoolField(f, "active"),
-            remainingRaw: getBalanceValue(f, "stable_vault"), remainingDecimals: dao.stable_decimals,
+            id: bidIds[i],
+            side: "Bid",
+            active: getBoolField(f, "active"),
+            remainingRaw: getBalanceValue(f, "stable_vault"),
+            remainingDecimals: dao.stable_decimals,
             remainingSymbol: dao.stable_symbol || "STABLE",
             wallNavRaw: navResults[bidIds[i]] ?? null,
             feeBps: Number(getU64Field(f, "base_fee_bps")),
@@ -210,7 +217,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
     const suiClient = useSuiClient();
     const { data: coinMetadata } = useCoins();
     const protocolVersion = getProtocolVersionForDAO(dao);
-    const isLegacyV2 = isLegacyV2DAO(dao);
+    const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
     const stableSymbol = useMemo(() => {
         const meta = coinMetadata?.find((c) => c.coin_type === dao.stable_type);
@@ -220,12 +227,20 @@ export function OrdersTab({ dao }: { dao: DAO }) {
     const { data, isLoading, error } = useQuery({
         queryKey: ["orders", dao.id, dao.spot_pool_id, protocolVersion],
         queryFn: () => fetchOrders(suiClient, dao),
-        enabled: !!dao.spot_pool_id && !!dao.lp_type && !isLegacyV2,
+        enabled: !!dao.spot_pool_id && !!dao.lp_type && isSupportedProtocol,
         staleTime: 30_000,
         retry: 1,
     });
 
-    if (!dao.spot_pool_id || !dao.lp_type || isLegacyV2) {
+    if (!isSupportedProtocol) {
+        return (
+            <div className="glass-flow-panel rounded-lg p-4 text-sm text-text-muted">
+                Orders are unavailable for this organization.
+            </div>
+        );
+    }
+
+    if (!dao.spot_pool_id || !dao.lp_type) {
         return (
             <div className="glass-flow-panel rounded-lg p-4 text-sm text-text-muted">
                 No spot pool configured for this organization.
@@ -295,15 +310,13 @@ export function OrdersTab({ dao }: { dao: DAO }) {
                             return bn > an ? 1 : bn < an ? -1 : 0;
                         })
                         .map((order) => {
-                            const price = order.wallNavRaw != null
-                                ? formatNavPrice(order.wallNavRaw, dao.asset_decimals, dao.stable_decimals)
-                                : null;
+                            const price =
+                                order.wallNavRaw != null
+                                    ? formatNavPrice(order.wallNavRaw, dao.asset_decimals, dao.stable_decimals)
+                                    : null;
                             const pct = depthPct(order.remainingRaw, maxAskRemaining);
                             return (
-                                <div
-                                    key={order.id}
-                                    className="relative grid grid-cols-3 px-4 py-2 items-center"
-                                >
+                                <div key={order.id} className="relative grid grid-cols-3 px-4 py-2 items-center">
                                     {/* depth bar */}
                                     <div
                                         className="absolute inset-y-0 right-0 bg-red-500/10"
@@ -316,10 +329,13 @@ export function OrdersTab({ dao }: { dao: DAO }) {
                                         <span className="font-mono text-sm text-text-primary tabular-nums">
                                             {formatAmount(order.remainingRaw, order.remainingDecimals)}
                                         </span>
-                                        <span className="text-[10px] text-text-muted ml-1">{order.remainingSymbol}</span>
+                                        <span className="text-[10px] text-text-muted ml-1">
+                                            {order.remainingSymbol}
+                                        </span>
                                         {order.maxMintRaw != null && order.mintedRaw != null && (
                                             <div className="text-[10px] text-text-muted">
-                                                {formatAmount(order.mintedRaw, dao.asset_decimals)}/{formatAmount(order.maxMintRaw, dao.asset_decimals)} minted
+                                                {formatAmount(order.mintedRaw, dao.asset_decimals)}/
+                                                {formatAmount(order.maxMintRaw, dao.asset_decimals)} minted
                                             </div>
                                         )}
                                     </div>
@@ -333,9 +349,7 @@ export function OrdersTab({ dao }: { dao: DAO }) {
             )}
 
             {/* Separator between asks and bids */}
-            {asks.length > 0 && bids.length > 0 && (
-                <div className="border-y border-border" />
-            )}
+            {asks.length > 0 && bids.length > 0 && <div className="border-y border-border" />}
 
             {/* Bids — green, sorted highest price first (top) */}
             {bids.length > 0 && (
@@ -347,15 +361,13 @@ export function OrdersTab({ dao }: { dao: DAO }) {
                             return bn > an ? 1 : bn < an ? -1 : 0;
                         })
                         .map((order) => {
-                            const price = order.wallNavRaw != null
-                                ? formatNavPrice(order.wallNavRaw, dao.asset_decimals, dao.stable_decimals)
-                                : null;
+                            const price =
+                                order.wallNavRaw != null
+                                    ? formatNavPrice(order.wallNavRaw, dao.asset_decimals, dao.stable_decimals)
+                                    : null;
                             const pct = depthPct(order.remainingRaw, maxBidRemaining);
                             return (
-                                <div
-                                    key={order.id}
-                                    className="relative grid grid-cols-3 px-4 py-2 items-center"
-                                >
+                                <div key={order.id} className="relative grid grid-cols-3 px-4 py-2 items-center">
                                     {/* depth bar */}
                                     <div
                                         className="absolute inset-y-0 right-0 bg-green-500/10"

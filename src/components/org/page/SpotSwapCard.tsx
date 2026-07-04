@@ -13,7 +13,7 @@ import { Button } from "@/components/inputs/Button";
 import { TokenInput } from "@/components/inputs/TokenInput";
 import { TradeDirectionSwapButton, TradeDirectionToggle } from "@/components/proposal/trade/swap/DirectionToggles";
 import { SlippageSelector } from "@/components/proposal/trade/swap/SlippageSelector";
-import { getProtocolVersionForDAO, getSDKForDAO, isLegacyV2DAO } from "@/lib/sdk";
+import { getProtocolVersionForDAO, getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 import { resolveCoinIcon } from "@/lib/coin/icons";
 import { parseAmountToBigInt } from "@/lib/parseAmount";
 import { selectCoinObjectsForAmount } from "@/lib/sui/selectCoins";
@@ -111,11 +111,12 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
     const [slippageBps, setSlippageBps] = useState<bigint>(DEFAULT_SLIPPAGE_BPS);
     const debouncedAmountStr = useDebouncedValue(fromAmountStr, QUOTE_DEBOUNCE_MS);
     const isDebouncing = fromAmountStr !== debouncedAmountStr;
-    const isLegacyV2 = isLegacyV2DAO(dao);
+    const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
     const poolId = dao.spot_pool_id;
     const lpType = dao.lp_type;
-    const poolReady = !!poolId && !!lpType && !isLegacyV2;
+    const hasPool = !!poolId && !!lpType;
+    const poolReady = hasPool && isSupportedProtocol;
     const protocolVersion = getProtocolVersionForDAO(dao);
 
     const assetMeta = coinMetadata?.find((c) => c.coin_type === dao.asset_type);
@@ -315,7 +316,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
 
     const handleSwap = useCallback(async () => {
         if (!account) return;
-        if (!poolReady || isLegacyV2) return;
+        if (!poolReady || !isSupportedProtocol) return;
         if (fromAmountStr !== debouncedAmountStr) return;
 
         try {
@@ -461,7 +462,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
     }, [
         account,
         dao,
-        isLegacyV2,
+        isSupportedProtocol,
         debouncedAmountStr,
         executeTransaction,
         fromAmountRaw,
@@ -486,7 +487,11 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
                 </div>
             </div>
 
-            {!poolReady ? (
+            {!isSupportedProtocol ? (
+                <div className="rounded-lg border border-border-light bg-white/[0.035] p-3 text-sm text-text-muted">
+                    Spot trading is unavailable for this organization.
+                </div>
+            ) : !hasPool ? (
                 <div className="rounded-lg border border-border-light bg-white/[0.035] p-3 text-sm text-text-muted">
                     This organization does not have a spot pool yet.
                 </div>

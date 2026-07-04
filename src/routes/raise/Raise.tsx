@@ -18,15 +18,19 @@ import { InvestModal } from "@/components/raise/page/InvestModal";
 import { InvestorsModal } from "@/components/raise/page/InvestorsModal";
 import { StatsCards } from "@/components/raise/page/StatsCard";
 import { ReservationCard } from "@/components/raise/page/ReservationCard";
+import { RaiseActionSections } from "@/components/raise/ActionSections";
 import { MetricItem } from "@/components/MetricItem";
+import { useDAO } from "@/hooks/api";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
 import { getSDK } from "@/lib/sdk";
+import { formatUnits } from "@/lib/units";
 import { toRaiseView, type RaiseView } from "@/types/RaiseView";
 import { getRaiseUiStatus, type RaiseUiStatus } from "@/lib/raiseStatus";
 
 interface UserInvestment {
     hasInvested: boolean;
     amount: number;
+    amountDisplay: string;
     percentage: number;
     rank: number;
 }
@@ -75,11 +79,7 @@ function UserInvestmentCard(props: {
         if (!account) return;
         try {
             const sdk = getSDK();
-            const { transaction } = sdk.launchpad.claimTokens(
-                rawRaise.id,
-                rawRaise.asset_type,
-                rawRaise.stable_type,
-            );
+            const { transaction } = sdk.launchpad.claimTokens(rawRaise.id, rawRaise.asset_type, rawRaise.stable_type);
             await executeTransaction(
                 transaction,
                 {
@@ -91,7 +91,7 @@ function UserInvestmentCard(props: {
                 {
                     loadingMessage: "Claiming tokens...",
                     successMessage: "Tokens claimed!",
-                },
+                }
             );
         } catch (error) {
             console.error("Claim tokens failed:", error);
@@ -105,11 +105,7 @@ function UserInvestmentCard(props: {
         if (!account) return;
         try {
             const sdk = getSDK();
-            const { transaction } = sdk.launchpad.claimRefund(
-                rawRaise.id,
-                rawRaise.asset_type,
-                rawRaise.stable_type,
-            );
+            const { transaction } = sdk.launchpad.claimRefund(rawRaise.id, rawRaise.asset_type, rawRaise.stable_type);
             await executeTransaction(
                 transaction,
                 {
@@ -121,7 +117,7 @@ function UserInvestmentCard(props: {
                 {
                     loadingMessage: "Claiming refund...",
                     successMessage: "Refund claimed!",
-                },
+                }
             );
         } catch (error) {
             console.error("Claim refund failed:", error);
@@ -136,11 +132,7 @@ function UserInvestmentCard(props: {
             <CardContent>
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <MetricItem
-                            label="Your Investment"
-                            value={`$${formatNumber(userInvestment.amount)}`}
-                            size="lg"
-                        />
+                        <MetricItem label="Your Investment" value={`$${userInvestment.amountDisplay}`} size="lg" />
                         <div className="text-right">
                             <MetricItem label="Rank" value={`#${userInvestment.rank}`} size="lg" />
                         </div>
@@ -149,16 +141,13 @@ function UserInvestmentCard(props: {
                         <div className="flex items-baseline justify-between p-2 rounded-lg bg-white/5">
                             <span className="text-xs text-white/40">Your tokens</span>
                             <span className="text-sm font-semibold">
-                                {formatNumber((userInvestment.amount / raise.raised) * raise.tokensForSale)} {raise.assetSymbol}
+                                {formatNumber((userInvestment.amount / raise.raised) * raise.tokensForSale)}{" "}
+                                {raise.assetSymbol}
                             </span>
                         </div>
                     )}
                     {status === "funded" && (
-                        <Button
-                            className="w-full font-medium"
-                            onClick={handleClaimTokens}
-                            isLoading={isLoading}
-                        >
+                        <Button className="w-full font-medium" onClick={handleClaimTokens} isLoading={isLoading}>
                             Claim Tokens
                         </Button>
                     )}
@@ -177,8 +166,12 @@ function UserInvestmentCard(props: {
     );
 }
 
-function TopContributors({ contributors, connectedAddress, userInvestment }: {
-    contributors: { address: string; amount: number; percentage: number }[];
+function TopContributors({
+    contributors,
+    connectedAddress,
+    userInvestment,
+}: {
+    contributors: { address: string; amount: number; amountDisplay: string; percentage: number }[];
     connectedAddress?: string;
     userInvestment: UserInvestment;
 }) {
@@ -195,7 +188,9 @@ function TopContributors({ contributors, connectedAddress, userInvestment }: {
                         <div className="rounded-lg bg-primary/10 border border-primary/20 p-3">
                             <div className="flex justify-between items-baseline">
                                 <span className="text-xs text-primary/70">Your Contribution</span>
-                                <span className="text-sm font-semibold text-primary">${formatNumber(userInvestment.amount)}</span>
+                                <span className="text-sm font-semibold text-primary">
+                                    ${userInvestment.amountDisplay}
+                                </span>
                             </div>
                             <div className="flex justify-between items-baseline mt-1">
                                 <span className="text-xs text-primary/50">Rank #{userInvestment.rank}</span>
@@ -214,11 +209,13 @@ function TopContributors({ contributors, connectedAddress, userInvestment }: {
                                 >
                                     <div className="flex items-center gap-2">
                                         <span className="text-white/30 w-4 text-right">{i + 1}</span>
-                                        <span className={`font-mono ${isConnected(c.address) ? "text-primary" : "text-white/70"}`}>
+                                        <span
+                                            className={`font-mono ${isConnected(c.address) ? "text-primary" : "text-white/70"}`}
+                                        >
                                             {truncate(c.address)}
                                         </span>
                                     </div>
-                                    <span className="font-semibold text-white/90">${formatNumber(c.amount)}</span>
+                                    <span className="font-semibold text-white/90">${c.amountDisplay}</span>
                                 </div>
                             ))}
                         </div>
@@ -231,14 +228,92 @@ function TopContributors({ contributors, connectedAddress, userInvestment }: {
     );
 }
 
+function RaiseStatusBanner({
+    status,
+    userInvestment,
+    raise,
+}: {
+    status: RaiseUiStatus;
+    userInvestment: UserInvestment;
+    raise: RaiseView;
+}) {
+    if (status === "funded") {
+        return (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20">
+                <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-semibold text-success">Raise Successful</p>
+                    <p className="text-xs text-white/50">
+                        {userInvestment.hasInvested
+                            ? "Your tokens are ready to claim"
+                            : `Raised $${formatNumber(raise.raised)} — DAO created`}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (status === "failed") {
+        return (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
+                <div className="w-10 h-10 rounded-full bg-error/20 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-semibold text-error">Raise Failed</p>
+                    <p className="text-xs text-white/50">
+                        {userInvestment.hasInvested
+                            ? "Your contribution is available for refund"
+                            : `Did not reach $${formatNumber(raise.raising)} goal`}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (status === "finalizing") {
+        return (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-blue-400 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-sm font-semibold text-blue-300">Finalizing Raise</p>
+                    <p className="text-xs text-white/50">Onchain completion intents are being processed</p>
+                </div>
+            </div>
+        );
+    }
+
+    return null;
+}
+
 export function Raise() {
-    const { raiseId } = useParams<{ raiseId: string }>();
+    const { orgId, raiseId } = useParams<{ orgId?: string; raiseId: string }>();
     const [isInvestorsModalOpen, setIsInvestorsModalOpen] = useState(false);
     const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
     const nowMs = useRaiseClock();
     const account = useCurrentAccount();
 
     const { data: apiRaise, isLoading, error } = useRaise(raiseId);
+    const { data: orgRaw } = useDAO(orgId);
     const { data: contributionData } = useUserContribution(raiseId, account?.address);
     const { data: reservationData } = useUserReservation(raiseId, account?.address);
 
@@ -248,26 +323,34 @@ export function Raise() {
     // Convert raw contribution data from API to UserInvestment format
     const stableDecimals = apiRaise?.stable_decimals ?? 9;
     const divisor = Math.pow(10, stableDecimals);
+    const formatStableDisplay = (rawAmount: string | number | bigint | undefined) =>
+        rawAmount !== undefined
+            ? formatUnits(BigInt(rawAmount), stableDecimals, { maxFractionDigits: Math.min(stableDecimals, 6) })
+            : "0";
     const userInvestment: UserInvestment = contributionData
         ? {
               hasInvested: contributionData.hasInvested,
               amount: Number(contributionData.amount) / divisor,
+              amountDisplay: formatStableDisplay(contributionData.amount),
               percentage: Number(contributionData.percentage),
               rank: contributionData.rank,
           }
         : {
               hasInvested: false,
               amount: 0,
+              amountDisplay: "0",
               percentage: 0,
               rank: 0,
           };
 
     // Get contributors from API response
-    const contributors = apiRaise?.contributors?.map((c) => ({
-        address: c.address,
-        amount: Number(c.amount) / Math.pow(10, apiRaise.stable_decimals ?? 9),
-        percentage: Number(c.percentage),
-    })) || [];
+    const contributors =
+        apiRaise?.contributors?.map((c) => ({
+            address: c.address,
+            amount: Number(c.amount) / Math.pow(10, apiRaise.stable_decimals ?? 9),
+            amountDisplay: formatStableDisplay(c.amount),
+            percentage: Number(c.percentage),
+        })) || [];
 
     if (isLoading) {
         return (
@@ -286,6 +369,24 @@ export function Raise() {
     const progress = goalAmount > 0 ? (raise.raised / goalAmount) * 100 : 0;
     const isFunded = status === "funded" || status === "finalizing";
     const contributorCount = apiRaise?.contributor_count ?? contributors.length;
+    const orgName = orgRaw?.config?.dao_name || orgRaw?.dao_name || "Org";
+    const breadcrumbItems = orgId
+        ? [
+              { label: "Home", href: "/" },
+              { label: "Orgs", href: "/orgs" },
+              { label: orgName, href: `/orgs/${orgId}` },
+              { label: "Raises", href: `/orgs/${orgId}/raises` },
+              { label: raise.name },
+          ]
+        : [{ label: "Home", href: "/" }, { label: "Raises", href: "/raises" }, { label: raise.name }];
+    const actionContext = {
+        assetType: apiRaise?.asset_type,
+        stableType: apiRaise?.stable_type,
+        assetSymbol: apiRaise?.asset_symbol,
+        stableSymbol: apiRaise?.stable_symbol,
+        assetDecimals: apiRaise?.asset_decimals,
+        stableDecimals: apiRaise?.stable_decimals,
+    };
 
     // Reservation state
     const hasReservation = reservationData?.hasReservation ?? false;
@@ -344,59 +445,10 @@ export function Raise() {
             <Helmet>
                 <title>{raise.name} - Raise</title>
             </Helmet>
-            <Breadcrumbs
-                items={[{ label: "Home", href: "/" }, { label: "Raises", href: "/raises" }, { label: raise.name }]}
-            />
+            <Breadcrumbs items={breadcrumbItems} />
 
             {/* Status Banner — prominent heading for terminal states */}
-            {status === "funded" && (
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-success/10 border border-success/20">
-                    <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-success">Raise Successful</p>
-                        <p className="text-xs text-white/50">
-                            {userInvestment.hasInvested
-                                ? "Your tokens are ready to claim"
-                                : `Raised $${formatNumber(raise.raised)} — DAO created`}
-                        </p>
-                    </div>
-                </div>
-            )}
-            {status === "failed" && (
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-error/10 border border-error/20">
-                    <div className="w-10 h-10 rounded-full bg-error/20 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-error">Raise Failed</p>
-                        <p className="text-xs text-white/50">
-                            {userInvestment.hasInvested
-                                ? "Your contribution is available for refund"
-                                : `Did not reach $${formatNumber(raise.raising)} goal`}
-                        </p>
-                    </div>
-                </div>
-            )}
-            {status === "finalizing" && (
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-blue-400 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-blue-300">Finalizing Raise</p>
-                        <p className="text-xs text-white/50">Onchain completion intents are being processed</p>
-                    </div>
-                </div>
-            )}
+            <RaiseStatusBanner status={status} userInvestment={userInvestment} raise={raise} />
 
             {/* Two-Column Layout with Fixed Right Sidebar */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:h-[calc(100vh-7rem)] lg:overflow-hidden">
@@ -408,6 +460,21 @@ export function Raise() {
                         <CardContent className="space-y-6">
                             <TeamSection team={raise.team} />
                             <AboutSection raise={raise} />
+                            <RaiseActionSections
+                                sections={[
+                                    {
+                                        title: "Success actions",
+                                        caption: "Execute if the raise funds",
+                                        actions: apiRaise?.success_actions,
+                                    },
+                                    {
+                                        title: "Failure actions",
+                                        caption: "Execute if the raise fails",
+                                        actions: apiRaise?.failure_actions,
+                                    },
+                                ]}
+                                context={actionContext}
+                            />
                         </CardContent>
                     </Card>
                 </div>

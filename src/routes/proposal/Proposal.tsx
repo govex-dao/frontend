@@ -23,6 +23,7 @@ import { OutcomeDetailsModal } from "@/components/proposal/OutcomeDetailsModal";
 import { ActionCard } from "@/components/proposal/actions/Card";
 import { TwapHeader, type OutcomeWithIndex } from "@/components/proposal/TwapHeader";
 import { withEffectiveProposalState } from "@/lib/proposalState";
+import { isSupportedProtocolProposal } from "@/lib/sdk";
 
 function parseMs(raw: string | null | undefined): number | null {
     if (raw == null) return null;
@@ -192,13 +193,13 @@ export function Proposal() {
 
     // Gate trading UI off the indexed proposal state (matches onchain TradingStarted/Finalized events).
     const state = effectiveApiProposal?.state;
-    const isLegacyV1 = effectiveApiProposal?.version?.trim().toLowerCase() === "v1";
-    const isActive = !isLegacyV1 && state === "active";
-    const isAwaitingExecution = !isLegacyV1 && state === "awaiting_execution";
+    const isSupportedProtocol = isSupportedProtocolProposal(effectiveApiProposal);
+    const isActive = isSupportedProtocol && state === "active";
+    const isAwaitingExecution = isSupportedProtocol && state === "awaiting_execution";
     const isExecuted = state === "executed";
     const isTradingOpen = isActive || isAwaitingExecution;
     const isEnded = state === "finalized" || state === "executed";
-    const isPreTrading = !isLegacyV1 && !!state && !isTradingOpen && !isEnded;
+    const isPreTrading = isSupportedProtocol && !!state && !isTradingOpen && !isEnded;
     const timeUntilReviewEnd = proposal ? getTimeRemaining(proposal.start) : undefined;
     const timeUntilEnd = proposal ? getTimeRemaining(proposal.end) : undefined;
     const proposalEndMs = proposal?.end.getTime() ?? null;
@@ -275,8 +276,8 @@ export function Proposal() {
     }, [isTradingOpen, isAwaitingExecution]);
 
     useEffect(() => {
-        if (isLegacyV1) setShowTradeModal(false);
-    }, [isLegacyV1]);
+        if (!isSupportedProtocol) setShowTradeModal(false);
+    }, [isSupportedProtocol]);
 
     // Loading state
     if (isLoading) {
@@ -380,7 +381,7 @@ export function Proposal() {
                         {/* Tab Content */}
                         {activeTab === "chart" && (
                             <>
-                                {!isLegacyV1 && (
+                                {isSupportedProtocol && (
                                     <TwapHeader
                                         sortedOutcomes={sortedOutcomes}
                                         totalOutcomes={proposal.outcomes?.length || 0}
@@ -432,7 +433,7 @@ export function Proposal() {
                                             )
                                         )}
                                         selectedOutcome={selectedOutcome}
-                                        enableTwap={!isLegacyV1}
+                                        enableTwap={isSupportedProtocol}
                                         extendToNow={isActive}
                                         endTimestampMs={chartEndTimestampMs}
                                         className="bg-black/10 border border-border/50 rounded-lg overflow-hidden flex flex-col shrink-0 min-h-[280px] h-[280px] sm:h-[350px] md:h-[400px] lg:h-[500px]"
@@ -447,7 +448,7 @@ export function Proposal() {
                         )}
 
                         {activeTab === "description" && (
-                            <DescriptionTab proposal={proposal} showActions={!isLegacyV1} />
+                            <DescriptionTab proposal={proposal} showActions={isSupportedProtocol} />
                         )}
 
                         {activeTab === "advanced" && (
@@ -465,7 +466,7 @@ export function Proposal() {
             </Modal>
 
             {/* Trade Modal */}
-            {!isLegacyV1 && (
+            {isSupportedProtocol && (
                 <Modal isOpen={showTradeModal} onClose={() => setShowTradeModal(false)} title="Trade">
                     <div className="w-full max-w-[500px]">
                         <TradeForm
@@ -489,8 +490,8 @@ export function Proposal() {
                     totalOutcomes={proposal.outcomes.length}
                     isWinning={leadingOutcomeIndex === selectedOutcomeForModal}
                     isEnded={isExecuted}
-                    showTwapMetric={!isLegacyV1}
-                    showActions={!isLegacyV1}
+                    showTwapMetric={isSupportedProtocol}
+                    showActions={isSupportedProtocol}
                 />
             )}
         </div>

@@ -6,10 +6,14 @@ import { buildInfo } from "@/lib/buildInfo";
 const productLinks = [
     { label: "Multisigs", to: "/multisig" },
     { label: "Orgs", to: "/orgs" },
+    { label: "Raises", to: "/raises" },
     { label: "Decision Markets", to: "/proposals" },
 ];
 
-const resourceLinks = [{ label: "Docs", to: "/docs" }];
+const resourceLinks = [
+    { label: "Docs", to: "/docs" },
+    { label: "Blog", to: "/blog" },
+];
 
 const socialLinks = [
     { label: "X", href: "https://x.com/govex_ai" },

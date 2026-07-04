@@ -7,12 +7,7 @@ import { Select } from "@/components/inputs/Select";
 import { CoinTypePicker } from "@/components/multisig/CoinTypePicker";
 import { VaultNamePicker } from "@/components/multisig/VaultNamePicker";
 import { useMultisigLockedCurrencies, useVaultApprovedCoinTypes } from "@/hooks/useMultisig";
-import {
-    addCreateVestingSpec,
-    addMintSpec,
-    addSpendSpec,
-    type ActionSpecBuilder,
-} from "@/lib/sui/multisig-tx";
+import { addCreateVestingSpec, addMintSpec, addSpendSpec, type ActionSpecBuilder } from "@/lib/sui/multisig-tx";
 import { parseAmountToBigInt } from "@/lib/parseAmount";
 
 export interface VestingData {
@@ -116,8 +111,7 @@ export function VestingForm({ accountId, data, onChange }: Props) {
                 )}
                 {parseFloat(data.amountPerIteration) > 0 && Number(data.iterationsTotal) > 0 && (
                     <p className="mt-2 text-[11px] text-text-muted">
-                        Total:{" "}
-                        {(parseFloat(data.amountPerIteration) * Number(data.iterationsTotal)).toLocaleString()}{" "}
+                        Total: {(parseFloat(data.amountPerIteration) * Number(data.iterationsTotal)).toLocaleString()}{" "}
                         tokens will be {data.source === "mint" ? "minted" : "spent from vault"}
                     </p>
                 )}

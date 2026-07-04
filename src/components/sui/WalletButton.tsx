@@ -176,11 +176,14 @@ export function SuiWalletButton(props: SuiWalletButtonProps = {}) {
 
     const onCopyAddress = () => {
         if (account?.address) {
-            navigator.clipboard.writeText(account.address).then(() => {
-                toast.success("Address copied to clipboard!", { id: "clipboard-copy" });
-            }).catch(() => {
-                toast.error("Failed to copy address");
-            });
+            navigator.clipboard
+                .writeText(account.address)
+                .then(() => {
+                    toast.success("Address copied to clipboard!", { id: "clipboard-copy" });
+                })
+                .catch(() => {
+                    toast.error("Failed to copy address");
+                });
         }
     };
 

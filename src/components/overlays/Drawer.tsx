@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 
 interface DrawerProps {
     isOpen: boolean;
@@ -25,6 +25,22 @@ export function Drawer(props: DrawerProps) {
         showHandle = false,
         zIndexAboveHeader = true,
     } = props;
+    const drawerRef = useRef<HTMLDivElement>(null);
+    const titleId = useId();
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        window.requestAnimationFrame(() => {
+            const focusable = getFocusableElements(drawerRef.current);
+            (focusable[0] ?? drawerRef.current)?.focus();
+        });
+
+        return () => {
+            previouslyFocused?.focus();
+        };
+    }, [isOpen]);
 
     // Lock body scroll when drawer is open
     useEffect(() => {
@@ -39,11 +55,32 @@ export function Drawer(props: DrawerProps) {
         };
     }, [isOpen]);
 
-    // Handle escape key
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape" && isOpen) {
+            if (!isOpen) return;
+
+            if (event.key === "Escape") {
                 onClose();
+                return;
+            }
+
+            if (event.key !== "Tab") return;
+
+            const focusable = getFocusableElements(drawerRef.current);
+            if (focusable.length === 0) {
+                event.preventDefault();
+                drawerRef.current?.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         };
 
@@ -106,6 +143,7 @@ export function Drawer(props: DrawerProps) {
     const translateClass = getTranslateClass();
     const positionClasses = getPositionClasses();
     const borderClasses = getBorderClasses();
+    const closedAccessibilityProps = !isOpen ? ({ inert: true, "aria-hidden": true } as const) : {};
 
     // Set z-index based on whether drawer should be above or below header
     const overlayZIndex = zIndexAboveHeader ? "z-[9998]" : "z-20";
@@ -119,11 +157,18 @@ export function Drawer(props: DrawerProps) {
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
                 onClick={onClose}
+                aria-hidden="true"
             />
 
             {/* Drawer */}
             <div
-                className={`fixed ${underHeader ? "pt-[52px]" : "pt-0"} ${positionClasses} ${drawerZIndex} bg-card backdrop-blur-xl transition-transform duration-300 ease-out ${translateClass} ${className}`}
+                ref={drawerRef}
+                role="dialog"
+                aria-modal={isOpen ? "true" : undefined}
+                aria-labelledby={title ? titleId : undefined}
+                tabIndex={isOpen ? -1 : undefined}
+                {...closedAccessibilityProps}
+                className={`fixed ${underHeader ? "pt-[52px]" : "pt-0"} ${positionClasses} ${drawerZIndex} bg-card backdrop-blur-xl transition-transform duration-300 ease-out ${translateClass} ${!isOpen ? "pointer-events-none" : ""} ${className}`}
             >
                 <div className={`h-full flex flex-col ${borderClasses}`}>
                     {/* Handle bar for bottom drawer */}
@@ -136,7 +181,9 @@ export function Drawer(props: DrawerProps) {
                     {/* Title */}
                     {title && (
                         <div className="px-4 py-3 shrink-0">
-                            <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+                            <h3 id={titleId} className="text-lg font-bold text-text-primary">
+                                {title}
+                            </h3>
                         </div>
                     )}
 
@@ -150,4 +197,20 @@ export function Drawer(props: DrawerProps) {
             </div>
         </>
     );
+}
+
+function getFocusableElements(root: HTMLElement | null): HTMLElement[] {
+    if (!root) return [];
+    return Array.from(
+        root.querySelectorAll<HTMLElement>(
+            [
+                "a[href]",
+                "button:not([disabled])",
+                "textarea:not([disabled])",
+                "input:not([disabled])",
+                "select:not([disabled])",
+                "[tabindex]:not([tabindex='-1'])",
+            ].join(",")
+        )
+    ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
 }

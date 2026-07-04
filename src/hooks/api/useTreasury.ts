@@ -5,9 +5,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { resolveCoinIcon } from "@/lib/coin/icons";
+import { formatUnits } from "@/lib/units";
 import { useDAO } from "./useDAOs";
 import { useCoins } from "./useCoins";
-import { getProtocolVersionForDAO, getSDKForDAO, isLegacyV2DAO } from "../../lib/sdk";
+import { getProtocolVersionForDAO, getSDKForDAO, isSupportedProtocolDAO } from "../../lib/sdk";
 
 export const treasuryKeys = {
     all: ["treasury"] as const,
@@ -20,6 +21,7 @@ export interface TreasuryHolding {
     symbol: string;
     logo: string;
     balance: number;
+    balanceDisplay: string;
     coinType: string;
 }
 
@@ -42,7 +44,7 @@ export function useTreasuryHoldings(daoId?: string) {
     const { data: dao } = useDAO(daoId);
     const { data: coins } = useCoins();
     const protocolVersion = getProtocolVersionForDAO(dao);
-    const isLegacyV2 = isLegacyV2DAO(dao);
+    const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
     return useQuery({
         queryKey: treasuryKeys.balance(daoId!, protocolVersion),
@@ -53,6 +55,9 @@ export function useTreasuryHoldings(daoId?: string) {
 
             const balanceRaw = await sdk.dao.vault.getTotalBalance(daoId!, stableType);
             const balance = Number(balanceRaw) / Math.pow(10, decimals);
+            const balanceDisplay = formatUnits(BigInt(balanceRaw), decimals, {
+                maxFractionDigits: Math.min(decimals, 6),
+            });
 
             const stableSymbol = dao!.stable_symbol || "USDC";
             const coinMeta =
@@ -68,11 +73,12 @@ export function useTreasuryHoldings(daoId?: string) {
                         iconUrl: coinMeta?.icon_url,
                     }),
                     balance,
+                    balanceDisplay,
                     coinType: stableType,
                 },
             ];
         },
-        enabled: !!daoId && !!dao && !isLegacyV2,
+        enabled: !!daoId && !!dao && isSupportedProtocol,
         staleTime: daoId ? getStaleTime(daoId) : STALE_TIME_BASE,
         gcTime: 2 * 60 * 60 * 1000, // 2 hours
     });

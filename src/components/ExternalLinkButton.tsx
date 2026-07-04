@@ -36,7 +36,9 @@ export function ExternalLinkButton({ href, icon: Icon, label, variant = "outline
                         if (parsed.protocol === "http:" || parsed.protocol === "https:") {
                             window.open(href, "_blank", "noopener,noreferrer");
                         }
-                    } catch { /* invalid URL, ignore */ }
+                    } catch {
+                        /* invalid URL, ignore */
+                    }
                 }}
             >
                 <Icon className={iconSize} />

@@ -37,7 +37,10 @@ export function OutcomesTooltipContent(props: OutcomesTooltipContentProps) {
                         <div
                             key={index}
                             className={`${getOutcomeClass(index, proposal.outcomes?.length || 0, "normal")} transition-all duration-200`}
-                            style={{ width: `${totalTwap > 0 ? ((outcome.twap ?? 0) / totalTwap) * 100 : 0}%`, opacity: isLeading ? 1 : 0.7 }}
+                            style={{
+                                width: `${totalTwap > 0 ? ((outcome.twap ?? 0) / totalTwap) * 100 : 0}%`,
+                                opacity: isLeading ? 1 : 0.7,
+                            }}
                         />
                     );
                 })}
@@ -50,7 +53,9 @@ export function OutcomesTooltipContent(props: OutcomesTooltipContentProps) {
                     const nextTwap =
                         sortedIndex < sortedOutcomes.length - 1 ? sortedOutcomes[sortedIndex + 1].outcome.twap : null;
                     const difference =
-                        nextTwap != null && nextTwap !== 0 && outcome.twap != null ? ((outcome.twap - nextTwap) / nextTwap) * 100 : null;
+                        nextTwap != null && nextTwap !== 0 && outcome.twap != null
+                            ? ((outcome.twap - nextTwap) / nextTwap) * 100
+                            : null;
 
                     return (
                         <div
@@ -90,12 +95,14 @@ export function PositionBadge(props: PositionBadgeProps) {
 
     if (isEnded) {
         // Use backend's authoritative winning_outcome when available (accounts for thresholds/sponsorship)
-        const winningIndex = ('winningOutcome' in proposal && typeof proposal.winningOutcome === 'number')
-            ? proposal.winningOutcome
-            : null;
-        const winningOutcome = winningIndex != null && proposal.outcomes?.[winningIndex]
-            ? proposal.outcomes[winningIndex]
-            : getWinningOutcome(proposal.outcomes);
+        const winningIndex =
+            "winningOutcome" in proposal && typeof proposal.winningOutcome === "number"
+                ? proposal.winningOutcome
+                : null;
+        const winningOutcome =
+            winningIndex != null && proposal.outcomes?.[winningIndex]
+                ? proposal.outcomes[winningIndex]
+                : getWinningOutcome(proposal.outcomes);
         if (!winningOutcome || (!winningOutcome.tokenBalance && !winningOutcome.usdcBalance)) {
             return null;
         }

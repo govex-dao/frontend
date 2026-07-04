@@ -399,7 +399,11 @@ export function buildWalletSettlementTransaction(params: {
                     : tx.moveCall({
                           target: `${primitivesPackageId}::conditional_balance::recombine_balance_to_asset`,
                           typeArguments: [assetType, stableType],
-                          arguments: [tx.object(escrowId), wrapperObject, tx.pure.u64(wrapperPlan.recombineAssetAmount)],
+                          arguments: [
+                              tx.object(escrowId),
+                              wrapperObject,
+                              tx.pure.u64(wrapperPlan.recombineAssetAmount),
+                          ],
                       });
                 tx.transferObjects([recombinedAsset], tx.pure.address(recipient));
             }
@@ -420,7 +424,11 @@ export function buildWalletSettlementTransaction(params: {
                     : tx.moveCall({
                           target: `${primitivesPackageId}::conditional_balance::recombine_balance_to_stable`,
                           typeArguments: [assetType, stableType],
-                          arguments: [tx.object(escrowId), wrapperObject, tx.pure.u64(wrapperPlan.recombineStableAmount)],
+                          arguments: [
+                              tx.object(escrowId),
+                              wrapperObject,
+                              tx.pure.u64(wrapperPlan.recombineStableAmount),
+                          ],
                       });
                 tx.transferObjects([recombinedStable], tx.pure.address(recipient));
             }

@@ -6,9 +6,7 @@ function hasExecutionTimestamp(raw: string | null | undefined): boolean {
     return Number.isFinite(parsed);
 }
 
-export function getEffectiveProposalState(
-    proposal: Pick<Proposal, "state" | "execution_at">
-): ProposalState {
+export function getEffectiveProposalState(proposal: Pick<Proposal, "state" | "execution_at">): ProposalState {
     return hasExecutionTimestamp(proposal.execution_at) ? "executed" : proposal.state;
 }
 

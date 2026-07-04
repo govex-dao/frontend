@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type ConditionalAmmReserve } from "@govex/futarchy-sdk";
-import { getSDKForDAO, isLegacyV2DAO } from "@/lib/sdk";
+import { getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 import type { DAO } from "@/types";
 
 export interface AmmTvlSlice {
@@ -30,6 +30,7 @@ export interface AmmTvlData {
 
 export function useAmmTvl(dao: DAO | undefined) {
     const poolId = dao?.spot_pool_id;
+    const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
     return useQuery({
         queryKey: [
@@ -84,7 +85,7 @@ export function useAmmTvl(dao: DAO | undefined) {
                 },
             };
         },
-        enabled: !!poolId && !isLegacyV2DAO(dao),
+        enabled: !!poolId && isSupportedProtocol,
         staleTime: 15_000,
         refetchInterval: 30_000,
     });

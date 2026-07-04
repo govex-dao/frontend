@@ -290,10 +290,7 @@ export function approvalProgressFor(
 // Mirrors onchain find_satisfied_reject_path: cancel_policy is evaluated against
 // the rejected voters with include_time_bands=false. Time bands never count toward
 // cancellation; only real reject votes do.
-export function rejectionProgressFor(
-    config: MultisigConfig,
-    rejectedAddresses: string[]
-): MultisigPolicyProgress {
+export function rejectionProgressFor(config: MultisigConfig, rejectedAddresses: string[]): MultisigPolicyProgress {
     const voters = new Set(rejectedAddresses.map(normalizeSuiAddress));
     let best: MultisigPolicyProgress = {
         current: 0,
@@ -1102,8 +1099,7 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                         Object.keys(upgradeDigestByAction).length > 0 ? upgradeDigestByAction : undefined,
                     fixedObjectIdByAction:
                         Object.keys(fixedObjectIdByAction).length > 0 ? fixedObjectIdByAction : undefined,
-                    actionDataByAction:
-                        Object.keys(actionDataByAction).length > 0 ? actionDataByAction : undefined,
+                    actionDataByAction: Object.keys(actionDataByAction).length > 0 ? actionDataByAction : undefined,
                     approvals: {
                         configNonce: Number(get(outcomeFields, "config_nonce") || 0),
                         status: Number(get(outcomeFields, "status") || 0),
@@ -1226,7 +1222,10 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
                             if (!streamFields) return null;
                             const whitelistedRecipients = parseAddressVector(streamFields.whitelisted_recipients);
                             return {
-                                id: normalizeIdString(streamFields.id) ?? normalizeIdString((sf.name as any)?.value) ?? "",
+                                id:
+                                    normalizeIdString(streamFields.id) ??
+                                    normalizeIdString((sf.name as any)?.value) ??
+                                    "",
                                 vaultName,
                                 coinType: normalizeCoinType(parseTypeName(streamFields.coin_type) || "unknown"),
                                 amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
@@ -1397,7 +1396,9 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
                     isCancellable: Boolean(fields?.is_cancellable),
                 };
             })
-            .filter((entry): entry is { vestingId: string; coinType: string; isCancellable: boolean } => entry !== null);
+            .filter(
+                (entry): entry is { vestingId: string; coinType: string; isCancellable: boolean } => entry !== null
+            );
 
         const vestings = await Promise.all(
             registryEntries.map(async (entry) => {
@@ -1415,7 +1416,9 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
                         accountId,
                         daoAddress: normalizeIdString(fields.dao_address) ?? accountId,
                         coinType: normalizeCoinType(
-                            parseTypeName(fields.coin_type) ?? extractCoinTypeFromObjectType(objectType) ?? entry.coinType
+                            parseTypeName(fields.coin_type) ??
+                                extractCoinTypeFromObjectType(objectType) ??
+                                entry.coinType
                         ),
                         balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
                         amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),

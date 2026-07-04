@@ -126,7 +126,10 @@ export function AdvancedMultisigRoles({ draft, onChange }: Props) {
 
     const removeRoleAddress = (key: RoleAddressKey, address: string) => {
         const removed = normalizeAddress(address);
-        updateRoleAddresses(key, selectedAddresses(key).filter((item) => normalizeAddress(item) !== removed));
+        updateRoleAddresses(
+            key,
+            selectedAddresses(key).filter((item) => normalizeAddress(item) !== removed)
+        );
     };
 
     return (

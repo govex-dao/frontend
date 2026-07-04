@@ -1,16 +1,24 @@
-import type { ReactNode } from "react";
+import { forwardRef, type HTMLAttributes, type MouseEvent, type ReactNode } from "react";
 
-interface CardProps {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
     children: ReactNode;
     className?: string;
     variant?: "default" | "elevated" | "more-elevated" | "glass";
     interactive?: boolean;
-    onClick?: (e: React.MouseEvent) => void;
-    style?: React.CSSProperties;
 }
 
-export function Card(props: CardProps) {
-    const { children, className = "", variant = "default", interactive = false, onClick, style } = props;
+export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(props, ref) {
+    const {
+        children,
+        className = "",
+        variant = "default",
+        interactive = false,
+        onClick,
+        role,
+        tabIndex,
+        onKeyDown,
+        ...rest
+    } = props;
     const baseStyles = "rounded-xl p-4";
 
     const variantStyles = {
@@ -29,17 +37,28 @@ export function Card(props: CardProps) {
 
     return (
         <div
+            {...rest}
+            ref={ref}
             className={combinedClassName}
             onClick={onClick}
-            role={onClick ? "button" : undefined}
-            tabIndex={onClick ? 0 : undefined}
-            onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e as unknown as React.MouseEvent); } } : undefined}
-            style={style}
+            role={role ?? (onClick ? "button" : undefined)}
+            tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
+            onKeyDown={
+                onKeyDown ??
+                (onClick
+                    ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onClick(e as unknown as MouseEvent<HTMLDivElement>);
+                          }
+                      }
+                    : undefined)
+            }
         >
             {children}
         </div>
     );
-}
+});
 
 interface CardHeaderProps {
     children: ReactNode;

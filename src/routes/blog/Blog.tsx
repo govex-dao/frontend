@@ -2,27 +2,19 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Helmet } from "react-helmet-async";
 import { Calendar, Tag } from "lucide-react";
-import { BLOG_TAGS, filterByTag } from "@/data/blogPosts";
+import { BLOG_TAGS, filterByTag, formatBlogDate, getBlogTagLabel } from "@/data/blogPosts";
 import type { BlogTag } from "@/data/blogPosts";
 
 const VALID_TAGS = new Set<string>(BLOG_TAGS.map((t) => t.value));
 
-function TagButton({
-    label,
-    isActive,
-    onClick,
-}: {
-    label: string;
-    isActive: boolean;
-    onClick: () => void;
-}) {
+function TagButton({ label, isActive, onClick }: { label: string; isActive: boolean; onClick: () => void }) {
     return (
         <button
             onClick={onClick}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
                 isActive
-                    ? "bg-primary text-white"
-                    : "bg-white/5 text-text-muted hover:bg-white/10 hover:text-text-primary"
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border-light bg-card/40 text-text-muted hover:bg-white/5 hover:text-text-primary"
             }`}
         >
             {label}
@@ -43,18 +35,18 @@ export function Blog() {
     }, [searchParams]);
 
     return (
-        <div className="route-container gap-8 py-8 sm:py-12">
+        <div className="route-container gap-6 py-6 sm:py-8">
             <Helmet>
                 <title>Blog | Govex</title>
             </Helmet>
 
-            <div className="max-w-4xl mx-auto w-full">
-                <div className="mb-8">
-                    <h1 className="text-3xl sm:text-4xl font-bold">Blog</h1>
-                    <p className="text-text-muted mt-2">Updates, ideas, and deep dives from Govex.</p>
+            <div className="mx-auto w-full max-w-5xl">
+                <div className="mb-6 border-b border-border-light pb-5">
+                    <h1 className="text-3xl font-semibold">Blog</h1>
+                    <p className="mt-2 max-w-2xl text-sm text-text-muted">Updates, ideas, and deep dives from Govex.</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 mb-8">
+                <div className="mb-6 flex flex-wrap items-center gap-2">
                     <Tag className="w-4 h-4 text-text-muted" />
                     <TagButton
                         label="All"
@@ -79,40 +71,63 @@ export function Blog() {
                 </div>
 
                 {filtered.length === 0 ? (
-                    <div className="text-center py-16 text-text-muted">
+                    <div className="rounded-lg border border-border-light bg-card/30 py-16 text-center text-text-muted">
                         <p className="text-lg">No posts yet.</p>
                         <p className="text-sm mt-1">Check back soon.</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         {filtered.map((post) => (
                             <Link
                                 key={post.slug}
                                 to={`/blog/${post.slug}`}
-                                className="group bg-card rounded-xl p-5 sm:p-6 border border-white/5 hover:border-primary/20 transition-all"
+                                className="group rounded-lg border border-border-light bg-card/30 p-4 transition-colors hover:border-primary/25 hover:bg-card/50 sm:p-5"
                             >
-                                <div className="flex flex-wrap items-center gap-2 mb-2">
-                                    {post.tags.map((tag) => (
-                                        <span
-                                            key={tag}
-                                            className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-text-muted"
-                                        >
-                                            {tag}
-                                        </span>
-                                    ))}
-                                    <span className="text-xs text-text-disabled flex items-center gap-1 ml-auto">
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(post.date).toLocaleDateString("en-US", {
-                                            month: "short",
-                                            day: "numeric",
-                                            year: "numeric",
-                                        })}
-                                    </span>
+                                <div
+                                    className={
+                                        post.image
+                                            ? "grid gap-4 sm:grid-cols-[184px_minmax(0,1fr)] sm:items-stretch"
+                                            : ""
+                                    }
+                                >
+                                    {post.image && (
+                                        <div className="overflow-hidden rounded-md border border-border-subtle bg-black/20">
+                                            <img
+                                                src={post.image.src}
+                                                alt={post.image.alt}
+                                                className="aspect-[16/10] h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="min-w-0">
+                                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                                            {post.tags.map((tag) => (
+                                                <span
+                                                    key={tag}
+                                                    className="rounded-md border border-border-subtle bg-white/5 px-2 py-0.5 text-xs text-text-muted"
+                                                >
+                                                    {getBlogTagLabel(tag)}
+                                                </span>
+                                            ))}
+                                            <span className="flex items-center gap-1 text-xs text-text-disabled sm:ml-auto">
+                                                <Calendar className="w-3 h-3" />
+                                                {formatBlogDate(post.date, {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                    year: "numeric",
+                                                })}
+                                            </span>
+                                        </div>
+                                        <h2 className="text-lg font-semibold transition-colors group-hover:text-primary sm:text-xl">
+                                            {post.title}
+                                        </h2>
+                                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-text-muted">
+                                            {post.description}
+                                        </p>
+                                    </div>
                                 </div>
-                                <h2 className="text-lg sm:text-xl font-semibold group-hover:text-primary transition-colors">
-                                    {post.title}
-                                </h2>
-                                <p className="text-text-muted text-sm mt-1 line-clamp-2">{post.description}</p>
                             </Link>
                         ))}
                     </div>

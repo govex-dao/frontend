@@ -118,7 +118,14 @@ export function TradeInsight(props: TradeInsightProps) {
                 <p className="leading-relaxed mt-1 text-xs">
                     You're betting {renderAmountInput(fromSymbol, scale)} that the price of {assetSymbol} at{" "}
                     <span className="font-mono bg-black/30 px-2 py-0.5 rounded-md font-medium">
-                        ${averagePrice ? (isBuy ? averagePrice.toFixed(3) : Number.isFinite(1 / averagePrice) ? (1 / averagePrice).toFixed(3) : "\u221e") : ""}
+                        $
+                        {averagePrice
+                            ? isBuy
+                                ? averagePrice.toFixed(3)
+                                : Number.isFinite(1 / averagePrice)
+                                  ? (1 / averagePrice).toFixed(3)
+                                  : "\u221e"
+                            : ""}
                     </span>{" "}
                     is too {isBuy ? "low" : "high"}.
                 </p>

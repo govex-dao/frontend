@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { Helmet } from "react-helmet-async";
-import { Home, BookOpen, Building2, Shield, ArrowRight } from "lucide-react";
+import { Home } from "lucide-react";
 
 export function NotFoundPage() {
     return (
@@ -42,65 +42,8 @@ export function NotFoundPage() {
                                 className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary hover:bg-primary-light text-white transition-all w-full sm:flex-1 font-medium shadow-[0_0_12px_rgba(59,130,246,0.3)] hover:shadow-[0_0_16px_rgba(59,130,246,0.5)]"
                             >
                                 <Home className="w-4 h-4" />
-                                Go to Home
+                                Go Home
                             </Link>
-                            <Link
-                                to="/orgs"
-                                className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-card-elevated border border-border-light hover:bg-card-more-elevated hover:border-primary/30 transition-all w-full sm:flex-1 font-medium"
-                            >
-                                <Building2 className="w-4 h-4" />
-                                Browse Orgs
-                            </Link>
-                        </div>
-
-                        <div className="border-t border-border" />
-
-                        {/* Quick Links Grid */}
-                        <div>
-                            <p className="text-sm font-medium text-text-muted mb-4">Explore the platform:</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <Link
-                                    to="/multisig"
-                                    className="group flex items-center gap-3 p-4 bg-card-elevated hover:bg-card-more-elevated border border-border-light hover:border-primary/30 rounded-lg transition-all"
-                                >
-                                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                        <Shield className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-semibold text-text-primary">Multisig</div>
-                                        <div className="text-xs text-text-muted">Manage approvals</div>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
-
-                                <Link
-                                    to="/orgs"
-                                    className="group flex items-center gap-3 p-4 bg-card-elevated hover:bg-card-more-elevated border border-border-light hover:border-primary/30 rounded-lg transition-all"
-                                >
-                                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                        <Building2 className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-semibold text-text-primary">Orgs</div>
-                                        <div className="text-xs text-text-muted">Explore Orgs</div>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
-
-                                <Link
-                                    to="/docs"
-                                    className="group flex items-center gap-3 p-4 bg-card-elevated hover:bg-card-more-elevated border border-border-light hover:border-primary/30 rounded-lg transition-all"
-                                >
-                                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                        <BookOpen className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-semibold text-text-primary">Docs</div>
-                                        <div className="text-xs text-text-muted">Read documentation</div>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
-                            </div>
                         </div>
                     </div>
                 </div>
