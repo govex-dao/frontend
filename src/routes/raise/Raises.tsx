@@ -87,7 +87,7 @@ export function Raises() {
                     <div className="flex flex-col gap-2">
                         <h3 className="text-xl font-semibold text-text-primary">No Raises Available</h3>
                         <p className="text-text-muted text-center max-w-md">
-                            There are currently no active raises. Check back soon for new investment opportunities.
+                            There are currently no active raises. Check back soon.
                         </p>
                     </div>
                 </div>
