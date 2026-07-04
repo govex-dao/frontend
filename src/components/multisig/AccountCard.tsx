@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Check, Copy, Shield, Users, WalletCards, X } from "lucide-react";
+import { Check, Clock3, Copy, DollarSign, Shield, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
@@ -7,7 +7,9 @@ import { MiddleEllipsizedAddress } from "./CopyableAddress";
 interface Props {
     accountId: string;
     accountName: string;
-    memberCount: number;
+    memberCount: number | null;
+    pendingIntentCount?: number | null;
+    balanceUsd?: string | null;
     metaLabel?: string;
     metaValue?: string;
     onRemove?: () => void;
@@ -16,10 +18,25 @@ interface Props {
 }
 
 export function AccountCard(props: Props) {
-    const { accountId, accountName, memberCount, metaLabel, metaValue, onRemove, showAccountId = true, to } = props;
+    const {
+        accountId,
+        accountName,
+        memberCount,
+        pendingIntentCount,
+        balanceUsd,
+        metaLabel,
+        metaValue,
+        onRemove,
+        showAccountId = true,
+        to,
+    } = props;
     const [copied, setCopied] = useState(false);
     const displayName = accountName.trim() || "Multisig Account";
-    const cardClassName = "group glass-flow-panel rounded-xl p-5 transition-all flex flex-col gap-4 h-full relative";
+    const cardClassName =
+        "group glass-flow-panel home-tier-panel rounded-xl p-5 transition-all flex flex-col gap-4 h-full relative";
+    const memberCountValue = memberCount === null ? "..." : memberCount;
+    const pendingIntentValue = pendingIntentCount === null ? "..." : pendingIntentCount;
+    const balanceValue = balanceUsd === null ? "..." : balanceUsd;
 
     const copyAccountId = async (event: MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -79,30 +96,44 @@ export function AccountCard(props: Props) {
                 </div>
             </div>
 
-            {(memberCount > 0 || metaValue) && (
-                <div className="grid gap-3 border-t border-border-subtle pt-3 sm:grid-cols-2">
-                    {memberCount > 0 && (
-                        <div>
-                            <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Members</p>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {memberCount}
-                            </p>
-                        </div>
-                    )}
-                    {metaValue && (
-                        <div>
-                            <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">
-                                {metaLabel ?? "Access"}
-                            </p>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                                <WalletCards className="w-3 h-3" />
-                                {metaValue}
-                            </p>
-                        </div>
-                    )}
+            <div className="grid grid-cols-2 gap-3 border-t border-border-subtle pt-3 sm:grid-cols-3">
+                <div>
+                    <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Members</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {memberCountValue}
+                    </p>
                 </div>
-            )}
+                {pendingIntentCount !== undefined && (
+                    <div>
+                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Pending</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                            <Clock3 className="w-3 h-3" />
+                            {pendingIntentValue}
+                        </p>
+                    </div>
+                )}
+                {balanceUsd !== undefined && (
+                    <div>
+                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Balance</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            {balanceValue}
+                        </p>
+                    </div>
+                )}
+                {metaValue && (
+                    <div>
+                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">
+                            {metaLabel ?? "Access"}
+                        </p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                            <WalletCards className="w-3 h-3" />
+                            {metaValue}
+                        </p>
+                    </div>
+                )}
+            </div>
         </>
     );
 

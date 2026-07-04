@@ -8,15 +8,20 @@ import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
 import { useMyLinkedMultisigAccounts } from "@/hooks/useMyVestingsAndStreams";
-import { useMultisigConfig } from "@/hooks/useMultisig";
+import { useMultisigConfig, useMultisigIntents, useMultisigVaultBalances } from "@/hooks/useMultisig";
 import type { MultisigListItem } from "@/lib/api";
-import { normalizeSuiAddress } from "@/lib/sui/multisig";
+import { isOpenIntentStatus, normalizeSuiAddress } from "@/lib/sui/multisig";
+import type { VaultCoinBalance } from "@/lib/sui/multisig";
+import { formatUnits } from "@/lib/units";
 
 const ITEMS_PER_PAGE = 6;
+const USDC_DECIMALS = 6;
 const EXAMPLE_MULTISIG = {
     accountId: "0x4eedc223e50297adf3fd0124af3a114384b43685870a70140b44e2c51ac3505e",
     accountName: "Example Multisig",
     memberCount: 3,
+    pendingIntentCount: 4,
+    balanceUsd: "$220,000.00",
 };
 
 type MultisigItem =
@@ -26,6 +31,22 @@ type MultisigItem =
 
 function accountKey(id: string | undefined): string {
     return normalizeSuiAddress(id) || "";
+}
+
+function isUsdcCoinType(coinType: string): boolean {
+    return coinType.toLowerCase().endsWith("::usdc::usdc");
+}
+
+function formatUsdcBalanceUsd(balances: VaultCoinBalance[] | undefined): string | null {
+    if (!balances) return null;
+    const usdcBalance = balances.reduce((total, balance) => {
+        return isUsdcCoinType(balance.coinType) ? total + balance.amount : total;
+    }, 0n);
+    const formatted = formatUnits(usdcBalance, USDC_DECIMALS, {
+        maxFractionDigits: 2,
+        trimTrailingZeros: false,
+    });
+    return `$${formatted}`;
 }
 
 function ResolvedAccountCard({
@@ -40,10 +61,24 @@ function ResolvedAccountCard({
     onRemove?: () => void;
 }) {
     const { data: config } = useMultisigConfig(accountId);
+    const { data: intents } = useMultisigIntents(accountId);
+    const { data: vaultBalances } = useMultisigVaultBalances(accountId);
     const accountName = config?.name?.trim() || fallbackName;
+    const resolvedMemberCount = config?.members.length ?? (memberCount > 0 ? memberCount : null);
+    const pendingIntentCount = intents
+        ? intents.filter((intent) => isOpenIntentStatus(intent.approvals.status)).length
+        : null;
+    const balanceUsd = formatUsdcBalanceUsd(vaultBalances);
 
     return (
-        <AccountCard accountId={accountId} accountName={accountName} memberCount={memberCount} onRemove={onRemove} />
+        <AccountCard
+            accountId={accountId}
+            accountName={accountName}
+            memberCount={resolvedMemberCount}
+            pendingIntentCount={pendingIntentCount}
+            balanceUsd={balanceUsd}
+            onRemove={onRemove}
+        />
     );
 }
 
@@ -145,6 +180,8 @@ export function Multisigs() {
                             accountId={EXAMPLE_MULTISIG.accountId}
                             accountName={EXAMPLE_MULTISIG.accountName}
                             memberCount={EXAMPLE_MULTISIG.memberCount}
+                            pendingIntentCount={EXAMPLE_MULTISIG.pendingIntentCount}
+                            balanceUsd={EXAMPLE_MULTISIG.balanceUsd}
                             showAccountId={false}
                             to="/multisig/example"
                         />
@@ -166,7 +203,7 @@ export function Multisigs() {
                     </div>
                 </section>
             ) : (
-                <section className="glass-flow-panel flex flex-col gap-4 rounded-xl p-4 md:p-6 lg:p-8">
+                <section className="glass-flow-panel home-tier-panel flex flex-col gap-4 rounded-xl p-4 md:p-6 lg:p-8">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h1 className="text-2xl font-bold">Multisigs</h1>
