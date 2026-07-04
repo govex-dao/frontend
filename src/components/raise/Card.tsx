@@ -13,10 +13,12 @@ import { Badge } from "../Badge";
 interface RaiseCardProps {
     raise: RaiseView;
     variant?: "featured" | "compact";
+    detailPath?: string;
+    orgPath?: string;
 }
 
 export function RaiseCard(props: RaiseCardProps) {
-    const { raise, variant = "compact" } = props;
+    const { raise, variant = "compact", detailPath, orgPath } = props;
     const { id, name, raised, raising, raiseStart, raiseEnd, orgId, description, image, maxRaise } = raise;
 
     const navigate = useNavigate();
@@ -31,12 +33,12 @@ export function RaiseCard(props: RaiseCardProps) {
 
     const onInvestClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigate(`/raises/${id}`);
+        navigate(detailPath ?? `/raises/${id}`);
     };
 
     const onOrgClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigate(`/orgs/${orgId}`);
+        navigate(orgPath ?? `/orgs/${orgId}`);
     };
 
     // Featured variant - delegate to FeaturedCard
@@ -144,7 +146,9 @@ export function RaiseCard(props: RaiseCardProps) {
 
             {/* Footer */}
             <div className={`flex items-center justify-between ${!isActive && "justify-end"}`}>
-                {isActive && <div className="text-sm text-text-muted font-medium">{getTimeRemainingLabel(raiseEnd)}</div>}
+                {isActive && (
+                    <div className="text-sm text-text-muted font-medium">{getTimeRemainingLabel(raiseEnd)}</div>
+                )}
                 {isActive ? (
                     <Button onClick={onInvestClick} innerLink size="sm">
                         Invest

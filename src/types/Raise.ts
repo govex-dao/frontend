@@ -10,6 +10,7 @@ export interface RaiseMetadata {
   team?: string; // JSON string of TeamMember[]
   website?: string;
   twitter?: string;
+  founder_twitter?: string;
   discord?: string;
 }
 

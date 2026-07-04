@@ -1,10 +1,11 @@
-import { useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Helmet } from "react-helmet-async";
 import { StarIcon, Loader2, Wallet, Coins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NotFound } from "@/components/navigation/NotFound";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { SidebarNav, type SidebarNavItem } from "@/components/navigation/SidebarNav";
+import { AmmTvlPanel } from "@/components/org/page/AmmTvlPanel";
 import { ProposalsTab } from "@/components/org/page/ProposalsTab";
 import { SpotSwapCard } from "@/components/org/page/SpotSwapCard";
 import { OrdersTab } from "@/components/org/page/OrdersTab";
@@ -17,9 +18,10 @@ import { useDAO, useDAOProposalsDisplay, useCoins } from "@/hooks/api";
 import { useMultisigVaultBalances } from "@/hooks/useMultisig";
 import { DepositModal } from "@/components/multisig/DepositModal";
 import { CoinAvatar } from "@/components/CoinAvatar";
+import { RaiseActionSections } from "@/components/raise/ActionSections";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
-import { formatNumberWithCommas } from "@/lib/formatNumber";
 import { getProtocolVersionForDAO } from "@/lib/sdk";
+import { formatUnits, normalizeUnitsForSort } from "@/lib/units";
 import { toDAODisplay, type DAO, type DAODisplay } from "@/types";
 import type { VaultCoinBalance } from "@/lib/sui/multisig";
 import type { CoinMetadata } from "@/lib/api/coins";
@@ -73,8 +75,7 @@ function OrgInfo({
     daoRaw: DAO;
     spotPriceFormatted?: string | null;
 }) {
-    const daoId = daoRaw.canonical_uuid ?? daoRaw.id;
-    const accountId = daoRaw.id;
+    const daoAccountId = daoRaw.id;
 
     return (
         <div className="glass-flow-panel rounded-xl p-6">
@@ -105,19 +106,18 @@ function OrgInfo({
                         </p>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border-light pt-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border-light pt-4 text-sm">
                     <OrgIdentifier
                         label="Asset Type"
                         value={daoRaw.asset_type}
                         copyLabel="Copy asset type"
                         toastMessage="Asset type copied"
                     />
-                    <OrgIdentifier label="DAO ID" value={daoId} copyLabel="Copy DAO ID" toastMessage="DAO ID copied" />
                     <OrgIdentifier
-                        label="Account ID"
-                        value={accountId}
-                        copyLabel="Copy account ID"
-                        toastMessage="Account ID copied"
+                        label="DAO Account ID"
+                        value={daoAccountId}
+                        copyLabel="Copy DAO account ID"
+                        toastMessage="DAO account ID copied"
                     />
                 </div>
             </div>
@@ -131,7 +131,13 @@ function OrgHeader({ dao, isFavorited, onToggleFavorite }: OrgHeaderProps) {
     return (
         <div className="p-4 space-y-3 relative">
             <div className="absolute top-4 right-4 flex items-center gap-2">
-                <Button variant="outline" square size="sm" onClick={onToggleFavorite} className="hover:bg-card-elevated">
+                <Button
+                    variant="outline"
+                    square
+                    size="sm"
+                    onClick={onToggleFavorite}
+                    className="hover:bg-card-elevated"
+                >
                     <StarIcon
                         className={`w-4 h-4 transition-all ${isFavorited ? "text-yellow-400 fill-yellow-400" : "fill-none"}`}
                     />
@@ -166,8 +172,13 @@ function OrgHeader({ dao, isFavorited, onToggleFavorite }: OrgHeaderProps) {
 }
 
 type TabType = "overview" | "proposals" | "trade" | "orders";
+type NavItemId = TabType | "raises";
 
-function OrgVaultHoldings({ balances, coins, isLoading }: {
+function OrgVaultHoldings({
+    balances,
+    coins,
+    isLoading,
+}: {
     balances?: VaultCoinBalance[];
     coins?: CoinMetadata[];
     isLoading: boolean;
@@ -207,9 +218,9 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
             };
         })
         .sort((a, b) => {
-            const aVal = Number(a.amount) / Math.pow(10, a.decimals);
-            const bVal = Number(b.amount) / Math.pow(10, b.decimals);
-            return bVal - aVal;
+            const aVal = normalizeUnitsForSort(a.amount, a.decimals);
+            const bVal = normalizeUnitsForSort(b.amount, b.decimals);
+            return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
         });
 
     return (
@@ -217,16 +228,27 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
             <table className="w-full">
                 <thead>
                     <tr className="border-b border-border bg-white/[0.035]">
-                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Asset</th>
-                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Vaults</th>
-                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">Balance</th>
+                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                            Asset
+                        </th>
+                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                            Vaults
+                        </th>
+                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                            Balance
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {rows.map((row) => {
-                        const formatted = Number(row.amount) / Math.pow(10, row.decimals);
+                        const formatted = formatUnits(row.amount, row.decimals, {
+                            maxFractionDigits: Math.min(row.decimals, 9),
+                        });
                         return (
-                            <tr key={row.coinType} className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors">
+                            <tr
+                                key={row.coinType}
+                                className="border-b border-border last:border-b-0 hover:bg-card-elevated/50 transition-colors"
+                            >
                                 <td className="py-3 px-4">
                                     <div className="flex items-center gap-3">
                                         <CoinAvatar
@@ -244,14 +266,17 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
                                 <td className="py-3 px-4">
                                     <div className="flex gap-1.5 flex-wrap">
                                         {row.vaults.map((v) => (
-                                            <span key={v} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                            <span
+                                                key={v}
+                                                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary"
+                                            >
                                                 {v}
                                             </span>
                                         ))}
                                     </div>
                                 </td>
                                 <td className="py-3 px-4 text-right">
-                                    <span className="font-mono font-medium text-text-primary">{formatNumberWithCommas(formatted)}</span>
+                                    <span className="font-mono font-medium text-text-primary">{formatted}</span>
                                 </td>
                             </tr>
                         );
@@ -262,8 +287,34 @@ function OrgVaultHoldings({ balances, coins, isLoading }: {
     );
 }
 
+function OrgCreationActions({ daoRaw }: { daoRaw: DAO }) {
+    const actionContext = {
+        assetType: daoRaw.asset_type,
+        stableType: daoRaw.stable_type,
+        assetSymbol: daoRaw.asset_symbol,
+        stableSymbol: daoRaw.stable_symbol,
+        assetDecimals: daoRaw.asset_decimals,
+        stableDecimals: daoRaw.stable_decimals,
+    };
+
+    return (
+        <RaiseActionSections
+            title="DAO creation actions"
+            sections={[
+                {
+                    title: "Launch actions",
+                    caption: daoRaw.init_execution_at ? "Executed" : "Staged at creation",
+                    actions: daoRaw.init_actions,
+                },
+            ]}
+            context={actionContext}
+        />
+    );
+}
+
 export function Org() {
     const { orgId } = useParams<{ orgId: string }>();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [showLeftFade, setShowLeftFade] = useState(false);
     const [showRightFade, setShowRightFade] = useState(true);
@@ -292,11 +343,20 @@ export function Org() {
     const { isFavorited, toggleFavorite } = useFavorites();
     const activeTab = (searchParams.get("tab") as TabType) || "overview";
     const setActiveTab = (tab: TabType) => setSearchParams({ tab });
+    const handleNavItemClick = (id: string) => {
+        if (id === "raises") {
+            const raiseOrgId = effectiveOrgId ?? orgId;
+            if (raiseOrgId) navigate(`/orgs/${raiseOrgId}/raises`);
+            return;
+        }
+        setActiveTab(id as TabType);
+    };
 
     const mainNavItems: SidebarNavItem[] = useMemo(
         () => [
             { id: "overview", label: "Overview" },
             { id: "proposals", label: "Decisions" },
+            { id: "raises", label: "Raises" },
             { id: "trade", label: "Trade spot" },
             { id: "orders", label: "Orders" },
         ],
@@ -354,7 +414,7 @@ export function Org() {
                             {mainNavItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setActiveTab(item.id as TabType)}
+                                    onClick={() => handleNavItemClick(item.id as NavItemId)}
                                     className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors snap-center shrink-0 ${
                                         activeTab === item.id
                                             ? "bg-primary text-white"
@@ -384,18 +444,20 @@ export function Org() {
                                 className="bg-transparent"
                                 items={mainNavItems}
                                 activeItem={activeTab}
-                                onItemClick={(id) => setActiveTab(id as TabType)}
+                                onItemClick={handleNavItemClick}
                             />
                         </div>
-
                     </div>
                 </div>
 
                 <div className="flex flex-col flex-1 gap-3 min-w-0 p-4 md:p-8 lg:p-5 xl:p-8 2xl:p-10 relative h-full overflow-y-auto">
                     {activeTab === "overview" && (
                         <div className="flex flex-col gap-6">
-                            {/* Org Info */}
                             <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={spotPrice?.formatted} />
+
+                            <AmmTvlPanel dao={daoRaw} />
+
+                            <OrgCreationActions daoRaw={daoRaw} />
 
                             {/* Vault Holdings */}
                             <div>
@@ -445,9 +507,7 @@ export function Org() {
                         </div>
                     )}
 
-                    {activeTab === "orders" && (
-                        <OrdersTab dao={daoRaw} />
-                    )}
+                    {activeTab === "orders" && <OrdersTab dao={daoRaw} />}
                 </div>
             </div>
 

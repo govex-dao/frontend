@@ -5,6 +5,10 @@
 import type { Raise } from "../../types";
 import { api, type ApiRequestOptions } from "./client";
 
+export interface FetchRaisesParams {
+    daoId?: string;
+}
+
 export interface UserContribution {
     hasInvested: boolean;
     amount: string;
@@ -12,8 +16,11 @@ export interface UserContribution {
     rank: number;
 }
 
-export async function fetchRaises(options?: ApiRequestOptions): Promise<Raise[]> {
-    return api.get<Raise[]>("/api/raises", options);
+export async function fetchRaises(params: FetchRaisesParams = {}, options?: ApiRequestOptions): Promise<Raise[]> {
+    const searchParams = new URLSearchParams();
+    if (params.daoId) searchParams.set("dao_id", params.daoId);
+    const query = searchParams.toString();
+    return api.get<Raise[]>(`/api/raises${query ? `?${query}` : ""}`, options);
 }
 
 export async function fetchRaise(id: string, options?: ApiRequestOptions): Promise<Raise> {

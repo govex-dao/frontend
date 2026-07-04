@@ -9,7 +9,7 @@ import { raiseListRefreshInterval, raiseRefreshInterval } from "./refresh";
 
 export const raiseKeys = {
     all: ["raises"] as const,
-    list: () => [...raiseKeys.all, "list"] as const,
+    list: (daoId?: string) => [...raiseKeys.all, "list", daoId ?? "all"] as const,
     details: () => [...raiseKeys.all, "detail"] as const,
     detail: (id: string) => [...raiseKeys.details(), id] as const,
     contribution: (raiseId: string, address: string) => [...raiseKeys.all, "contribution", raiseId, address] as const,
@@ -19,10 +19,11 @@ export const raiseKeys = {
 /**
  * Fetch all raises
  */
-export function useRaises() {
+export function useRaises(daoId?: string, options: { enabled?: boolean } = {}) {
     return useQuery<Raise[]>({
-        queryKey: raiseKeys.list(),
-        queryFn: ({ signal }) => fetchRaises({ signal }),
+        queryKey: raiseKeys.list(daoId),
+        queryFn: ({ signal }) => fetchRaises({ daoId }, { signal }),
+        enabled: options.enabled ?? true,
         refetchInterval: (query) => raiseListRefreshInterval(query.state.data),
     });
 }

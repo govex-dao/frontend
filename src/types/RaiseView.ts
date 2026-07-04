@@ -54,6 +54,9 @@ export function toRaiseView(raise: Raise): RaiseView {
             team = undefined;
         }
     }
+    if ((!team || team.length === 0) && metadata.founder_twitter) {
+        team = [{ name: "Founder", role: "Founder", twitter: metadata.founder_twitter }];
+    }
 
     // Parse dates from milliseconds timestamps
     const startTime = raise.start_time ? Number(raise.start_time) : Date.now();

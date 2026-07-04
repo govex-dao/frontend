@@ -39,3 +39,41 @@ export function formatUnitsForInput(amount: bigint, decimals: number): string {
         useGrouping: false,
     });
 }
+
+export function normalizeUnitsForSort(amount: bigint, decimals: number, targetDecimals = 18): bigint {
+    const sourceDecimals = Math.max(0, Math.trunc(decimals));
+    const normalizedTarget = Math.max(0, Math.trunc(targetDecimals));
+
+    if (sourceDecimals === normalizedTarget) return amount;
+    if (sourceDecimals > normalizedTarget) {
+        return amount / 10n ** BigInt(sourceDecimals - normalizedTarget);
+    }
+    return amount * 10n ** BigInt(normalizedTarget - sourceDecimals);
+}
+
+function formatCompactScaled(amount: bigint, divisor: bigint): string {
+    const scaled = (amount * 100n) / divisor;
+    const whole = scaled / 100n;
+    const fraction = scaled % 100n;
+    const fractionText = fraction.toString().padStart(2, "0").replace(/0+$/, "");
+    return fractionText ? `${whole}.${fractionText}` : whole.toString();
+}
+
+export function formatCompactBigInt(amount: bigint): string {
+    const sign = amount < 0n ? "-" : "";
+    const absolute = amount < 0n ? -amount : amount;
+
+    if (absolute >= 1_000_000_000_000n) {
+        return `${sign}${formatCompactScaled(absolute, 1_000_000_000_000n)}T`;
+    }
+    if (absolute >= 1_000_000_000n) {
+        return `${sign}${formatCompactScaled(absolute, 1_000_000_000n)}B`;
+    }
+    if (absolute >= 1_000_000n) {
+        return `${sign}${formatCompactScaled(absolute, 1_000_000n)}M`;
+    }
+    if (absolute >= 1_000n) {
+        return `${sign}${formatCompactScaled(absolute, 1_000n)}K`;
+    }
+    return amount.toString();
+}

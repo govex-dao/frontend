@@ -1,4 +1,4 @@
-export type BlogTag = "multisig" | "org" | "markets";
+export type BlogTag = "multisig" | "org" | "markets" | "governance";
 
 export interface BlogPost {
     slug: string;
@@ -6,29 +6,89 @@ export interface BlogPost {
     description: string;
     tags: BlogTag[];
     date: string;
+    image?: {
+        src: string;
+        alt: string;
+    };
     content: string;
 }
 
 export const BLOG_TAGS: { value: BlogTag; label: string }[] = [
     { value: "multisig", label: "Multisig" },
-    { value: "org", label: "Org" },
     { value: "markets", label: "Markets" },
+    { value: "governance", label: "Governance" },
+    { value: "org", label: "Org" },
 ];
 
 export const blogPosts: BlogPost[] = [
     {
+        slug: "govex-multisig-vs-built-in-sui-multisig",
+        title: "Govex Multisig vs. Built-In Sui Multisig",
+        description:
+            "Sui native multisig coordinates signatures. Govex is for the work that comes after custody: roles, vaults, limits, proposals, approvals, execution, and team operations.",
+        tags: ["multisig", "governance"],
+        date: "2026-07-02",
+        image: {
+            src: "/images/blog/govex-multisig-vs-sui-multisig.png",
+            alt: "Abstract comparison between simple threshold signing and a programmable Govex account control surface",
+        },
+        content: `
+## The Short Version
+
+[Sui's built-in multisig](https://docs.sui.io/develop/transactions/transaction-auth/multisig) is a good primitive. It coordinates signatures: public keys, weights, a threshold, and a transaction.
+
+That is not the same thing as running an account.
+
+Govex is a programmable multisig for ongoing team operations. It gives the account rules, memory, and workflow.
+
+## What Govex Adds
+
+Govex provides more granular security than the default Sui multisig:
+
+- Role-based permissions for who can propose, vote, execute, and finalize cancellation.
+- Virtual vaults to isolate treasury funds.
+- Spending limits and whitelisted transfer recipients.
+- Onchain changes to members, weights, thresholds, and policies.
+- Immutable contracts with no Govex-controlled admin backdoor.
+- Proposal tracking for creation, approvals, rejection, cancellation, and execution.
+- Alerting and SSO support for teams that need an operational security layer.
+
+The default Sui multisig cannot express this because it only answers one question:
+
+**Did enough signer weight authorize this transaction?**
+
+Govex asks better questions:
+
+**Who proposed it? Who approved it? Who is allowed to execute it? Which vault does it touch? Is the recipient whitelisted? Is this within a spending limit? Has cancellation been unlocked?**
+
+## Time Bands
+
+Govex also supports time bands: delayed approval weight for a group.
+
+Example: two team members are not enough immediately, but after a review window their approval path can mature. During that window, reject votes can unlock cancellation. Time bands count for approval, not cancellation, so they create a review window instead of silently giving anyone a veto.
+
+## The Difference
+
+Sui multisig is custody infrastructure.
+
+Govex is account infrastructure.
+
+If all you need is threshold signatures, use the default Sui multisig. If your team needs to manage assets, roles, vaults, policies, approvals, and execution over time, use Govex.
+`,
+    },
+    {
         slug: "multisig-security-after-drift",
         title: "Multisig Security in a Post-Drift World",
         description:
-            "Drift lost $280M because signers approved what they didn't read and the multisig had zero delay. Auditors fix this, but they shouldn't hold your org hostage. Time bands solve both problems.",
+            "Drift lost $280M after signers approved what they didn't read. Auditors reduce that risk, but they shouldn't hold your org hostage. Time bands solve both problems.",
         tags: ["multisig"],
         date: "2026-04-03",
         content: `
 ## $280M and a Wake-Up Call
 
-On April 1, 2026, Drift's treasury was drained. An attacker socially engineered two of five Security Council signers into pre-signing transactions they believed were routine protocol updates. The multisig had a 2-of-5 threshold with zero timelock; once two signatures existed, execution was instant. $280 million gone in twelve minutes.
+On April 1, 2026, Drift's treasury was drained. Public reporting described attackers socially engineering Security Council signers into approving transactions they believed were routine protocol updates. The important failure mode is simple: signer approval moved faster than independent review. $280 million gone in minutes.
 
-The signers weren't hacked. Their keys weren't stolen. They were tricked into approving something they didn't read. And the multisig had no mechanism to force a review window between approval and execution.
+The signers weren't hacked. Their keys weren't stolen. They were tricked into approving something they didn't read. The account had no effective review window between approval and execution.
 
 That failure mode is bigger than Drift: WazirX and Radiant showed the same blind-signing class, where signers saw one thing while malicious wallet or ownership-change payloads handed control to attacker contracts. Queued, decoded intents plus a cancellation window are designed for exactly that gap.
 
@@ -67,7 +127,7 @@ When auditors are engaged, things move fast. When they're not, time shifts the a
 
 Go back to the Drift scenario. Same treasury, but with this model:
 
-- **The attacker tricks 2 signers**, but the config requires either more team members or an auditor for instant approval. No path is satisfied. The transaction sits pending.
+- **The attacker tricks enough signers to make progress**, but the config requires either more team members or an auditor for instant approval. No path is satisfied. The transaction sits pending.
 - **The attacker waits for a time band**, but that's a detection window. The remaining team members can vote against, and a whitelisted canceller can finalize once the cancel policy is met.
 - **Cancel can't be blocked by execution roles.** Compromising the keys needed to execute does not bypass a pending vote-against path or the cancel finalizer whitelist.
 - **This works in reverse too.** Auditor-only paths can be configured to require a time band delay before the threshold is met. If auditors go rogue, the team has days or weeks to cancel before execution is possible. Neither side holds unilateral power.
@@ -93,7 +153,37 @@ export function getBlogPost(slug: string): BlogPost | undefined {
     return blogPosts.find((post) => post.slug === slug);
 }
 
+export function getBlogTagLabel(tag: BlogTag): string {
+    return BLOG_TAGS.find((item) => item.value === tag)?.label ?? tag;
+}
+
+function parseBlogDate(date: string): Date {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+    if (!match) {
+        return new Date(date);
+    }
+
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+function getBlogDateTime(date: string): number {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+    if (!match) {
+        return new Date(date).getTime();
+    }
+
+    const [, year, month, day] = match;
+    return Date.UTC(Number(year), Number(month) - 1, Number(day));
+}
+
+export function formatBlogDate(date: string, options: Intl.DateTimeFormatOptions): string {
+    return parseBlogDate(date).toLocaleDateString("en-US", options);
+}
+
 export function filterByTag(tag: BlogTag | null): BlogPost[] {
     const posts = tag ? blogPosts.filter((post) => post.tags.includes(tag)) : blogPosts;
-    return [...posts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...posts].sort((a, b) => getBlogDateTime(b.date) - getBlogDateTime(a.date));
 }
