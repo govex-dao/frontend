@@ -80,17 +80,27 @@ If all you need is threshold signatures, use the default Sui multisig. If your t
         slug: "multisig-security-after-drift",
         title: "Multisig Security in a Post-Drift World",
         description:
-            "Drift lost $280M after signers approved what they didn't read. Auditors reduce that risk, but they shouldn't hold your org hostage. Time bands solve both problems.",
+            "Drift showed what happens when high-authority approvals move faster than review. Bybit, Radiant, WazirX, BadgerDAO, and bridge failures point to the missing layer: decoded, delayed, cancellable intent execution.",
         tags: ["multisig"],
         date: "2026-04-03",
+        image: {
+            src: "/images/blog/multisig-security-after-drift.png",
+            alt: "Shadowy laptop screen showing a glowing question mark for multisig transaction security review",
+        },
         content: `
 ## $280M and a Wake-Up Call
 
-On April 1, 2026, Drift's treasury was drained. Public reporting described attackers socially engineering Security Council signers into approving transactions they believed were routine protocol updates. The important failure mode is simple: signer approval moved faster than independent review. $280 million gone in minutes.
+On April 1, 2026, Drift's treasury was drained. Public reporting put the loss around $280 million and described a sophisticated operation involving durable nonces, misrepresented transaction approvals, social engineering, and a rapid takeover of Security Council powers. The exact incident details matter for Drift, but the design lesson is simpler: high-authority execution moved faster than independent review.
 
-The signers weren't hacked. Their keys weren't stolen. They were tricked into approving something they didn't read. The account had no effective review window between approval and execution.
+This is not only a Drift problem. It is the same broad failure class behind several major incidents:
 
-That failure mode is bigger than Drift: WazirX and Radiant showed the same blind-signing class, where signers saw one thing while malicious wallet or ownership-change payloads handed control to attacker contracts. Queued, decoded intents plus a cancellation window are designed for exactly that gap.
+- [Bybit](https://www.businessinsider.com/what-we-know-bybit-crypto-ethereum-hack-2025-2) lost about $1.5 billion on February 21, 2025 when a cold-wallet transfer was manipulated so signers saw a routine move while the underlying smart-contract logic let the attacker take over the wallet. The [FBI attributed](https://www.ic3.gov/PSA/2025/PSA250226) the theft to North Korea. Bybit is a centralized exchange, not DeFi, but the signing failure is directly relevant.
+- [Radiant Capital](https://rekt.news/radiant-capital-rekt2) lost more than $53 million in October 2024 after attackers gained enough control over a 3-of-11 multisig path to transfer ownership, upgrade pool implementations, and drain funds. That is the closest DeFi example.
+- [WazirX](https://www.theverge.com/2025/1/14/24343762/north-korea-crypto-stolen-wazirx-lazarus-group) lost roughly $230-$235 million from a multisig custody wallet in July 2024. Public reporting and later analysis described a disputed but familiar custody-workflow failure involving signer/UI mismatch and contract-control changes.
+- [BadgerDAO](https://rekt.news/badger-rekt) was a user-level version of the same problem: a compromised frontend induced approvals that looked attached to normal app flows, then drained wallets.
+- [Ronin](https://www.wired.com/story/blockchain-network-bridge-hacks) and [Harmony Horizon](https://www.fbi.gov/news/press-releases/fbi-confirms-lazarus-group-cyber-actors-responsible-for-harmonys-horizon-bridge-currency-theft) were not blind-signing UI failures, but they are related threshold-control failures: enough validators or bridge authority was compromised to move enormous value.
+
+The signers may not be "hacked" in the narrow private-key sense. Their security stack can still fail if they approve a transaction whose decoded meaning, timing, and execution path are not independently constrained.
 
 The lesson is clear: **every high-value transaction needs an independent reviewer who actually reads it.** Not more of the same signers. An external check, auditors, a security council, someone whose only job is to verify what's being signed before it executes.
 
