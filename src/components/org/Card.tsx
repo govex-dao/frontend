@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { StarIcon } from "lucide-react";
 import type { DAODisplay } from "@/types";
 import { VerifiedBadge } from "../badges/VerifiedBadge";
+import { useOrgMarketCap } from "@/hooks/useOrgMarketCap";
 
 interface Props {
     dao: DAODisplay;
@@ -15,6 +16,7 @@ export function OrgCard(props: Props) {
     const { dao, isFavorited, onToggleFavorite } = props;
     const { id, name, description, iconUrl, verified, proposalCount, createdAt } = dao;
     const [imgError, setImgError] = useState(false);
+    const { data: marketCap } = useOrgMarketCap(dao);
 
     const onFavoriteClick = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -82,8 +84,10 @@ export function OrgCard(props: Props) {
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border-subtle w-full">
                     <GridElement title="Markets" value={proposalCount ?? "N/A"} />
-                    <GridElement title="Created" value={createdAtDate} />
+                    <GridElement title="MC" value={marketCap?.formatted ? `$${marketCap.formatted}` : "—"} />
                 </div>
+
+                <div className="text-[10px] text-text-muted mt-1">Created {createdAtDate}</div>
             </Link>
         </motion.div>
     );

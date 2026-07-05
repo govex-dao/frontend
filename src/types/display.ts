@@ -16,11 +16,15 @@ export interface DAODisplay {
     name: string;
     description: string | null;
     iconUrl: string | null;
+    assetType: string;
+    stableType: string;
+    assetDecimals: number;
+    stableDecimals: number;
+    spotPoolId: string | null;
     assetSymbol: string | null;
     stableSymbol: string | null;
     version: string | null;
     canonicalUuid: string | null;
-    stableDecimals: number;
     proposalCount: number;
     verified: boolean;
     treasuryStableBalance: string | null;
@@ -37,11 +41,15 @@ export function toDAODisplay(dao: DAO): DAODisplay {
         name: dao.config?.dao_name || dao.dao_name || "",
         description: dao.config?.dao_description || null,
         iconUrl: dao.config?.dao_icon_url || null,
+        assetType: dao.asset_type,
+        stableType: dao.stable_type,
+        assetDecimals: dao.asset_decimals,
+        stableDecimals: dao.stable_decimals,
+        spotPoolId: dao.spot_pool_id,
         assetSymbol: dao.asset_symbol,
         stableSymbol: dao.stable_symbol,
         version: dao.version,
         canonicalUuid: dao.canonical_uuid,
-        stableDecimals: dao.stable_decimals,
         proposalCount: dao.proposal_count,
         verified: verificationLevel === 1,
         treasuryStableBalance: dao.treasury_stable_balance,
