@@ -15,7 +15,6 @@ const Org = lazy(() => import("./routes/org/Org").then(({ Org }) => ({ default: 
 const OrgRaises = lazy(() => import("./routes/org/OrgRaises").then(({ OrgRaises }) => ({ default: OrgRaises })));
 const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ default: Orgs })));
 const Proposal = lazy(() => import("./routes/proposal/Proposal").then(({ Proposal }) => ({ default: Proposal })));
-const Proposals = lazy(() => import("./routes/proposal/Proposals").then(({ Proposals }) => ({ default: Proposals })));
 const Raise = lazy(() => import("./routes/raise/Raise").then(({ Raise }) => ({ default: Raise })));
 const Raises = lazy(() => import("./routes/raise/Raises").then(({ Raises }) => ({ default: Raises })));
 const Multisigs = lazy(() => import("./routes/multisig/Multisigs").then(({ Multisigs }) => ({ default: Multisigs })));
@@ -133,7 +132,7 @@ export const router = createBrowserRouter([
             { path: "/orgs", element: wrap(<Orgs />) },
             { path: "/proposal/:id", element: wrap(<Proposal />) },
             { path: "/proposals/:proposalId", element: wrap(<Proposal />) },
-            { path: "/proposals", element: wrap(<Proposals />) },
+            { path: "/proposals", element: <Navigate to="/orgs" replace /> },
             { path: "/multisig", element: wrap(<Multisigs />) },
             { path: "/multisig/example", element: wrap(<ExampleMultisig />) },
             { path: "/multisig/:accountId", element: wrap(<Multisig />) },

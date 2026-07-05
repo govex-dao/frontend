@@ -293,7 +293,8 @@ export function Proposal() {
 
     const breadcrumbItems = [
         { label: "Home", href: "/" },
-        { label: "Decision Markets", href: "/proposals" },
+        { label: "Orgs", href: "/orgs" },
+        { label: proposal.orgName, href: `/orgs/${proposal.orgId}` },
         { label: proposal.title },
     ];
 

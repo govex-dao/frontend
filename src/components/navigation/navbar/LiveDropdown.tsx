@@ -112,7 +112,7 @@ export function LiveDropdown() {
                                                         animated
                                                     />
                                                     <button
-                                                        onClick={() => handleNavigate("/proposals")}
+                                                        onClick={() => handleNavigate("/orgs")}
                                                         className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium"
                                                     >
                                                         View all →
@@ -125,7 +125,9 @@ export function LiveDropdown() {
                                                             <button
                                                                 key={proposal.id}
                                                                 onClick={() =>
-                                                                    handleNavigate(`/proposals/${proposal.id}`)
+                                                                    handleNavigate(
+                                                                        `/orgs/${proposal.daoId}/proposals/${proposal.id}`
+                                                                    )
                                                                 }
                                                                 className="group w-full text-left p-4 rounded-xl bg-card-elevated hover:bg-card-more-elevated border border-white/5 hover:border-blue-500/10 transition-all duration-200"
                                                             >

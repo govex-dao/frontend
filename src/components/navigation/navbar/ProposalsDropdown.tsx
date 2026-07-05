@@ -26,14 +26,14 @@ export function ProposalsDropdownContent({ onItemClick, onMouseLeave }: Proposal
         <DropdownWrapper
             title="Recent Markets"
             subtitle="Community governance decisions"
-            onViewAll={() => navigate("/proposals")}
+            onViewAll={() => navigate("/orgs")}
             onMouseLeave={onMouseLeave}
         >
             {activeProposals.map((proposal: ProposalDisplay) => (
                 <button
                     key={proposal.id}
                     onClick={() => {
-                        navigate(`/proposals/${proposal.id}`);
+                        navigate(`/orgs/${proposal.daoId}/proposals/${proposal.id}`);
                         onItemClick();
                     }}
                     className="group text-left p-4 rounded-xl bg-card-elevated/50 hover:bg-card-elevated border border-white/5 hover:border-primary/10 transition-all duration-200"

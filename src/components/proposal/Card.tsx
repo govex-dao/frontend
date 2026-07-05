@@ -20,7 +20,7 @@ export function ProposalCard(props: Props) {
     const isOrgPage = pathname.includes("/orgs/");
 
     const handleCardClick = () => {
-        navigate(`/proposals/${proposal.id}`);
+        navigate(`/orgs/${proposal.daoId}/proposals/${proposal.id}`);
     };
 
     const handleOrgClick = (e: React.MouseEvent) => {

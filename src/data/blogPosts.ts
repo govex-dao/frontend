@@ -1,4 +1,4 @@
-export type BlogTag = "multisig" | "org" | "markets" | "governance";
+export type BlogTag = "multisig" | "orgs" | "raises" | "markets" | "governance";
 
 export interface BlogPost {
     slug: string;
@@ -15,9 +15,10 @@ export interface BlogPost {
 
 export const BLOG_TAGS: { value: BlogTag; label: string }[] = [
     { value: "multisig", label: "Multisig" },
+    { value: "orgs", label: "Orgs" },
+    { value: "raises", label: "Raises" },
     { value: "markets", label: "Markets" },
     { value: "governance", label: "Governance" },
-    { value: "org", label: "Org" },
 ];
 
 export const blogPosts: BlogPost[] = [
