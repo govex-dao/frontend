@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Check, Clock3, Copy, DollarSign, Shield, Users, WalletCards, X } from "lucide-react";
+import { Check, Clock3, Copy, Shield, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
@@ -9,7 +9,6 @@ interface Props {
     accountName: string;
     memberCount: number | null;
     pendingIntentCount?: number | null;
-    balanceUsd?: string | null;
     metaLabel?: string;
     metaValue?: string;
     onRemove?: () => void;
@@ -23,7 +22,6 @@ export function AccountCard(props: Props) {
         accountName,
         memberCount,
         pendingIntentCount,
-        balanceUsd,
         metaLabel,
         metaValue,
         onRemove,
@@ -36,7 +34,6 @@ export function AccountCard(props: Props) {
         "group glass-flow-panel home-tier-panel rounded-xl p-5 transition-all flex flex-col gap-4 h-full relative";
     const memberCountValue = memberCount === null ? "..." : memberCount;
     const pendingIntentValue = pendingIntentCount === null ? "..." : pendingIntentCount;
-    const balanceValue = balanceUsd === null ? "..." : balanceUsd;
 
     const copyAccountId = async (event: MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -96,7 +93,7 @@ export function AccountCard(props: Props) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-border-subtle pt-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 border-t border-border-subtle pt-3">
                 <div>
                     <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Members</p>
                     <p className="text-sm font-medium flex items-center gap-1">
@@ -106,19 +103,10 @@ export function AccountCard(props: Props) {
                 </div>
                 {pendingIntentCount !== undefined && (
                     <div>
-                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Pending</p>
+                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Pending Intents</p>
                         <p className="text-sm font-medium flex items-center gap-1">
                             <Clock3 className="w-3 h-3" />
                             {pendingIntentValue}
-                        </p>
-                    </div>
-                )}
-                {balanceUsd !== undefined && (
-                    <div>
-                        <p className="text-[10px] text-text-muted mb-0.5 uppercase tracking-wider">Balance</p>
-                        <p className="text-sm font-medium flex items-center gap-1">
-                            <DollarSign className="w-3 h-3" />
-                            {balanceValue}
                         </p>
                     </div>
                 )}
