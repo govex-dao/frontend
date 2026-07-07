@@ -44,13 +44,14 @@ export function GovexDashboard() {
     const { data: stats, isLoading, isError } = useStats();
 
     return (
-        <div className="route-container flex h-full flex-col gap-4 pt-4 pb-8 sm:pt-6 lg:pt-8">
+        <div className="route-container flex h-full flex-col gap-4">
             <Helmet>
                 <title>Govex Dashboard</title>
             </Helmet>
 
             <section className="glass-flow-panel rounded-xl p-4 md:p-6 lg:p-8">
                 <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">Private</p>
                     <h1 className="text-2xl font-bold">Govex Dashboard</h1>
                     <p className="max-w-2xl text-sm text-text-muted">
                         Internal product counts from the public backend.
