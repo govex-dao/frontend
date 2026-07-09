@@ -17,6 +17,9 @@ const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ defaul
 const Proposal = lazy(() => import("./routes/proposal/Proposal").then(({ Proposal }) => ({ default: Proposal })));
 const Raise = lazy(() => import("./routes/raise/Raise").then(({ Raise }) => ({ default: Raise })));
 const Raises = lazy(() => import("./routes/raise/Raises").then(({ Raises }) => ({ default: Raises })));
+const ExampleRaise = lazy(() =>
+    import("./routes/raise/ExampleRaise").then(({ ExampleRaise }) => ({ default: ExampleRaise }))
+);
 const Multisigs = lazy(() => import("./routes/multisig/Multisigs").then(({ Multisigs }) => ({ default: Multisigs })));
 const ExampleMultisig = lazy(() =>
     import("./routes/multisig/ExampleMultisig").then(({ ExampleMultisig }) => ({ default: ExampleMultisig }))
@@ -122,6 +125,7 @@ export const router = createBrowserRouter([
         children: [
             { path: "/", element: wrap(<Home />) },
             { path: "/govex/dashboard", element: wrap(<GovexDashboard />) },
+            { path: "/raises/example", element: wrap(<ExampleRaise />) },
             { path: "/raises/:raiseId", element: wrap(<Raise />) },
             { path: "/raises", element: wrap(<Raises />) },
             { path: "/orgs/create", element: wrap(<CreateOrg />) },

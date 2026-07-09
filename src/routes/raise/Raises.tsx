@@ -1,10 +1,12 @@
 import { Helmet } from "react-helmet-async";
 import { File, Loader2 } from "lucide-react";
+import { useMemo } from "react";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { RaiseCard } from "@/components/raise/Card";
 import { useRaises } from "@/hooks/api/useRaises";
 import { toRaiseView, type RaiseView } from "@/types/RaiseView";
 import { getRaiseUiStatus } from "@/lib/raiseStatus";
+import { getExampleRaiseView } from "./exampleRaiseData";
 
 interface SectionProps {
     title: string;
@@ -35,9 +37,11 @@ function Section(props: SectionProps) {
 
 export function Raises() {
     const { data: apiRaises, isLoading } = useRaises();
+    const exampleRaise = useMemo(() => getExampleRaiseView(), []);
 
     // Convert API raises to view models
     const raises = apiRaises?.map(toRaiseView) ?? [];
+    const showExampleRaise = !isLoading && raises.length === 0;
 
     // Separate raises by status
     const activeRaises = raises.filter((raise) => getRaiseUiStatus(raise._raw) === "active");
@@ -68,6 +72,8 @@ export function Raises() {
             </div>
 
             <div className="flex flex-col gap-6 sm:gap-16">
+                {showExampleRaise && <Section title="Example Raise" count={1} raises={[exampleRaise]} />}
+
                 {/* Active Fundraises */}
                 <Section title="Active Raises" count={activeRaises.length} raises={activeRaises} />
 
@@ -79,19 +85,22 @@ export function Raises() {
             </div>
 
             {/* Empty State */}
-            {activeRaises.length === 0 && upcomingRaises.length === 0 && completedRaises.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 gap-6">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                        <File className="w-10 h-10 text-text-disabled" />
+            {activeRaises.length === 0 &&
+                upcomingRaises.length === 0 &&
+                completedRaises.length === 0 &&
+                !showExampleRaise && (
+                    <div className="flex flex-col items-center justify-center py-24 gap-6">
+                        <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                            <File className="w-10 h-10 text-text-disabled" />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <h3 className="text-xl font-semibold text-text-primary">No Raises Available</h3>
+                            <p className="text-text-muted text-center max-w-md">
+                                There are currently no active raises. Check back soon.
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <h3 className="text-xl font-semibold text-text-primary">No Raises Available</h3>
-                        <p className="text-text-muted text-center max-w-md">
-                            There are currently no active raises. Check back soon.
-                        </p>
-                    </div>
-                </div>
-            )}
+                )}
         </div>
     );
 }

@@ -35,8 +35,7 @@ export function useOrgMarketCap(dao: DAODisplay | undefined) {
                 (reserves.stable * 10n ** BigInt(dao.assetDecimals) * SCALE) /
                 (reserves.asset * 10n ** BigInt(dao.stableDecimals));
 
-            const marketCapScaled =
-                (priceScaled * supply) / (10n ** BigInt(dao.assetDecimals));
+            const marketCapScaled = (priceScaled * supply) / 10n ** BigInt(dao.assetDecimals);
 
             const marketCap = Number(marketCapScaled) / Number(SCALE);
             return {
