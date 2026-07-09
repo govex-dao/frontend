@@ -26,7 +26,11 @@ No `.env` files are included in this public copy. Configure Vite variables
 through your shell or hosting provider when needed:
 
 ```bash
-VITE_NETWORK=mainnet VITE_BACKEND_URL=https://backend-api-v2-mainnet.up.railway.app pnpm build
+VITE_NETWORK=mainnet \
+VITE_BACKEND_URL=https://backend-api-v2-mainnet.up.railway.app \
+VITE_SUI_GRPC_URL=https://fullnode.mainnet.sui.io:443 \
+VITE_SUI_GRAPHQL_URL=https://graphql.mainnet.sui.io/graphql \
+pnpm build
 ```
 
 ## Railway
@@ -40,4 +44,13 @@ Recommended production variables:
 ```bash
 VITE_NETWORK=mainnet
 VITE_BACKEND_URL=https://backend-api-v2-mainnet.up.railway.app
+VITE_SUI_GRPC_URL=https://fullnode.mainnet.sui.io:443
+VITE_SUI_GRAPHQL_URL=https://graphql.mainnet.sui.io/graphql
 ```
+
+Do not put secrets in `VITE_*` variables. For production, replace the public
+Sui endpoints above with browser-safe dedicated endpoints that do not expose a
+provider token.
+
+See [SUI_V2_MIGRATION.md](./SUI_V2_MIGRATION.md) for the transport and
+deployment notes.

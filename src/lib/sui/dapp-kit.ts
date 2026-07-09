@@ -1,6 +1,6 @@
 import { createDAppKit } from "@mysten/dapp-kit-core";
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
-import { getRpcUrlForNetwork, network, type NetworkName } from "@/lib/config";
+import { createGrpcCompatClient, type GovexSuiClient } from "@govex/futarchy-sdk/config";
+import { getGraphqlUrlForNetwork, getGrpcUrlForNetwork, network, type NetworkName } from "@/lib/config";
 
 const networks: NetworkName[] = ["mainnet", "testnet", "devnet", "localnet"];
 
@@ -8,10 +8,11 @@ export const dAppKit = createDAppKit({
     networks,
     defaultNetwork: network,
     createClient: (networkName: NetworkName) =>
-        new SuiJsonRpcClient({
+        createGrpcCompatClient({
             network: networkName,
-            url: getRpcUrlForNetwork(networkName),
-        }),
+            grpcUrl: getGrpcUrlForNetwork(networkName),
+            graphqlUrl: getGraphqlUrlForNetwork(networkName),
+        }) as GovexSuiClient,
 });
 
 declare module "@mysten/dapp-kit-core" {

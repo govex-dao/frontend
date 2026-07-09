@@ -15,7 +15,7 @@
 
 import { FutarchySDK } from "@govex/futarchy-sdk";
 import type { DAO, Proposal } from "@/types";
-import { network, rpcUrl } from "./config";
+import { network, suiGraphqlUrl, suiGrpcUrl } from "./config";
 
 const sdkInstances = new Map<string, FutarchySDK>();
 
@@ -39,7 +39,8 @@ function assertSupportedProtocolVersion(protocolVersion?: string | null): void {
 function createSDK(): FutarchySDK {
     return new FutarchySDK({
         network,
-        rpcUrl,
+        grpcUrl: suiGrpcUrl,
+        graphqlUrl: suiGraphqlUrl,
     });
 }
 
@@ -54,7 +55,7 @@ export function getSDK(): FutarchySDK {
 export function getSDKForProtocolVersion(protocolVersion?: string | null): FutarchySDK {
     assertSupportedProtocolVersion(protocolVersion);
 
-    const cacheKey = `${network}:${rpcUrl}:current`;
+    const cacheKey = `${network}:${suiGrpcUrl}:${suiGraphqlUrl}:current`;
     let sdkInstance = sdkInstances.get(cacheKey);
     if (!sdkInstance) {
         sdkInstance = createSDK();
