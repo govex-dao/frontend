@@ -1568,7 +1568,7 @@ packages:
     engines: {node: '>= 0.4'}
 
   govex-sdk-v3@file:vendor/govex-sdk-v3-0.2.1.tgz:
-    resolution: {integrity: sha512-UacLYp4aSMg6ftaqqAJ70J4kGHpKd9nnGkjJWaQbD2BSHanBMvpB1Xv2Z1/zWA7NRlwF9Yw6apmEURn7324GiA==, tarball: file:vendor/govex-sdk-v3-0.2.1.tgz}
+    resolution: {integrity: sha512-dzSX5dypX+ORvIlqVPUUeqoo34t7PJTpvd+Ow9/U0fP6XNSQtVIQrY+F+j1kBtSJKuvsTFbe9f9ZLPu0eC87Yw==, tarball: file:vendor/govex-sdk-v3-0.2.1.tgz}
     version: 0.2.1
     engines: {node: '>=18.0.0'}
     peerDependencies:
