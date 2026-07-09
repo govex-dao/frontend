@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useCurrentAccount, useSuiClient } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { useQuery } from "@tanstack/react-query";
 import { formatAddress, parseStructTag, SUI_DECIMALS, SUI_TYPE_ARG } from "@mysten/sui/utils";
 import { Select, type SelectOption } from "@/components/inputs/Select";

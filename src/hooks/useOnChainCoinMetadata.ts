@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSuiClient } from "@mysten/dapp-kit";
+import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import type { CoinMetadata } from "@/lib/api/coins";
 
 /**

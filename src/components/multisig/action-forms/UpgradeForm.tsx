@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useCurrentAccount, useSuiClient } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress, formatAddress } from "@mysten/sui/utils";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useSuiClient } from "@mysten/dapp-kit";
-import type { CoinStruct, SuiClient } from "@mysten/sui/client";
+import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
+import type { CoinStruct, SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
 import { parseStructTag } from "@mysten/sui/utils";
 import { useQuery } from "@tanstack/react-query";
 import { COIN_OBJECT_PAGE_LIMIT, MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";

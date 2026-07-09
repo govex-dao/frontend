@@ -1,4 +1,4 @@
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
 import type { QueryClient } from "@tanstack/react-query";
 import { multisigRpcKeys } from "@/hooks/useMultisig";

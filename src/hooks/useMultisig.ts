@@ -3,7 +3,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useSuiClient } from "@mysten/dapp-kit";
+import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import {
     fetchMultisigConfig,
     fetchAccountIntents,

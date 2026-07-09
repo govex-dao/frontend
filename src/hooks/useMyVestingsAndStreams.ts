@@ -4,8 +4,8 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useSuiClient, useCurrentAccount } from "@mysten/dapp-kit";
-import type { SuiClient, SuiObjectResponse } from "@mysten/sui/client";
+import { useSuiClient, useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
+import type { SuiJsonRpcClient as SuiClient, SuiObjectResponse } from "@mysten/sui/jsonRpc";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
 import { REFRESH_INTERVALS } from "./api/refresh";

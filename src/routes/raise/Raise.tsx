@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import { useState, useCallback, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Card, CardContent } from "@/components/Card";

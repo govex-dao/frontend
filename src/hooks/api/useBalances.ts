@@ -3,7 +3,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { buildBalanceWrapperType } from "@govex/futarchy-sdk";
 import { getProtocolVersionForProposal, getSDKForProposal, isSupportedProtocolProposal } from "../../lib/sdk";
 import type { Proposal } from "../../types";

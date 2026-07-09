@@ -1,5 +1,5 @@
 import { useState, useMemo, type CSSProperties } from "react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { ChevronDown } from "lucide-react";
 import { formatNumber } from "@/lib/formatNumber";
 import { getOutcomeColor, hexToRgba } from "@/lib/outcomes";

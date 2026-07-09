@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { useSignAndExecuteTransaction, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
 import toast from "react-hot-toast";
 import { NETWORK } from "@/constants/network";

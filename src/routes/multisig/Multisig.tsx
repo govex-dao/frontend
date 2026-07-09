@@ -21,7 +21,7 @@ import {
     KeyRound,
 } from "lucide-react";
 import { formatAddress, parseStructTag } from "@mysten/sui/utils";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";

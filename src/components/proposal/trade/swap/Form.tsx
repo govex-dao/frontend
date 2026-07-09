@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useCoins, useProposalBalances } from "@/hooks/api";

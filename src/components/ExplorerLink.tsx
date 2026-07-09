@@ -1,4 +1,4 @@
-import { useSuiClientContext } from "@mysten/dapp-kit";
+import { useSuiClientContext } from "@/lib/sui/dapp-kit-compat";
 import { formatAddress, normalizeStructTag } from "@mysten/sui/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";

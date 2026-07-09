@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useSuiClient } from "@mysten/dapp-kit";
+import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
 import { useQuery } from "@tanstack/react-query";

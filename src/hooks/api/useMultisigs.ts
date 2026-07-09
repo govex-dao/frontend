@@ -3,7 +3,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { fetchMyMultisigs, fetchMultisigDetail } from "../../lib/api";
 import type { MultisigListItem, MultisigDetailApi } from "../../lib/api";
 import { REFRESH_INTERVALS } from "./refresh";

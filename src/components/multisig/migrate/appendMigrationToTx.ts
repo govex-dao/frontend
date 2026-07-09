@@ -1,4 +1,4 @@
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
 import { Transaction, type TransactionArgument } from "@mysten/sui/transactions";
 import { formatAddress, SUI_TYPE_ARG } from "@mysten/sui/utils";
 import type { OwnedObjectInfo } from "@/lib/sui/multisig";

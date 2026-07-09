@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Shield, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { AccountCard } from "@/components/multisig/AccountCard";
 import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";

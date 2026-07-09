@@ -4,6 +4,9 @@
     "version": "0.0.0",
     "license": "MIT",
     "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && node -r ./scripts/crypto-hash-polyfill.cjs ./node_modules/vite/bin/vite.js build && node -e \"require('node:fs').copyFileSync('serve.json', 'dist/serve.json')\"",
@@ -18,8 +21,9 @@
     },
     "dependencies": {
         "@govex/futarchy-sdk": "file:vendor/govex-sdk-v3-0.2.1.tgz",
-        "@mysten/dapp-kit": "^0.19.8",
-        "@mysten/sui": "^1.44.0",
+        "@mysten/dapp-kit-core": "^1.6.4",
+        "@mysten/dapp-kit-react": "^2.1.6",
+        "@mysten/sui": "^2.20.2",
         "@tailwindcss/vite": "^4.1.16",
         "@tanstack/react-query": "5.90.12",
         "lightweight-charts": "^5.0.9",

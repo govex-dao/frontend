@@ -1,4 +1,4 @@
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
 
 export interface PaymentCoin {
     coinObjectId: string;

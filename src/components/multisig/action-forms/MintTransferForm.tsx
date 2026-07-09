@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import type { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress, formatAddress, parseStructTag } from "@mysten/sui/utils";
 import { Input } from "@/components/inputs/Input";

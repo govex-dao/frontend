@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatAddress } from "@mysten/sui/utils";
 import { ChevronDown, Wallet, Loader2 } from "lucide-react";
-import { useConnectWallet, useCurrentAccount, useDisconnectWallet, useWallets } from "@mysten/dapp-kit";
+import { useConnectWallet, useCurrentAccount, useDisconnectWallet, useWallets } from "@/lib/sui/dapp-kit-compat";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/overlays/Modal";
 import { Identicon } from "../Identicon";

@@ -4,7 +4,7 @@
  * Used for live onchain data on detail pages and paste-ID lookups.
  */
 
-import { SuiClient } from "@mysten/sui/client";
+import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
 import { parseStructTag } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
 
