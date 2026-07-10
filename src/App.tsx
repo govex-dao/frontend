@@ -12,7 +12,6 @@ const GovexDashboard = lazy(() =>
 );
 const CreateOrg = lazy(() => import("./routes/org/Create").then(({ CreateOrg }) => ({ default: CreateOrg })));
 const Org = lazy(() => import("./routes/org/Org").then(({ Org }) => ({ default: Org })));
-const OrgRaises = lazy(() => import("./routes/org/OrgRaises").then(({ OrgRaises }) => ({ default: OrgRaises })));
 const Orgs = lazy(() => import("./routes/org/Orgs").then(({ Orgs }) => ({ default: Orgs })));
 const Proposal = lazy(() => import("./routes/proposal/Proposal").then(({ Proposal }) => ({ default: Proposal })));
 const Raise = lazy(() => import("./routes/raise/Raise").then(({ Raise }) => ({ default: Raise })));
@@ -50,6 +49,11 @@ function wrap(element: ReactNode) {
 function DocAliasRedirect() {
     const { slug } = useParams();
     return <Navigate to={slug ? `/docs/${slug}` : "/docs"} replace />;
+}
+
+function OrgRaiseRedirect() {
+    const { raiseId } = useParams();
+    return <Navigate to={raiseId ? `/raises/${raiseId}` : "/raises"} replace />;
 }
 
 function DocsNavbarHero() {
@@ -130,8 +134,8 @@ export const router = createBrowserRouter([
             { path: "/raises", element: wrap(<Raises />) },
             { path: "/orgs/create", element: wrap(<CreateOrg />) },
             { path: "/orgs/:orgId/proposals/:proposalId", element: wrap(<Proposal />) },
-            { path: "/orgs/:orgId/raises/:raiseId", element: wrap(<Raise />) },
-            { path: "/orgs/:orgId/raises", element: wrap(<OrgRaises />) },
+            { path: "/orgs/:orgId/raises/:raiseId", element: <OrgRaiseRedirect /> },
+            { path: "/orgs/:orgId/raises", element: <Navigate to="/raises" replace /> },
             { path: "/orgs/:orgId", element: wrap(<Org />) },
             { path: "/orgs", element: wrap(<Orgs />) },
             { path: "/proposal/:id", element: wrap(<Proposal />) },

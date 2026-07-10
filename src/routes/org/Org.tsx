@@ -1,4 +1,4 @@
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { Helmet } from "react-helmet-async";
 import { StarIcon, Loader2, Wallet, Coins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -172,7 +172,6 @@ function OrgHeader({ dao, isFavorited, onToggleFavorite }: OrgHeaderProps) {
 }
 
 type TabType = "overview" | "proposals" | "trade" | "orders";
-type NavItemId = TabType | "raises";
 
 function OrgVaultHoldings({
     balances,
@@ -314,7 +313,6 @@ function OrgCreationActions({ daoRaw }: { daoRaw: DAO }) {
 
 export function Org() {
     const { orgId } = useParams<{ orgId: string }>();
-    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [showLeftFade, setShowLeftFade] = useState(false);
     const [showRightFade, setShowRightFade] = useState(true);
@@ -343,20 +341,12 @@ export function Org() {
     const { isFavorited, toggleFavorite } = useFavorites();
     const activeTab = (searchParams.get("tab") as TabType) || "overview";
     const setActiveTab = (tab: TabType) => setSearchParams({ tab });
-    const handleNavItemClick = (id: string) => {
-        if (id === "raises") {
-            const raiseOrgId = effectiveOrgId ?? orgId;
-            if (raiseOrgId) navigate(`/orgs/${raiseOrgId}/raises`);
-            return;
-        }
-        setActiveTab(id as TabType);
-    };
+    const handleNavItemClick = (id: string) => setActiveTab(id as TabType);
 
     const mainNavItems: SidebarNavItem[] = useMemo(
         () => [
             { id: "overview", label: "Overview" },
             { id: "proposals", label: "Decisions" },
-            { id: "raises", label: "Raises" },
             { id: "trade", label: "Trade spot" },
             { id: "orders", label: "Orders" },
         ],
@@ -414,7 +404,7 @@ export function Org() {
                             {mainNavItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => handleNavItemClick(item.id as NavItemId)}
+                                    onClick={() => handleNavItemClick(item.id)}
                                     className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors snap-center shrink-0 ${
                                         activeTab === item.id
                                             ? "bg-primary text-white"

@@ -1,9 +1,9 @@
 import { useParams } from "react-router";
 import { useState, useCallback, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Card, CardContent } from "@/components/Card";
 import { useRaise, useUserContribution, useUserReservation } from "@/hooks/api/useRaises";
 import { NotFound } from "@/components/navigation/NotFound";
@@ -20,7 +20,6 @@ import { StatsCards } from "@/components/raise/page/StatsCard";
 import { ReservationCard } from "@/components/raise/page/ReservationCard";
 import { RaiseActionSections } from "@/components/raise/ActionSections";
 import { MetricItem } from "@/components/MetricItem";
-import { useDAO } from "@/hooks/api";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
 import { getSDK } from "@/lib/sdk";
 import { formatUnits } from "@/lib/units";
@@ -306,14 +305,13 @@ function RaiseStatusBanner({
 }
 
 export function Raise() {
-    const { orgId, raiseId } = useParams<{ orgId?: string; raiseId: string }>();
+    const { raiseId } = useParams<{ raiseId: string }>();
     const [isInvestorsModalOpen, setIsInvestorsModalOpen] = useState(false);
     const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
     const nowMs = useRaiseClock();
     const account = useCurrentAccount();
 
     const { data: apiRaise, isLoading, error } = useRaise(raiseId);
-    const { data: orgRaw } = useDAO(orgId);
     const { data: contributionData } = useUserContribution(raiseId, account?.address);
     const { data: reservationData } = useUserReservation(raiseId, account?.address);
 
@@ -369,16 +367,7 @@ export function Raise() {
     const progress = goalAmount > 0 ? (raise.raised / goalAmount) * 100 : 0;
     const isFunded = status === "funded" || status === "finalizing";
     const contributorCount = apiRaise?.contributor_count ?? contributors.length;
-    const orgName = orgRaw?.config?.dao_name || orgRaw?.dao_name || "Org";
-    const breadcrumbItems = orgId
-        ? [
-              { label: "Home", href: "/" },
-              { label: "Orgs", href: "/orgs" },
-              { label: orgName, href: `/orgs/${orgId}` },
-              { label: "Raises", href: `/orgs/${orgId}/raises` },
-              { label: raise.name },
-          ]
-        : [{ label: "Home", href: "/" }, { label: "Raises", href: "/raises" }, { label: raise.name }];
+    const breadcrumbItems = [{ label: "Home", href: "/" }, { label: "Raises", href: "/raises" }, { label: raise.name }];
     const actionContext = {
         assetType: apiRaise?.asset_type,
         stableType: apiRaise?.stable_type,
