@@ -1,12 +1,15 @@
 import { Link } from "react-router";
-import { Check, Clock3, Copy, Shield, Users, WalletCards, X } from "lucide-react";
+import { Check, Clock3, Copy, Users, WalletCards, X } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
+import { MultisigAvatar } from "./MultisigAvatar";
 
 interface Props {
     accountId: string;
     accountName: string;
+    imageUrl?: string | null;
+    fallbackImageUrl?: string | null;
     memberCount: number | null;
     pendingIntentCount?: number | null;
     balanceUsd?: string | null;
@@ -21,6 +24,8 @@ export function AccountCard(props: Props) {
     const {
         accountId,
         accountName,
+        imageUrl,
+        fallbackImageUrl,
         memberCount,
         pendingIntentCount,
         balanceUsd,
@@ -69,9 +74,7 @@ export function AccountCard(props: Props) {
             )}
 
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/15 backdrop-blur-sm flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-primary" />
-                </div>
+                <MultisigAvatar name={displayName} imageUrl={imageUrl} fallbackImageUrl={fallbackImageUrl} />
                 <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-white group-hover:text-primary transition-colors truncate">
                         {displayName}

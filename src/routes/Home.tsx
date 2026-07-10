@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle2, CircleX, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const ENTERPRISE_CONTACT_URL = "https://t.me/ggccggccc";
-const CONTROL_TARGETS = ["treasury", "package upgrades", "payroll", "admin functions", "minting", "members"];
+const CONTROL_TARGETS = ["treasury", "agent execution", "budgets", "approvals", "investor claims", "audit trails"];
 const CTA_BASE_CLASS =
     "inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold text-primary-light backdrop-blur-md transition-all";
 const CTA_PRIMARY_CLASS =
@@ -27,7 +27,7 @@ type MultisigTier = {
     external?: boolean;
 };
 
-const multisigTiers: MultisigTier[] = [
+const accountTiers: MultisigTier[] = [
     {
         name: "Govex teams multisig",
         price: "Free",
@@ -54,7 +54,7 @@ const multisigTiers: MultisigTier[] = [
             { label: "Everything in Govex teams" },
             { label: "Policy design and onboarding support" },
             { label: "Custom multisig actions" },
-            { label: "Real-time threat monitoring, alerting, and escalation" },
+            { label: "Real-time monitoring, alerting, and escalation" },
             { label: "Custom SLAs" },
             { label: "Full audit trail for proposal lifecycles" },
             { label: "Observability across teams and accounts" },
@@ -85,7 +85,7 @@ export function Home() {
                     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                         <div className="text-left">
                             <h2 className="text-xl sm:text-2xl md:text-3xl">
-                                Fine-grained control over your team's{" "}
+                                Controlled authority over your company's{" "}
                                 <span
                                     key={CONTROL_TARGETS[controlTargetIndex]}
                                     className="inline-block min-w-[11ch] text-primary animate-word-rise"
@@ -97,7 +97,7 @@ export function Home() {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {multisigTiers.map((tier) => (
+                        {accountTiers.map((tier) => (
                             <div key={tier.name} className="glass-flow-panel home-tier-panel rounded-lg p-4 sm:p-5">
                                 <div className="flex items-start justify-between gap-4">
                                     <div>

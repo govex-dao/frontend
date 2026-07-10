@@ -35,6 +35,7 @@ const ALL_PERMISSIONS = PERMISSION_PROPOSE | PERMISSION_VOTE | PERMISSION_EXECUT
 
 const EXAMPLE_CONFIG: MultisigConfig = {
     name: "Example Multisig",
+    imageUrl: "/images/multisigs/example-multisig-mark.svg",
     globalThreshold: 2,
     executionTimelockMs: 0,
     intentExpiryMs: 14 * DAY_MS,

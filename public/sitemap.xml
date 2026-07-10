@@ -64,4 +64,20 @@
         <loc>https://govex.ai/docs/enterprise</loc>
         <lastmod>2026-05-07</lastmod>
     </url>
+    <url>
+        <loc>https://govex.ai/blog</loc>
+        <lastmod>2026-07-09</lastmod>
+    </url>
+    <url>
+        <loc>https://govex.ai/blog/financial-os-for-agent-first-companies</loc>
+        <lastmod>2026-07-09</lastmod>
+    </url>
+    <url>
+        <loc>https://govex.ai/blog/govex-multisig-vs-built-in-sui-multisig</loc>
+        <lastmod>2026-07-09</lastmod>
+    </url>
+    <url>
+        <loc>https://govex.ai/blog/multisig-security-after-drift</loc>
+        <lastmod>2026-07-09</lastmod>
+    </url>
 </urlset>

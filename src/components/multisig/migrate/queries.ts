@@ -137,16 +137,40 @@ export function useObjectTransferAbilities(objectTypes: string[], enabled: boole
                     const key = objectTypeAbilityKey(objectType);
                     try {
                         const tag = parseStructTag(objectType);
-                        const normalized = await client.getNormalizedMoveStruct({
-                            package: normalizeAddressInput(tag.address),
-                            module: tag.module,
-                            struct: tag.name,
-                        });
-                        const abilities = normalized.abilities.abilities.map((ability) => ability.toLowerCase());
-                        return [
-                            key,
-                            { canKeep: abilities.includes("key") && abilities.includes("store"), checked: true },
-                        ];
+                        const legacyClient = client as unknown as {
+                            getNormalizedMoveStruct?: (input: {
+                                package: string;
+                                module: string;
+                                struct: string;
+                            }) => Promise<{ abilities: { abilities: string[] } }>;
+                            movePackageService?: {
+                                getDatatype: (input: {
+                                    packageId: string;
+                                    moduleName: string;
+                                    name: string;
+                                }) => Promise<{ response: { datatype?: { abilities: number[] } } }>;
+                            };
+                        };
+
+                        let canKeep = false;
+                        if (legacyClient.getNormalizedMoveStruct) {
+                            const normalized = await legacyClient.getNormalizedMoveStruct({
+                                package: normalizeAddressInput(tag.address),
+                                module: tag.module,
+                                struct: tag.name,
+                            });
+                            const abilities = normalized.abilities.abilities.map((ability) => ability.toLowerCase());
+                            canKeep = abilities.includes("key") && abilities.includes("store");
+                        } else {
+                            const result = await legacyClient.movePackageService?.getDatatype({
+                                packageId: normalizeAddressInput(tag.address),
+                                moduleName: tag.module,
+                                name: tag.name,
+                            });
+                            const abilities = result?.response.datatype?.abilities ?? [];
+                            canKeep = abilities.includes(4) && abilities.includes(3); // KEY + STORE
+                        }
+                        return [key, { canKeep, checked: true }];
                     } catch {
                         return [key, { canKeep: false, checked: true, error: true }];
                     }

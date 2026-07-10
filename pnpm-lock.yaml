@@ -1470,7 +1470,7 @@ packages:
     engines: {node: '>= 0.4'}
 
   govex-sdk-v3@file:vendor/govex-sdk-v3-0.2.1.tgz:
-    resolution: {integrity: sha512-rCLVIMosOC6duALbkc17MkBiUw9i1M/J9uOBauuyt3xyzJ1dz/SK7lrBOL+wCIVXPyaLAyQT81JmYjOHHW5v3A==, tarball: file:vendor/govex-sdk-v3-0.2.1.tgz}
+    resolution: {integrity: sha512-bTx+IPeX/9JK5Qkq9jr3jsRyXJvUgdndzLAoh6hoqvgi2iry5N5YF+0GW6wXB6QVdvYlYgHM3IhuVhpYlbIveA==, tarball: file:vendor/govex-sdk-v3-0.2.1.tgz}
     version: 0.2.1
     engines: {node: '>=18.0.0'}
     peerDependencies:

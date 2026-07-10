@@ -20,6 +20,10 @@ export interface MultisigPolicyApi {
 export interface MultisigListItem {
     account_id: string;
     name: string;
+    image_url: string | null;
+    image_cache_path: string | null;
+    image_cache_medium: string | null;
+    image_cache_large: string | null;
     groups: unknown[];
     approve_policy: MultisigPolicyApi;
     cancel_policy: MultisigPolicyApi;
@@ -45,6 +49,10 @@ export interface MultisigMemberApi {
 export interface MultisigDetailApi {
     account_id: string;
     name: string;
+    image_url: string | null;
+    image_cache_path: string | null;
+    image_cache_medium: string | null;
+    image_cache_large: string | null;
     groups: unknown[];
     approve_policy: MultisigPolicyApi;
     cancel_policy: MultisigPolicyApi;

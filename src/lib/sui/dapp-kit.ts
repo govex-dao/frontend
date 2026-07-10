@@ -1,5 +1,5 @@
 import { createDAppKit } from "@mysten/dapp-kit-core";
-import { createGrpcCompatClient, type GovexSuiClient } from "@govex/futarchy-sdk/config";
+import { createGrpcCompatClient } from "@govex/futarchy-sdk/config";
 import { getGraphqlUrlForNetwork, getGrpcUrlForNetwork, network, type NetworkName } from "@/lib/config";
 
 const networks: NetworkName[] = ["mainnet", "testnet", "devnet", "localnet"];
@@ -12,7 +12,7 @@ export const dAppKit = createDAppKit({
             network: networkName,
             grpcUrl: getGrpcUrlForNetwork(networkName),
             graphqlUrl: getGraphqlUrlForNetwork(networkName),
-        }) as GovexSuiClient,
+        }),
 });
 
 declare module "@mysten/dapp-kit-core" {

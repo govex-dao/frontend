@@ -23,6 +23,70 @@ export const BLOG_TAGS: { value: BlogTag; label: string }[] = [
 
 export const blogPosts: BlogPost[] = [
     {
+        slug: "financial-os-for-agent-first-companies",
+        title: "The Financial OS for Agent-First Companies",
+        description:
+            "Agent-first companies need controlled financial authority: budgets, approvals, execution rights, receipts, and an operating record that agents and humans can share.",
+        tags: ["orgs", "governance"],
+        date: "2026-07-09",
+        content: `
+## Companies Are Becoming Executable
+
+AI agents are moving from assistants into operators. They can draft proposals, prepare payments, monitor budgets, route transactions, renew services, and coordinate execution across tools.
+
+That creates a simple problem: companies cannot give agents unrestricted access to money.
+
+They need a control layer that lets agents act, but only inside explicit authority:
+
+- budgets,
+- spending limits,
+- approval paths,
+- whitelisted recipients,
+- proposal workflows,
+- execution receipts,
+- audit trails.
+
+## The Old Stack Assumes Humans Click Everything
+
+Traditional finance tools assume a human sees a payment, approves it, and records it later. Crypto multisigs usually assume a human signs a transaction after reading a wallet prompt.
+
+That is not enough for agent-first companies.
+
+An agent-first company needs financial state that can be governed directly:
+
+- who can propose work,
+- who can approve it,
+- what an agent is allowed to execute,
+- which vault or budget an action touches,
+- when a transaction becomes cancellable,
+- what proof remains after execution.
+
+## Govex
+
+Govex is the financial OS for agent-first companies.
+
+It gives teams programmable company accounts for treasury, approvals, investor claims, governance, and agent execution. The goal is not to replace every legal or finance tool on day one. The goal is to create a trustworthy execution layer where company authority can be shared between humans, agents, markets, and policies.
+
+The first version is deliberately concrete:
+
+- shared company accounts,
+- vaults,
+- roles,
+- spending limits,
+- proposal and approval flows,
+- custom actions,
+- execution receipts.
+
+That is the foundation for more complex company workflows later: raises, claims, distributions, decision markets, private ownership records, and agent-run operations.
+
+## The Design Partner Ask
+
+We are looking for teams that are already trying to run a company, fund, DAO, or treasury with agents in the loop.
+
+If your problem is not "I need a blockchain app" but "I need to safely give software financial authority," Govex is built for that.
+`,
+    },
+    {
         slug: "govex-multisig-vs-built-in-sui-multisig",
         title: "Govex Multisig vs. Built-In Sui Multisig",
         description:

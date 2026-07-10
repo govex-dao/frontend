@@ -47,6 +47,7 @@ export interface MultisigPolicy {
 
 export interface MultisigConfig {
     name: string;
+    imageUrl: string | null;
     globalThreshold: number;
     executionTimelockMs: number;
     intentExpiryMs: number;
@@ -693,7 +694,7 @@ function normalizeIdString(value: any): string | null {
         return value.startsWith("0x") ? value : `0x${value}`;
     }
     const fields = value?.fields || value;
-    return normalizeIdString(fields?.id ?? fields?.bytes ?? fields?.value ?? null);
+    return normalizeIdString(fields?.id ?? fields?.bytes ?? fields?.value ?? fields?.inner ?? null);
 }
 
 function extractCoinTypeFromObjectType(objectType: string): string | undefined {
@@ -899,6 +900,11 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
         if (!fields) return null;
 
         const accountName = parseMetadataString(fields.metadata, "name");
+        const accountImageUrl =
+            parseMetadataString(fields.metadata, "image") ||
+            parseMetadataString(fields.metadata, "icon_url") ||
+            parseMetadataString(fields.metadata, "logo") ||
+            null;
 
         // MultisigConfig is stored as a dynamic field directly on the Account object,
         // keyed by account::ConfigKey. List dynamic fields on the Account ID.
@@ -924,7 +930,9 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
             name: multisigField.name as any,
         });
 
-        const configFields = (dfObj.data?.content as any)?.fields?.value?.fields;
+        // JSON-RPC wraps Move structs in `{ fields: ... }`, while the gRPC
+        // compatibility client returns the value fields directly.
+        const configFields = fieldsOf((dfObj.data?.content as any)?.fields?.value);
         if (!configFields) return null;
 
         if (!configFields.groups) return null;
@@ -940,6 +948,7 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
 
         return {
             name: accountName,
+            imageUrl: accountImageUrl,
             globalThreshold: primaryRequirement?.threshold ?? 0,
             executionTimelockMs: 0,
             intentExpiryMs: Number(configFields.intent_expiry_ms || configFields.intentExpiryMs || 0),
@@ -975,6 +984,7 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
 
         // Find intents bag ID
         const intentsBagId =
+            normalizeIdString(fields.intents) ||
             get(fields, "intents.fields.inner.fields.id.id") ||
             get(fields, "intents.fields.id.id") ||
             get(fields, "intents.fields.id");
@@ -992,7 +1002,7 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                     name: df.name as any,
                 });
 
-                const intentFields = (intentObj.data?.content as any)?.fields?.value?.fields;
+                const intentFields = fieldsOf((intentObj.data?.content as any)?.fields?.value);
                 if (!intentFields) continue;
 
                 const outcomeFields = get(intentFields, "outcome.fields") || intentFields.outcome;
@@ -1083,7 +1093,8 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
                     intentType,
                     isConfigIntent,
                     actionCount: Number(
-                        get(intentFields, "actions.fields.size") ||
+                        get(intentFields, "actions.size") ||
+                            get(intentFields, "actions.fields.size") ||
                             get(intentFields, "actions.fields.contents.length") ||
                             specsArray.length ||
                             0
@@ -1188,9 +1199,12 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
                         parentId: accountId,
                         name: vf.name as any,
                     });
-                    const fields = (vaultObj.data?.content as any)?.fields?.value?.fields;
+                    const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
                     if (!fields) return null;
-                    const streamsTableId = get(fields, "streams.fields.id.id") || get(fields, "streams.fields.id");
+                    const streamsTableId =
+                        normalizeIdString(fields.streams) ||
+                        get(fields, "streams.fields.id.id") ||
+                        get(fields, "streams.fields.id");
                     if (!streamsTableId) return null;
                     return { vaultName: typeof vaultName === "string" ? vaultName : String(vaultName), streamsTableId };
                 } catch {
@@ -1218,7 +1232,7 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
                     client
                         .getDynamicFieldObject({ parentId: streamsTableId, name: sf.name as any })
                         .then((streamObj) => {
-                            const streamFields = (streamObj.data?.content as any)?.fields?.value?.fields;
+                            const streamFields = fieldsOf((streamObj.data?.content as any)?.fields?.value);
                             if (!streamFields) return null;
                             const whitelistedRecipients = parseAddressVector(streamFields.whitelisted_recipients);
                             return {
@@ -1308,10 +1322,11 @@ export async function fetchAccountVaultBalances(client: SuiClient, accountId: st
                         parentId: accountId,
                         name: vf.name as any,
                     });
-                    const fields = (vaultObj.data?.content as any)?.fields?.value?.fields;
+                    const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
                     if (!fields) return null;
 
                     const balancesBagId =
+                        normalizeIdString(fields.bag ?? fields.balances) ||
                         get(fields, "bag.fields.id.id") ||
                         get(fields, "bag.fields.id") ||
                         get(fields, "balances.fields.id.id") ||
@@ -1345,7 +1360,8 @@ export async function fetchAccountVaultBalances(client: SuiClient, accountId: st
                             const rawValue = (bf.name as any)?.value;
                             const coinType = typeof rawValue === "string" ? rawValue : (rawValue?.name ?? "");
                             // The balance value is in fields.value (for Balance<T>) or fields.value
-                            const amount = BigInt(balanceFields?.value ?? "0");
+                            const rawBalanceValue = balanceFields?.value;
+                            const amount = BigInt(fieldsOf(rawBalanceValue).value ?? rawBalanceValue ?? "0");
                             if (amount <= 0n) return null;
                             return { vaultName, coinType: normalizeCoinType(coinType), amount };
                         })
@@ -1492,7 +1508,7 @@ export async function fetchVaultApprovedCoinTypes(
             name: vaultField.name as any,
         });
 
-        const fields = (vaultObj.data?.content as any)?.fields?.value?.fields;
+        const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
         if (!fields) return [];
 
         // approved_types is a VecSet<TypeName>
@@ -1600,7 +1616,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
                     parentId: accountId,
                     name: capField.name as any,
                 });
-                const fields = (capObj.data?.content as any)?.fields?.value?.fields;
+                const fields = dynamicObjectFieldValue(capObj.data?.content).fields;
                 if (fields) {
                     packageAddress = fields.package ?? "";
                     capObjectId = fields.id?.id ?? fields.id ?? "";
@@ -1625,7 +1641,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
                         parentId: accountId,
                         name: rulesField.name as any,
                     });
-                    const fields = (rulesObj.data?.content as any)?.fields?.value?.fields;
+                    const fields = fieldsOf((rulesObj.data?.content as any)?.fields?.value);
                     if (fields) {
                         delayMs = Number(fields.delay_ms ?? 0);
                     }

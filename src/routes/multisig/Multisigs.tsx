@@ -13,12 +13,14 @@ import type { MultisigListItem } from "@/lib/api";
 import { isOpenIntentStatus, normalizeSuiAddress } from "@/lib/sui/multisig";
 import type { VaultCoinBalance } from "@/lib/sui/multisig";
 import { formatUnits } from "@/lib/units";
+import { resolveBackendImageUrl } from "@/lib/imageUrl";
 
 const ITEMS_PER_PAGE = 6;
 const USDC_DECIMALS = 6;
 const EXAMPLE_MULTISIG = {
     accountId: "0x4eedc223e50297adf3fd0124af3a114384b43685870a70140b44e2c51ac3505e",
     accountName: "Example Multisig",
+    imageUrl: "/images/multisigs/example-multisig-mark.svg",
     memberCount: 3,
     pendingIntentCount: 4,
     balanceUsd: "$220,000.00",
@@ -52,11 +54,15 @@ function formatUsdcBalanceUsd(balances: VaultCoinBalance[] | undefined): string 
 function ResolvedAccountCard({
     accountId,
     accountName: fallbackName,
+    imageUrl: fallbackImageUrl,
+    cachedImageUrl,
     memberCount,
     onRemove,
 }: {
     accountId: string;
     accountName: string;
+    imageUrl?: string | null;
+    cachedImageUrl?: string | null;
     memberCount: number;
     onRemove?: () => void;
 }) {
@@ -64,6 +70,8 @@ function ResolvedAccountCard({
     const { data: intents } = useMultisigIntents(accountId);
     const { data: vaultBalances } = useMultisigVaultBalances(accountId);
     const accountName = config?.name?.trim() || fallbackName;
+    const sourceImageUrl = fallbackImageUrl || config?.imageUrl || null;
+    const imageUrl = cachedImageUrl || sourceImageUrl;
     const resolvedMemberCount = config?.members.length ?? (memberCount > 0 ? memberCount : null);
     const pendingIntentCount = intents
         ? intents.filter((intent) => isOpenIntentStatus(intent.approvals.status)).length
@@ -74,6 +82,8 @@ function ResolvedAccountCard({
         <AccountCard
             accountId={accountId}
             accountName={accountName}
+            imageUrl={imageUrl}
+            fallbackImageUrl={cachedImageUrl ? sourceImageUrl : null}
             memberCount={resolvedMemberCount}
             pendingIntentCount={pendingIntentCount}
             balanceUsd={balanceUsd}
@@ -179,6 +189,7 @@ export function Multisigs() {
                         <AccountCard
                             accountId={EXAMPLE_MULTISIG.accountId}
                             accountName={EXAMPLE_MULTISIG.accountName}
+                            imageUrl={EXAMPLE_MULTISIG.imageUrl}
                             memberCount={EXAMPLE_MULTISIG.memberCount}
                             pendingIntentCount={EXAMPLE_MULTISIG.pendingIntentCount}
                             balanceUsd={EXAMPLE_MULTISIG.balanceUsd}
@@ -254,6 +265,8 @@ export function Multisigs() {
                                                 key={item.ms.account_id}
                                                 accountId={item.ms.account_id}
                                                 accountName={item.ms.name}
+                                                imageUrl={item.ms.image_url}
+                                                cachedImageUrl={resolveBackendImageUrl(item.ms.image_cache_path)}
                                                 memberCount={item.ms.member_count}
                                             />
                                         ) : item.type === "saved" ? (

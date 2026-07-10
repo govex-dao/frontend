@@ -8,6 +8,7 @@ import { useSuiClient, useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import type { SuiJsonRpcClient as SuiClient, SuiObjectResponse } from "@mysten/sui/jsonRpc";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
+import { normalizeMoveCoinType as normalizeCoinType, unwrapMoveFields } from "@/lib/sui/response";
 import { REFRESH_INTERVALS } from "./api/refresh";
 
 // --- Types ---
@@ -118,23 +119,6 @@ function normalizeIdValue(value: unknown): string {
 }
 
 /**
- * Normalize a coin type from onchain TypeName format to standard short-form.
- * "0000...0002::sui::SUI" -> "0x2::sui::SUI"
- */
-function normalizeCoinType(coinType: string): string {
-    if (typeof coinType !== "string") return "";
-    let trimmed = coinType.trim();
-    if (!trimmed.includes("::")) return trimmed;
-    if (!trimmed.startsWith("0x")) trimmed = `0x${trimmed}`;
-    const parts = trimmed.split("::");
-    if (parts.length >= 3) {
-        const addr = parts[0].replace(/^0x0+/, "0x") || "0x0";
-        return `${addr}::${parts.slice(1).join("::")}`;
-    }
-    return trimmed;
-}
-
-/**
  * Extract the CoinType from a Vesting<CoinType> object type string.
  * e.g. "0x...::vesting::Vesting<0x2::sui::SUI>" -> "0x2::sui::SUI"
  */
@@ -155,8 +139,6 @@ function get(obj: any, path: string, defaultValue: any = null): any {
     }
     return result ?? defaultValue;
 }
-
-// --- Paginated owned object fetcher ---
 
 async function getAllOwnedObjects(client: SuiClient, owner: string, structType?: string): Promise<SuiObjectResponse[]> {
     const all: SuiObjectResponse[] = [];
@@ -422,13 +404,13 @@ function createStreamsTableResolver(client: SuiClient) {
             });
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const fields = (vaultObj.data?.content as any)?.fields?.value?.fields;
+            const fields = unwrapMoveFields((vaultObj.data?.content as any)?.fields?.value);
             if (!fields) {
                 vaultStreamTableCache.set(key, null);
                 return null;
             }
 
-            const streamsTableId = get(fields, "streams.fields.id.id") || get(fields, "streams.fields.id");
+            const streamsTableId = normalizeIdValue(fields.streams) || get(fields, "streams.fields.id");
 
             vaultStreamTableCache.set(key, streamsTableId ?? null);
             return streamsTableId ?? null;
@@ -455,7 +437,7 @@ async function getVaultStreamDynamicField(
         try {
             const streamObj = await client.getDynamicFieldObject({ parentId: streamsTableId, name });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((streamObj.data?.content as any)?.fields?.value?.fields) return streamObj;
+            if (unwrapMoveFields((streamObj.data?.content as any)?.fields?.value)) return streamObj;
         } catch {
             // Try the legacy address key shape next.
         }
@@ -481,7 +463,7 @@ async function fetchOwnedVaultStreamDetails(
                 if (!streamObj) return null;
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const streamFields = (streamObj.data?.content as any)?.fields?.value?.fields;
+                const streamFields = unwrapMoveFields((streamObj.data?.content as any)?.fields?.value);
                 if (!streamFields) return null;
 
                 const coinType = normalizeCoinType(parseTypeName(streamFields.coin_type) ?? "unknown");
@@ -515,8 +497,6 @@ async function fetchOwnedVaultStreamDetails(
 
     return streams.filter((s): s is OwnedVaultStreamDetails => s !== null);
 }
-
-// --- Query keys ---
 
 export const myVestingsAndStreamsKeys = {
     vestings: (owner: string) => ["my-vestings", owner] as const,

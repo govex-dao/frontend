@@ -35,6 +35,33 @@ export const docsPages: DocsPage[] = [
                 paragraphs: ["Choose member addresses, weights, a vote threshold, and an intent expiry."],
             },
             {
+                id: "capabilities",
+                title: "Core account capabilities",
+                bullets: [
+                    "Trustless and immutable account contracts.",
+                    "Approval flows for any Sui transaction.",
+                    "Spending limits for delegated execution.",
+                    "Whitelisted transfer recipients.",
+                    "Role-based permissions.",
+                    "Up to 200 members.",
+                    "Onchain changes to members, weights, and thresholds.",
+                    "Virtual vaults to isolate funds.",
+                ],
+            },
+            {
+                id: "custom-operations",
+                title: "Custom operations",
+                bullets: [
+                    "Policy design and onboarding support.",
+                    "Custom multisig actions.",
+                    "Real-time monitoring, alerting, and escalation.",
+                    "Custom SLAs.",
+                    "Full audit trail for proposal lifecycles.",
+                    "Observability across teams and accounts.",
+                    "Nested approval groups.",
+                ],
+            },
+            {
                 id: "open-vaults",
                 title: "2. Open vaults",
                 paragraphs: [

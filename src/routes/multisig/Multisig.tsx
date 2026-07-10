@@ -36,6 +36,7 @@ import { CoinAvatar } from "@/components/CoinAvatar";
 import { ProposeIntentModal } from "@/components/multisig/ProposeIntentModal";
 import { DepositModal } from "@/components/multisig/DepositModal";
 import { MigrateToMultisigModal } from "@/components/multisig/MigrateToMultisigModal";
+import { MultisigAvatar } from "@/components/multisig/MultisigAvatar";
 import {
     useMultisigConfig,
     useMultisigIntents,
@@ -48,7 +49,9 @@ import {
     multisigRpcKeys,
 } from "@/hooks/useMultisig";
 import { useCoins } from "@/hooks/api/useCoins";
+import { useMultisigDetail } from "@/hooks/api";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
+import { resolveBackendImageUrl } from "@/lib/imageUrl";
 import {
     approvalPolicyLabel,
     canAddressCancel,
@@ -386,6 +389,7 @@ export function Multisig() {
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
     const { executeTransaction, isLoading: cleanupLoading } = useSuiTransaction();
+    const { data: indexedDetail } = useMultisigDetail(accountId);
     const { data: config, isLoading: configLoading } = useMultisigConfig(accountId);
     const { data: intents, isLoading: intentsLoading } = useMultisigIntents(accountId);
     const { data: streams, isLoading: streamsLoading } = useMultisigStreams(accountId);
@@ -423,6 +427,9 @@ export function Multisig() {
     const currentMember = config?.members.find((m) => normalizeSuiAddress(m.address) === normalizedCurrentUserAddress);
     const currentUserPermissions = config ? memberPermissionsForAddress(config, account?.address) : 0;
     const canPropose = config && canAddressPropose(config, account?.address);
+    const cachedMultisigImageUrl = resolveBackendImageUrl(indexedDetail?.image_cache_path);
+    const sourceMultisigImageUrl = indexedDetail?.image_url || config?.imageUrl || null;
+    const multisigImageUrl = cachedMultisigImageUrl || sourceMultisigImageUrl;
     const currentUserGroups = useMemo<string[]>(() => {
         if (!config || !normalizedCurrentUserAddress) return [];
         return config.groups
@@ -585,25 +592,34 @@ export function Multisig() {
 
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="flex items-center gap-3">
-                        <Shield className="w-7 h-7 text-primary" />
-                        {config?.name || "Multisig Account"}
-                    </h1>
-                    {accountId && (
-                        <div className="mt-1 max-w-full text-sm text-text-muted">
-                            <span className="break-all font-mono">{accountId}</span>
-                            <button
-                                type="button"
-                                onClick={copyAccountId}
-                                className="ml-1 inline-flex align-[-2px] rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
-                                title="Copy multisig address"
-                                aria-label="Copy multisig address"
-                            >
-                                {copiedAccountId ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                            </button>
-                        </div>
-                    )}
+                <div className="flex min-w-0 items-start gap-3">
+                    <MultisigAvatar
+                        name={config?.name || "Multisig Account"}
+                        imageUrl={multisigImageUrl}
+                        fallbackImageUrl={cachedMultisigImageUrl ? sourceMultisigImageUrl : null}
+                        size="lg"
+                    />
+                    <div className="min-w-0">
+                        <h1 className="truncate">{config?.name || "Multisig Account"}</h1>
+                        {accountId && (
+                            <div className="mt-1 max-w-full text-sm text-text-muted">
+                                <span className="break-all font-mono">{accountId}</span>
+                                <button
+                                    type="button"
+                                    onClick={copyAccountId}
+                                    className="ml-1 inline-flex align-[-2px] rounded p-1 text-text-muted transition-colors hover:bg-white/10 hover:text-text-primary"
+                                    title="Copy multisig address"
+                                    aria-label="Copy multisig address"
+                                >
+                                    {copiedAccountId ? (
+                                        <Check className="h-3.5 w-3.5" />
+                                    ) : (
+                                        <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 {canPropose && config && (
                     <div className="flex items-center gap-2 shrink-0">

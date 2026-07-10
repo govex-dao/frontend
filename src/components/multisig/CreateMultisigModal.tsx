@@ -3,11 +3,12 @@ import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { useQueryClient } from "@tanstack/react-query";
 import { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress } from "@mysten/sui/utils";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, ImageIcon, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/overlays/Modal";
 import { Button } from "@/components/inputs/Button";
 import { Input } from "@/components/inputs/Input";
+import { LINKED_IMAGE_HELP_TEXT, validateLinkedImageUrl } from "@/lib/imageUrl";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
 import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTransaction";
 import { getSDK } from "@/lib/sdk";
@@ -22,6 +23,7 @@ import { multisigKeys } from "@/hooks/api/useMultisigs";
 import { AdvancedMultisigConfig } from "./AdvancedMultisigConfig";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
 import { CreateMultisigSuccessNote } from "./CreateMultisigSuccessNote";
+import { MultisigAvatar } from "./MultisigAvatar";
 import {
     DEFAULT_INTENT_EXPIRY_MS,
     PERMISSION_LABELS,
@@ -50,6 +52,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
     const creatorAddr = account?.address ?? "";
 
     const [accountName, setAccountName] = useState("");
+    const [accountImageUrl, setAccountImageUrl] = useState("");
     const [members, setMembers] = useState<MemberDraft[]>(() => [defaultMember(creatorAddr)]);
     const [globalThreshold, setGlobalThreshold] = useState("1");
     const [configMode, setConfigMode] = useState<ConfigMode>("simple");
@@ -62,6 +65,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
     useEffect(() => {
         if (!isOpen) return;
         setAccountName("");
+        setAccountImageUrl("");
         setMembers([defaultMember(creatorAddr)]);
         setGlobalThreshold("1");
         setConfigMode("simple");
@@ -140,7 +144,10 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
         if (!configValidation) return null;
         return buildSimpleMultisigConfigInput(configValidation, DEFAULT_INTENT_EXPIRY_MS);
     }, [advancedValidation.configInput, configValidation, isAdvancedMode]);
-    const isValid = configInput !== null;
+    const imageValidation = useMemo(() => validateLinkedImageUrl(accountImageUrl), [accountImageUrl]);
+    const imageInvalid = accountImageUrl.trim().length > 0 && Boolean(imageValidation.error);
+    const normalizedImageUrl = imageValidation.normalized;
+    const isValid = configInput !== null && !imageInvalid;
     const parsedThreshold = parseU64Input(globalThreshold);
     const totalVoterWeight = useMemo(
         () =>
@@ -161,7 +168,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
     const thresholdInvalid = globalThreshold.trim() !== "" && (parsedThreshold === null || parsedThreshold < 1n);
 
     const handleCreate = useCallback(async () => {
-        if (submittingRef.current || !account || !configInput || creationFeeMist === null) return;
+        if (submittingRef.current || !account || !configInput || creationFeeMist === null || imageInvalid) return;
 
         submittingRef.current = true;
         try {
@@ -172,9 +179,14 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
             const paymentCoin =
                 creationFeeMist > 0n ? tx.splitCoins(tx.gas, [tx.pure.u64(creationFeeMist)])[0] : undefined;
 
+            const metadata: Record<string, string> = {};
+            const trimmedName = accountName.trim();
+            if (trimmedName) metadata.name = trimmedName;
+            if (normalizedImageUrl) metadata.image = normalizedImageUrl;
+
             appendCreateMultisigAccount(tx, sdk, {
                 configInput,
-                metadata: accountName.trim() ? { name: accountName.trim() } : undefined,
+                metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
                 paymentCoin,
             });
 
@@ -208,7 +220,17 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
         } finally {
             submittingRef.current = false;
         }
-    }, [account, accountName, configInput, creationFeeMist, executeTransaction, queryClient, addId]);
+    }, [
+        account,
+        accountName,
+        normalizedImageUrl,
+        configInput,
+        creationFeeMist,
+        imageInvalid,
+        executeTransaction,
+        queryClient,
+        addId,
+    ]);
 
     return (
         <Modal
@@ -281,6 +303,23 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
                         onChange={setAccountName}
                         placeholder="e.g. Treasury"
                     />
+
+                    <div className="grid grid-cols-[4rem_minmax(0,1fr)] items-end gap-3">
+                        <MultisigAvatar name={accountName || "Multisig"} imageUrl={normalizedImageUrl} size="xl" />
+                        <div>
+                            <Input
+                                label="Image URL (optional)"
+                                value={accountImageUrl}
+                                onChange={setAccountImageUrl}
+                                placeholder="https://example.com/multisig.png"
+                                inputMode="url"
+                                error={imageInvalid}
+                                leftIcon={<ImageIcon className="h-4 w-4 text-text-muted" />}
+                            />
+                            {imageInvalid && <p className="mt-1 text-xs text-error-light">{imageValidation.error}</p>}
+                            <p className="mt-1 text-[11px] text-text-muted">{LINKED_IMAGE_HELP_TEXT}</p>
+                        </div>
+                    </div>
 
                     {!isAdvancedMode && (
                         <>

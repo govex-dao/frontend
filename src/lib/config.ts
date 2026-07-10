@@ -42,7 +42,9 @@ export function getGrpcUrlForNetwork(name: NetworkName): string {
 }
 
 export function getGraphqlUrlForNetwork(name: NetworkName): string {
-    return name === network ? import.meta.env.VITE_SUI_GRAPHQL_URL || defaultGraphqlUrls[name] : defaultGraphqlUrls[name];
+    return name === network
+        ? import.meta.env.VITE_SUI_GRAPHQL_URL || defaultGraphqlUrls[name]
+        : defaultGraphqlUrls[name];
 }
 
 export const suiGrpcUrl = import.meta.env.VITE_SUI_GRPC_URL || defaultGrpcUrls[network];

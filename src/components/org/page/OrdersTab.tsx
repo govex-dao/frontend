@@ -83,8 +83,9 @@ function getBalanceValue(fields: Record<string, unknown>, key: string): bigint {
     const v = fields[key];
     if (typeof v === "string") return BigInt(v);
     if (typeof v === "number") return BigInt(v);
-    if (v && typeof v === "object" && "fields" in v) {
-        const inner = (v as { fields: Record<string, unknown> }).fields;
+    if (v && typeof v === "object") {
+        const record = v as Record<string, unknown>;
+        const inner = "fields" in record ? (record.fields as Record<string, unknown>) : record;
         if ("value" in inner) {
             const val = inner.value;
             if (typeof val === "string") return BigInt(val);
