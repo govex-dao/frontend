@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { formatAddress } from "@mysten/sui/utils";
 import { ChevronDown, Wallet, Loader2 } from "lucide-react";
-import { useConnectWallet, useCurrentAccount, useDisconnectWallet, useWallets } from "@/lib/sui/dapp-kit-compat";
 import toast from "react-hot-toast";
+import { useConnectWallet, useCurrentAccount, useDisconnectWallet, useWallets } from "@/lib/sui/dapp-kit-compat";
 import { Modal } from "@/components/overlays/Modal";
 import { Identicon } from "../Identicon";
 import { Button } from "../inputs/Button";
@@ -124,12 +124,13 @@ function WalletConnectionModal(props: WalletConnectionModalProps) {
 
 interface SuiWalletButtonProps {
     buttonClassName?: string;
+    initiallyOpen?: boolean;
 }
 
 export function SuiWalletButton(props: SuiWalletButtonProps = {}) {
-    const { buttonClassName = "" } = props;
+    const { buttonClassName = "", initiallyOpen = false } = props;
     const [open, setOpen] = useState(false);
-    const [connectModal, setConnectModal] = useState(false);
+    const [connectModal, setConnectModal] = useState(initiallyOpen);
     const [selectedWallet, setSelectedWallet] = useState<string>("");
     const [connectionError, setConnectionError] = useState<string>("");
     const account = useCurrentAccount();

@@ -28,6 +28,9 @@ const Docs = lazy(() => import("./routes/docs/Docs").then(({ Docs }) => ({ defau
 const Blog = lazy(() => import("./routes/blog/Blog").then(({ Blog }) => ({ default: Blog })));
 const BlogPost = lazy(() => import("./routes/blog/BlogPost").then(({ BlogPost }) => ({ default: BlogPost })));
 const NotFoundPage = lazy(() => import("./routes/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })));
+const SuiAppProvider = lazy(() =>
+    import("./components/sui/SuiAppProvider").then(({ SuiAppProvider }) => ({ default: SuiAppProvider }))
+);
 
 function RouteLoading() {
     return (
@@ -84,7 +87,16 @@ function RouteScrollContainer({ children }: { children: ReactNode }) {
     );
 }
 
-function AppLayout() {
+function routeNeedsSuiProvider(pathname: string): boolean {
+    if (pathname.startsWith("/multisig")) return true;
+    if (pathname === "/orgs/create") return true;
+    if (/^\/orgs\/[^/]+(?:\/proposals\/[^/]+)?$/.test(pathname)) return true;
+    if (/^\/proposals?\/[^/]+$/.test(pathname)) return true;
+    if (/^\/raises\/[^/]+$/.test(pathname) && pathname !== "/raises/example") return true;
+    return false;
+}
+
+function AppFrame({ suiProviderAvailable }: { suiProviderAvailable: boolean }) {
     const location = useLocation();
     const isHome = location.pathname === "/";
     const isDocs = location.pathname === "/docs" || location.pathname.startsWith("/docs/");
@@ -112,7 +124,13 @@ function AppLayout() {
                     }}
                 />
                 <RouteScrollContainer>
-                    {isHome ? <Navbar homeHero /> : isDocs ? <Navbar heroContent={<DocsNavbarHero />} /> : <Navbar />}
+                    {isHome ? (
+                        <Navbar homeHero suiProviderAvailable={suiProviderAvailable} />
+                    ) : isDocs ? (
+                        <Navbar heroContent={<DocsNavbarHero />} suiProviderAvailable={suiProviderAvailable} />
+                    ) : (
+                        <Navbar suiProviderAvailable={suiProviderAvailable} />
+                    )}
                     <Suspense fallback={<RouteLoading />}>
                         <Outlet />
                     </Suspense>
@@ -120,6 +138,20 @@ function AppLayout() {
                 </RouteScrollContainer>
             </main>
         </ErrorBoundary>
+    );
+}
+
+function AppLayout() {
+    const location = useLocation();
+    const needsSuiProvider = routeNeedsSuiProvider(location.pathname);
+    const frame = <AppFrame suiProviderAvailable={needsSuiProvider} />;
+
+    if (!needsSuiProvider) return frame;
+
+    return (
+        <Suspense fallback={<RouteLoading />}>
+            <SuiAppProvider>{frame}</SuiAppProvider>
+        </Suspense>
     );
 }
 

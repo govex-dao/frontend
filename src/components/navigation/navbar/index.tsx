@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { SuiWalletButton } from "@/components/sui/WalletButton";
+import { WalletControl } from "@/components/sui/WalletControl";
 import { Drawer } from "@/components/overlays/Drawer";
 import { NavButton } from "./NavButton";
 
@@ -8,6 +8,7 @@ interface Props {
     className?: string;
     homeHero?: boolean;
     heroContent?: ReactNode;
+    suiProviderAvailable?: boolean;
 }
 
 const NAV_CHROME_CLASSES =
@@ -26,7 +27,7 @@ function HomeNavbarHero() {
 }
 
 export function Navbar(props: Props) {
-    const { className, homeHero = false, heroContent } = props;
+    const { className, homeHero = false, heroContent, suiProviderAvailable = false } = props;
     const navigate = useNavigate();
     const pathname = useLocation().pathname;
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -89,7 +90,10 @@ export function Navbar(props: Props) {
                     <div className="flex h-12 items-center gap-3">
                         {/* Wallet button - Desktop only */}
                         <div className="hidden lg:block">
-                            <SuiWalletButton buttonClassName={NAV_CHROME_CLASSES} />
+                            <WalletControl
+                                buttonClassName={NAV_CHROME_CLASSES}
+                                suiProviderAvailable={suiProviderAvailable}
+                            />
                         </div>
 
                         {/* Hamburger Menu Button - Mobile only */}
@@ -128,7 +132,11 @@ export function Navbar(props: Props) {
                 underHeader
                 zIndexAboveHeader={false}
             >
-                <MobileMenuContent handleNavigation={handleNavigation} pathname={pathname} />
+                <MobileMenuContent
+                    handleNavigation={handleNavigation}
+                    pathname={pathname}
+                    suiProviderAvailable={suiProviderAvailable}
+                />
             </Drawer>
         </>
     );
@@ -137,9 +145,11 @@ export function Navbar(props: Props) {
 function MobileMenuContent({
     handleNavigation,
     pathname,
+    suiProviderAvailable,
 }: {
     handleNavigation: (path: string) => void;
     pathname: string;
+    suiProviderAvailable: boolean;
 }) {
     return (
         <div className="flex flex-col h-full">
@@ -180,7 +190,7 @@ function MobileMenuContent({
 
             {/* Wallet button - sticky at bottom */}
             <div className="px-4 py-2 flex justify-center w-full">
-                <SuiWalletButton />
+                <WalletControl suiProviderAvailable={suiProviderAvailable} />
             </div>
         </div>
     );

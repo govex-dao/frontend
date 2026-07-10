@@ -13,26 +13,6 @@ export default defineConfig({
     define: {
         __BUILD_INFO__: JSON.stringify(buildInfo),
     },
-    build: {
-        rollupOptions: {
-            output: {
-                manualChunks(id) {
-                    if (!id.includes("node_modules")) return;
-                    if (id.includes("@govex/futarchy-sdk")) return "govex-sdk";
-                    if (id.includes("@mysten/dapp-kit")) return "sui-dapp-kit";
-                    if (id.includes("@mysten/sui")) return "sui-client";
-                    if (id.includes("lightweight-charts")) return "charts";
-                    if (id.includes("react-markdown") || id.includes("remark-") || id.includes("rehype-")) {
-                        return "markdown";
-                    }
-                    if (id.includes("motion")) return "motion";
-                    if (id.includes("lucide-react")) return "icons";
-                    if (id.includes("react")) return "react-vendor";
-                    return "vendor";
-                },
-            },
-        },
-    },
     plugins: [react(), tailwindcss(), buildInfoPlugin(buildInfo)],
     resolve: {
         alias: {

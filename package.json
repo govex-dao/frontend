@@ -9,8 +9,8 @@
     },
     "scripts": {
         "dev": "vite",
-        "build": "tsc -b && node -r ./scripts/crypto-hash-polyfill.cjs ./node_modules/vite/bin/vite.js build && node -e \"require('node:fs').copyFileSync('serve.json', 'dist/serve.json')\"",
-        "start": "serve dist -s -c serve.json -l tcp://0.0.0.0:${PORT:-3000}",
+        "build": "tsc -b && node -r ./scripts/crypto-hash-polyfill.cjs ./node_modules/vite/bin/vite.js build && node -e \"require('node:fs').copyFileSync('serve.json', 'dist/serve.json')\" && node scripts/precompress.mjs",
+        "start": "node scripts/serve-dist.mjs",
         "preview": "vite preview",
         "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
         "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
@@ -37,7 +37,6 @@
         "react-router": "7.15.0",
         "rehype-sanitize": "^6.0.0",
         "remark-gfm": "^4.0.1",
-        "serve": "^14.2.5",
         "tailwindcss": "^4.1.16"
     },
     "devDependencies": {
