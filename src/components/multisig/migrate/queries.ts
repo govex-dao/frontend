@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
-import type { CoinStruct, SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
+import type { CoinStruct, SuiClient } from "@govex/futarchy-sdk";
 import { parseStructTag } from "@mysten/sui/utils";
 import { useQuery } from "@tanstack/react-query";
+import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { COIN_OBJECT_PAGE_LIMIT, MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";
 import type { CoinObjectScan, ObjectTransferAbility, WalletBalance } from "./types";
 import { extractUpgradeCapPackageId, normalizeAddressInput, objectTypeAbilityKey } from "./utils";

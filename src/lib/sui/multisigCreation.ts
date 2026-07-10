@@ -1,6 +1,6 @@
 import type { FutarchySDK } from "@govex/futarchy-sdk";
 import { bcs } from "@mysten/sui/bcs";
-import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
+import type { SuiClient } from "@govex/futarchy-sdk";
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import { flattenMultisigConfigInput, type SimpleMultisigConfigInput } from "./multisigConfigValidation";
 

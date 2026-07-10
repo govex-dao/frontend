@@ -4,7 +4,7 @@ import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import type { CoinMetadata } from "@/lib/api/coins";
 
 /**
- * Fetch coin metadata directly from Sui RPC (suix_getCoinMetadata)
+ * Fetch coin metadata directly through the Sui gRPC Core API.
  * for coin types not covered by the backend /api/coins endpoint.
  */
 export function useOnChainCoinMetadata(coinTypes: string[], backendCoins?: CoinMetadata[]) {

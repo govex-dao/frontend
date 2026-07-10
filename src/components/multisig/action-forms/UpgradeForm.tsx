@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress, formatAddress } from "@mysten/sui/utils";
+import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Input } from "@/components/inputs/Input";
 import { Textarea } from "@/components/inputs/Textarea";
 import { Select } from "@/components/inputs/Select";
@@ -82,10 +82,10 @@ function useWalletUpgradeCaps() {
                 });
                 for (const item of page.data) {
                     const content = item.data?.content;
-                    if (content?.dataType !== "moveObject") continue;
+                    if (content?.dataType !== "moveObject" || !item.data?.objectId) continue;
                     const fields = content.fields as UpgradeCapFields;
                     caps.push({
-                        objectId: item.data!.objectId,
+                        objectId: item.data.objectId,
                         packageId: fields?.package ?? "",
                     });
                 }

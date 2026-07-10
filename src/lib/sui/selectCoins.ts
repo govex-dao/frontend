@@ -1,4 +1,4 @@
-import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
+import type { SuiClient } from "@govex/futarchy-sdk";
 
 export interface PaymentCoin {
     coinObjectId: string;

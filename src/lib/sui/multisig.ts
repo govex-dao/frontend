@@ -4,7 +4,7 @@
  * Used for live onchain data on detail pages and paste-ID lookups.
  */
 
-import type { SuiJsonRpcClient as SuiClient } from "@mysten/sui/jsonRpc";
+import type { SuiClient } from "@govex/futarchy-sdk";
 import { parseStructTag } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
 
@@ -1865,7 +1865,7 @@ export async function fetchAccountOwnedObjects(client: SuiClient, accountId: str
 
             for (const item of page.data) {
                 const data = item.data;
-                if (!data?.type) continue;
+                if (!data?.type || !data.objectId || !data.digest) continue;
                 all.push({
                     objectId: data.objectId,
                     objectType: data.type,

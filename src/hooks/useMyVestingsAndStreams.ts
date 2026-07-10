@@ -4,8 +4,8 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import type { SuiClient, SuiObjectResponse } from "@govex/futarchy-sdk";
 import { useSuiClient, useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
-import type { SuiJsonRpcClient as SuiClient, SuiObjectResponse } from "@mysten/sui/jsonRpc";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
 import { normalizeMoveCoinType as normalizeCoinType, unwrapMoveFields } from "@/lib/sui/response";
