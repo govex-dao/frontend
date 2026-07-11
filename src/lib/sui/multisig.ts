@@ -867,6 +867,12 @@ function parsePackageUpgradeExpectedCapId(actionData: any): string | null {
 
 const inFlightChainReads = new WeakMap<object, Map<string, Promise<unknown>>>();
 
+interface DynamicFieldInfo {
+    name: unknown;
+    objectId?: string;
+    objectType?: string;
+}
+
 function coalesceChainRead<T>(client: SuiClient, key: string, load: () => Promise<T>): Promise<T> {
     let clientReads = inFlightChainReads.get(client as object);
     if (!clientReads) {
@@ -900,6 +906,17 @@ function getDynamicFieldObject(client: SuiClient, parentId: string, name: unknow
     );
 }
 
+async function getDynamicFieldObjects(client: SuiClient, parentId: string, fields: DynamicFieldInfo[]): Promise<any[]> {
+    if (fields.length === 0) return [];
+    if (fields.every((field) => field.objectId)) {
+        return client.multiGetObjects({
+            ids: fields.map((field) => field.objectId!),
+            options: { showContent: true, showType: true },
+        });
+    }
+    return Promise.all(fields.map((field) => getDynamicFieldObject(client, parentId, field.name)));
+}
+
 function getAccountObject(client: SuiClient, accountId: string) {
     return coalesceChainRead(client, `account-object:${accountId}`, () =>
         client.getObject({
@@ -909,9 +926,9 @@ function getAccountObject(client: SuiClient, accountId: string) {
     );
 }
 
-function getAllDynamicFields(client: SuiClient, parentId: string): Promise<Array<{ name: unknown }>> {
+function getAllDynamicFields(client: SuiClient, parentId: string): Promise<DynamicFieldInfo[]> {
     return coalesceChainRead(client, `dynamic-fields:${parentId}`, async () => {
-        const all: Array<{ name: unknown }> = [];
+        const all: DynamicFieldInfo[] = [];
         let cursor: string | null | undefined = null;
 
         while (true) {
@@ -919,7 +936,7 @@ function getAllDynamicFields(client: SuiClient, parentId: string): Promise<Array
                 parentId,
                 ...(cursor ? { cursor } : {}),
             });
-            all.push(...(page.data as Array<{ name: unknown }>));
+            all.push(...(page.data as DynamicFieldInfo[]));
             if (!page.hasNextPage || !page.nextCursor) break;
             cursor = page.nextCursor;
         }
@@ -968,7 +985,7 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
         if (!multisigField) return null;
 
         // Read the MultisigConfig dynamic field
-        const dfObj = await getDynamicFieldObject(client, accountId, multisigField.name);
+        const [dfObj] = await getDynamicFieldObjects(client, accountId, [multisigField]);
 
         // JSON-RPC wraps Move structs in `{ fields: ... }`, while the gRPC
         // compatibility client returns the value fields directly.
@@ -1031,10 +1048,12 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
         const dynFields = await getAllDynamicFields(client, intentsBagId);
 
         const intents: IntentSummary[] = [];
+        const intentObjects = await getDynamicFieldObjects(client, intentsBagId, dynFields);
 
-        for (const df of dynFields) {
+        for (let intentIndex = 0; intentIndex < dynFields.length; intentIndex += 1) {
+            const df = dynFields[intentIndex];
             try {
-                const intentObj = await getDynamicFieldObject(client, intentsBagId, df.name);
+                const intentObj = intentObjects[intentIndex];
 
                 const intentFields = fieldsOf((intentObj.data?.content as any)?.fields?.value);
                 if (!intentFields) continue;
@@ -1619,6 +1638,15 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             const nameType = (df.name as any)?.type || "";
             return nameType.includes("UpgradeCapKey");
         });
+        const rulesFields = dynFields.filter((df: any) => {
+            const nameType = (df.name as any)?.type || "";
+            return nameType.includes("UpgradeRulesKey");
+        });
+        const packageFields = [...capFields, ...rulesFields];
+        const packageObjects = await getDynamicFieldObjects(client, accountId, packageFields);
+        const objectByFieldKey = new Map(
+            packageFields.map((field, index) => [dynamicFieldKey(accountId, field.name), packageObjects[index]])
+        );
 
         const results: LockedPackageInfo[] = [];
 
@@ -1632,7 +1660,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             let capObjectId = "";
             let policy = 0;
             try {
-                const capObj = await getDynamicFieldObject(client, accountId, capField.name);
+                const capObj = objectByFieldKey.get(dynamicFieldKey(accountId, capField.name));
                 const fields = dynamicObjectFieldValue(capObj.data?.content).fields;
                 if (fields) {
                     packageAddress = fields.package ?? "";
@@ -1654,7 +1682,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             });
             if (rulesField) {
                 try {
-                    const rulesObj = await getDynamicFieldObject(client, accountId, rulesField.name);
+                    const rulesObj = objectByFieldKey.get(dynamicFieldKey(accountId, rulesField.name));
                     const fields = fieldsOf((rulesObj.data?.content as any)?.fields?.value);
                     if (fields) {
                         delayMs = Number(fields.delay_ms ?? 0);
@@ -1808,30 +1836,33 @@ export async function fetchAccountLockedCaps(client: SuiClient, accountId: strin
             return [];
         });
 
-        const caps = await Promise.all(
-            capFields.map(async ({ df, keyType, kind, capType, coinType }) => {
-                let objectId = (df as any).objectId ?? "";
-                let objectType = (df as any).objectType || capType;
-
-                try {
-                    const capObj = await getDynamicFieldObject(client, accountId, df.name);
-                    const value = dynamicObjectFieldValue(capObj.data?.content);
-                    objectId = normalizeIdString(value.fields?.id) ?? objectId;
-                    objectType = value.objectType || objectType;
-                } catch {
-                    /* best-effort display; dynamic field metadata usually includes objectId */
-                }
-
-                return {
-                    kind,
-                    capType,
-                    objectId,
-                    objectType,
-                    keyType,
-                    coinType,
-                } satisfies LockedCapInfo;
-            })
+        const capObjects = await getDynamicFieldObjects(
+            client,
+            accountId,
+            capFields.map(({ df }) => df)
         );
+        const caps = capFields.map(({ df, keyType, kind, capType, coinType }, index) => {
+            let objectId = (df as any).objectId ?? "";
+            let objectType = (df as any).objectType || capType;
+
+            try {
+                const capObj = capObjects[index];
+                const value = dynamicObjectFieldValue(capObj.data?.content);
+                objectId = normalizeIdString(value.fields?.id) ?? objectId;
+                objectType = value.objectType || objectType;
+            } catch {
+                /* best-effort display; dynamic field metadata usually includes objectId */
+            }
+
+            return {
+                kind,
+                capType,
+                objectId,
+                objectType,
+                keyType,
+                coinType,
+            } satisfies LockedCapInfo;
+        });
 
         return caps
             .filter((cap) => cap.objectId || cap.capType)
