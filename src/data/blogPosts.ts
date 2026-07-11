@@ -29,6 +29,10 @@ export const blogPosts: BlogPost[] = [
             "Agent-first companies need controlled financial authority: budgets, approvals, execution rights, receipts, and an operating record that agents and humans can share.",
         tags: ["orgs", "governance"],
         date: "2026-07-09",
+        image: {
+            src: "/images/blog/financial-os-for-agent-first-companies.png",
+            alt: "A translucent agent figure containing a three-person organization chart within its chest",
+        },
         content: `
 ## Companies Are Becoming Executable
 
