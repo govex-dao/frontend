@@ -18,10 +18,11 @@ export const coinKeys = {
 /**
  * Hook to fetch all coin metadata
  */
-export function useCoins() {
+export function useCoins(options: { enabled?: boolean } = {}) {
     return useQuery({
         queryKey: coinKeys.list(),
         queryFn: ({ signal }) => fetchCoins({ signal }),
+        enabled: options.enabled ?? true,
         staleTime: REFRESH_INTERVALS.STATIC, // Coin metadata is fairly static
     });
 }

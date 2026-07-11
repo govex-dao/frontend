@@ -865,21 +865,67 @@ function parsePackageUpgradeExpectedCapId(actionData: any): string | null {
     );
 }
 
-async function getAllDynamicFields(client: SuiClient, parentId: string): Promise<Array<{ name: unknown }>> {
-    const all: Array<{ name: unknown }> = [];
-    let cursor: string | null | undefined = null;
+const inFlightChainReads = new WeakMap<object, Map<string, Promise<unknown>>>();
 
-    while (true) {
-        const page = await client.getDynamicFields({
-            parentId,
-            ...(cursor ? { cursor } : {}),
-        });
-        all.push(...(page.data as Array<{ name: unknown }>));
-        if (!page.hasNextPage || !page.nextCursor) break;
-        cursor = page.nextCursor;
+function coalesceChainRead<T>(client: SuiClient, key: string, load: () => Promise<T>): Promise<T> {
+    let clientReads = inFlightChainReads.get(client as object);
+    if (!clientReads) {
+        clientReads = new Map();
+        inFlightChainReads.set(client as object, clientReads);
     }
 
-    return all;
+    const existing = clientReads.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const request = load();
+    clientReads.set(key, request);
+    const clearRequest = () => {
+        if (clientReads?.get(key) === request) clientReads.delete(key);
+    };
+    void request.then(clearRequest, clearRequest);
+    return request;
+}
+
+function dynamicFieldKey(parentId: string, name: unknown): string {
+    try {
+        return `dynamic-field:${parentId}:${JSON.stringify(name)}`;
+    } catch {
+        return `dynamic-field:${parentId}:${String(name)}`;
+    }
+}
+
+function getDynamicFieldObject(client: SuiClient, parentId: string, name: unknown) {
+    return coalesceChainRead(client, dynamicFieldKey(parentId, name), () =>
+        client.getDynamicFieldObject({ parentId, name: name as any })
+    );
+}
+
+function getAccountObject(client: SuiClient, accountId: string) {
+    return coalesceChainRead(client, `account-object:${accountId}`, () =>
+        client.getObject({
+            id: accountId,
+            options: { showContent: true, showType: true },
+        })
+    );
+}
+
+function getAllDynamicFields(client: SuiClient, parentId: string): Promise<Array<{ name: unknown }>> {
+    return coalesceChainRead(client, `dynamic-fields:${parentId}`, async () => {
+        const all: Array<{ name: unknown }> = [];
+        let cursor: string | null | undefined = null;
+
+        while (true) {
+            const page = await client.getDynamicFields({
+                parentId,
+                ...(cursor ? { cursor } : {}),
+            });
+            all.push(...(page.data as Array<{ name: unknown }>));
+            if (!page.hasNextPage || !page.nextCursor) break;
+            cursor = page.nextCursor;
+        }
+
+        return all;
+    });
 }
 
 // --- RPC Fetchers ---
@@ -891,10 +937,7 @@ async function getAllDynamicFields(client: SuiClient, parentId: string): Promise
 export async function fetchMultisigConfig(client: SuiClient, accountId: string): Promise<MultisigConfig | null> {
     try {
         // Get Account object
-        const accountObj = await client.getObject({
-            id: accountId,
-            options: { showContent: true, showType: true },
-        });
+        const accountObj = await getAccountObject(client, accountId);
 
         const fields = (accountObj.data?.content as any)?.fields;
         if (!fields) return null;
@@ -925,10 +968,7 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
         if (!multisigField) return null;
 
         // Read the MultisigConfig dynamic field
-        const dfObj = await client.getDynamicFieldObject({
-            parentId: accountId,
-            name: multisigField.name as any,
-        });
+        const dfObj = await getDynamicFieldObject(client, accountId, multisigField.name);
 
         // JSON-RPC wraps Move structs in `{ fields: ... }`, while the gRPC
         // compatibility client returns the value fields directly.
@@ -974,10 +1014,7 @@ export async function fetchMultisigConfig(client: SuiClient, accountId: string):
 export async function fetchAccountIntents(client: SuiClient, accountId: string): Promise<IntentSummary[]> {
     try {
         const accountMultisigPackageId = getSDK().packages.accountMultisig;
-        const accountObj = await client.getObject({
-            id: accountId,
-            options: { showContent: true },
-        });
+        const accountObj = await getAccountObject(client, accountId);
 
         const fields = (accountObj.data?.content as any)?.fields;
         if (!fields) return [];
@@ -997,10 +1034,7 @@ export async function fetchAccountIntents(client: SuiClient, accountId: string):
 
         for (const df of dynFields) {
             try {
-                const intentObj = await client.getDynamicFieldObject({
-                    parentId: intentsBagId,
-                    name: df.name as any,
-                });
+                const intentObj = await getDynamicFieldObject(client, intentsBagId, df.name);
 
                 const intentFields = fieldsOf((intentObj.data?.content as any)?.fields?.value);
                 if (!intentFields) continue;
@@ -1195,10 +1229,7 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
                         typeof vaultNameRaw === "string"
                             ? vaultNameRaw
                             : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
-                    const vaultObj = await client.getDynamicFieldObject({
-                        parentId: accountId,
-                        name: vf.name as any,
-                    });
+                    const vaultObj = await getDynamicFieldObject(client, accountId, vf.name);
                     const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
                     if (!fields) return null;
                     const streamsTableId =
@@ -1229,8 +1260,7 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
         for (const { vaultName, streamsTableId, streamDynFields } of streamListResults) {
             for (const sf of streamDynFields) {
                 streamFetches.push(
-                    client
-                        .getDynamicFieldObject({ parentId: streamsTableId, name: sf.name as any })
+                    getDynamicFieldObject(client, streamsTableId, sf.name)
                         .then((streamObj) => {
                             const streamFields = fieldsOf((streamObj.data?.content as any)?.fields?.value);
                             if (!streamFields) return null;
@@ -1318,10 +1348,7 @@ export async function fetchAccountVaultBalances(client: SuiClient, accountId: st
                             ? vaultNameRaw
                             : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
 
-                    const vaultObj = await client.getDynamicFieldObject({
-                        parentId: accountId,
-                        name: vf.name as any,
-                    });
+                    const vaultObj = await getDynamicFieldObject(client, accountId, vf.name);
                     const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
                     if (!fields) return null;
 
@@ -1351,8 +1378,7 @@ export async function fetchAccountVaultBalances(client: SuiClient, accountId: st
 
             for (const bf of balanceDynFields) {
                 balanceFetches.push(
-                    client
-                        .getDynamicFieldObject({ parentId: balancesBagId, name: bf.name as any })
+                    getDynamicFieldObject(client, balancesBagId, bf.name)
                         .then((balanceObj) => {
                             const balanceFields = (balanceObj.data?.content as any)?.fields;
                             // The coin type is the key (TypeName value)
@@ -1392,10 +1418,7 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
 
         if (!registryField) return [];
 
-        const registryObj = await client.getDynamicFieldObject({
-            parentId: accountId,
-            name: registryField.name as any,
-        });
+        const registryObj = await getDynamicFieldObject(client, accountId, registryField.name);
 
         const entries = parseVecMapEntries(findNestedField(registryObj.data?.content, "entries"));
 
@@ -1503,10 +1526,7 @@ export async function fetchVaultApprovedCoinTypes(
 
         if (!vaultField) return [];
 
-        const vaultObj = await client.getDynamicFieldObject({
-            parentId: accountId,
-            name: vaultField.name as any,
-        });
+        const vaultObj = await getDynamicFieldObject(client, accountId, vaultField.name);
 
         const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
         if (!fields) return [];
@@ -1612,10 +1632,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             let capObjectId = "";
             let policy = 0;
             try {
-                const capObj = await client.getDynamicFieldObject({
-                    parentId: accountId,
-                    name: capField.name as any,
-                });
+                const capObj = await getDynamicFieldObject(client, accountId, capField.name);
                 const fields = dynamicObjectFieldValue(capObj.data?.content).fields;
                 if (fields) {
                     packageAddress = fields.package ?? "";
@@ -1637,10 +1654,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             });
             if (rulesField) {
                 try {
-                    const rulesObj = await client.getDynamicFieldObject({
-                        parentId: accountId,
-                        name: rulesField.name as any,
-                    });
+                    const rulesObj = await getDynamicFieldObject(client, accountId, rulesField.name);
                     const fields = fieldsOf((rulesObj.data?.content as any)?.fields?.value);
                     if (fields) {
                         delayMs = Number(fields.delay_ms ?? 0);
@@ -1800,10 +1814,7 @@ export async function fetchAccountLockedCaps(client: SuiClient, accountId: strin
                 let objectType = (df as any).objectType || capType;
 
                 try {
-                    const capObj = await client.getDynamicFieldObject({
-                        parentId: accountId,
-                        name: df.name as any,
-                    });
+                    const capObj = await getDynamicFieldObject(client, accountId, df.name);
                     const value = dynamicObjectFieldValue(capObj.data?.content);
                     objectId = normalizeIdString(value.fields?.id) ?? objectId;
                     objectType = value.objectType || objectType;

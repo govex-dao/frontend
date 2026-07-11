@@ -41,7 +41,13 @@ export function FeaturedCard(props: Props) {
             <div className="relative w-full h-48 sm:h-auto sm:w-80 lg:w-96 shrink-0">
                 {headerImage ? (
                     <>
-                        <img src={headerImage} alt={name} className="absolute inset-0 w-full h-full object-cover" />
+                        <img
+                            src={headerImage}
+                            alt={name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <div className="absolute inset-0 bg-linear-to-br from-black/30 via-black/20 to-transparent" />
                     </>
                 ) : (

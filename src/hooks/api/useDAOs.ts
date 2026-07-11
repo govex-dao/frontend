@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchDAOs, fetchDAO } from "../../lib/api";
 import type { DAO, DAODisplay } from "../../types";
 import { toDAODisplay } from "../../types";
@@ -41,10 +41,14 @@ export function useDAOsDisplay() {
  * Fetch a single DAO by ID (raw backend type)
  */
 export function useDAO(id: string | undefined) {
+    const queryClient = useQueryClient();
+
     return useQuery<DAO>({
         queryKey: daoKeys.detail(id!),
         queryFn: ({ signal }) => fetchDAO(id!, { signal }),
         enabled: !!id,
+        initialData: () => queryClient.getQueryData<DAO[]>(daoKeys.list())?.find((dao) => dao.id === id),
+        initialDataUpdatedAt: () => queryClient.getQueryState(daoKeys.list())?.dataUpdatedAt,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
 }

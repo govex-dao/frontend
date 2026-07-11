@@ -27,6 +27,8 @@ export function useMyMultisigs() {
         queryKey: multisigKeys.list(address || ""),
         queryFn: ({ signal }) => fetchMyMultisigs(address!, { signal }),
         enabled: !!address,
+        retry: false,
+        staleTime: REFRESH_INTERVALS.DISCOVERY,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
 }
@@ -39,6 +41,8 @@ export function useMultisigDetail(accountId: string | undefined) {
         queryKey: multisigKeys.detail(accountId!),
         queryFn: ({ signal }) => fetchMultisigDetail(accountId!, { signal }),
         enabled: !!accountId,
+        retry: false,
+        staleTime: REFRESH_INTERVALS.DISCOVERY,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
 }

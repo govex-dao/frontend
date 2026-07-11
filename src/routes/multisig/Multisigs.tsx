@@ -8,15 +8,11 @@ import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
 import { useMyLinkedMultisigAccounts } from "@/hooks/useMyVestingsAndStreams";
-import { useMultisigConfig, useMultisigIntents, useMultisigVaultBalances } from "@/hooks/useMultisig";
+import { useMultisigConfig } from "@/hooks/useMultisig";
 import type { MultisigListItem } from "@/lib/api";
-import { isOpenIntentStatus, normalizeSuiAddress } from "@/lib/sui/multisig";
-import type { VaultCoinBalance } from "@/lib/sui/multisig";
-import { formatUnits } from "@/lib/units";
-import { resolveBackendImageUrl } from "@/lib/imageUrl";
+import { normalizeSuiAddress } from "@/lib/sui/multisig";
 
 const ITEMS_PER_PAGE = 6;
-const USDC_DECIMALS = 6;
 const EXAMPLE_MULTISIG = {
     accountId: "0x4eedc223e50297adf3fd0124af3a114384b43685870a70140b44e2c51ac3505e",
     accountName: "Example Multisig",
@@ -27,66 +23,36 @@ const EXAMPLE_MULTISIG = {
 };
 
 type MultisigItem =
-    | { type: "backend"; ms: MultisigListItem }
-    | { type: "saved"; id: string }
-    | { type: "linked"; id: string };
+    { type: "backend"; ms: MultisigListItem } | { type: "saved"; id: string } | { type: "linked"; id: string };
 
 function accountKey(id: string | undefined): string {
     return normalizeSuiAddress(id) || "";
-}
-
-function isUsdcCoinType(coinType: string): boolean {
-    return coinType.toLowerCase().endsWith("::usdc::usdc");
-}
-
-function formatUsdcBalanceUsd(balances: VaultCoinBalance[] | undefined): string | null {
-    if (!balances) return null;
-    const usdcBalance = balances.reduce((total, balance) => {
-        return isUsdcCoinType(balance.coinType) ? total + balance.amount : total;
-    }, 0n);
-    const formatted = formatUnits(usdcBalance, USDC_DECIMALS, {
-        maxFractionDigits: 2,
-        trimTrailingZeros: false,
-    });
-    return `$${formatted}`;
 }
 
 function ResolvedAccountCard({
     accountId,
     accountName: fallbackName,
     imageUrl: fallbackImageUrl,
-    cachedImageUrl,
     memberCount,
     onRemove,
 }: {
     accountId: string;
     accountName: string;
     imageUrl?: string | null;
-    cachedImageUrl?: string | null;
     memberCount: number;
     onRemove?: () => void;
 }) {
     const { data: config } = useMultisigConfig(accountId);
-    const { data: intents } = useMultisigIntents(accountId);
-    const { data: vaultBalances } = useMultisigVaultBalances(accountId);
     const accountName = config?.name?.trim() || fallbackName;
-    const sourceImageUrl = fallbackImageUrl || config?.imageUrl || null;
-    const imageUrl = cachedImageUrl || sourceImageUrl;
+    const imageUrl = config?.imageUrl || fallbackImageUrl || null;
     const resolvedMemberCount = config?.members.length ?? (memberCount > 0 ? memberCount : null);
-    const pendingIntentCount = intents
-        ? intents.filter((intent) => isOpenIntentStatus(intent.approvals.status)).length
-        : null;
-    const balanceUsd = formatUsdcBalanceUsd(vaultBalances);
 
     return (
         <AccountCard
             accountId={accountId}
             accountName={accountName}
             imageUrl={imageUrl}
-            fallbackImageUrl={cachedImageUrl ? sourceImageUrl : null}
             memberCount={resolvedMemberCount}
-            pendingIntentCount={pendingIntentCount}
-            balanceUsd={balanceUsd}
             onRemove={onRemove}
         />
     );
@@ -261,12 +227,11 @@ export function Multisigs() {
                                     .slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE)
                                     .map((item) =>
                                         item.type === "backend" ? (
-                                            <ResolvedAccountCard
+                                            <AccountCard
                                                 key={item.ms.account_id}
                                                 accountId={item.ms.account_id}
                                                 accountName={item.ms.name}
                                                 imageUrl={item.ms.image_url}
-                                                cachedImageUrl={resolveBackendImageUrl(item.ms.image_cache_path)}
                                                 memberCount={item.ms.member_count}
                                             />
                                         ) : item.type === "saved" ? (

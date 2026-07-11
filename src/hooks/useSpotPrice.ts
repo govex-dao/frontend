@@ -8,7 +8,7 @@ import type { DAO } from "@/types";
  *
  * Returns the price as "stable per 1 asset" (human-readable, decimal-adjusted).
  */
-export function useSpotPrice(dao: DAO | undefined) {
+export function useSpotPrice(dao: DAO | undefined, enabled = true) {
     const poolId = dao?.spot_pool_id;
     const protocolVersion = getProtocolVersionForDAO(dao);
     const isSupportedProtocol = isSupportedProtocolDAO(dao);
@@ -47,7 +47,7 @@ export function useSpotPrice(dao: DAO | undefined) {
 
             return { price, formatted, reserves };
         },
-        enabled: !!poolId && isSupportedProtocol,
+        enabled: enabled && !!poolId && isSupportedProtocol,
         staleTime: 15_000,
         refetchInterval: 30_000,
     });

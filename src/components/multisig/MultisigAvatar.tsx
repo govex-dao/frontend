@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Shield } from "lucide-react";
 import { validateLinkedImageUrl } from "@/lib/imageUrl";
 
@@ -14,43 +14,41 @@ const ICON_CLASSES = {
     xl: "h-8 w-8",
 } as const;
 
+const IMAGE_SIZES = { md: 40, lg: 56, xl: 64 } as const;
+
 interface Props {
     name: string;
     imageUrl?: string | null;
-    fallbackImageUrl?: string | null;
     size?: keyof typeof SIZE_CLASSES;
     className?: string;
 }
 
-export function MultisigAvatar({ name, imageUrl, fallbackImageUrl, size = "md", className = "" }: Props) {
-    const [imageIndex, setImageIndex] = useState(0);
+export function MultisigAvatar({ name, imageUrl, size = "md", className = "" }: Props) {
+    const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
     const fallback = name.trim()[0]?.toUpperCase() || "";
-    const safeImageUrls = useMemo(
-        () =>
-            [...new Set([imageUrl, fallbackImageUrl])]
-                .map((value) => (value ? validateLinkedImageUrl(value, { allowRelative: true }).normalized : null))
-                .filter((value): value is string => !!value),
-        [fallbackImageUrl, imageUrl]
+    const safeImageUrl = useMemo(
+        () => (imageUrl ? validateLinkedImageUrl(imageUrl, { allowRelative: true }).normalized : null),
+        [imageUrl]
     );
-    const safeImageUrl = safeImageUrls[imageIndex] ?? null;
-
-    useEffect(() => {
-        setImageIndex(0);
-    }, [safeImageUrls]);
+    const shouldLoadImage = safeImageUrl && failedImageUrl !== safeImageUrl;
 
     return (
         <span
             className={`flex shrink-0 items-center justify-center overflow-hidden border border-primary/15 bg-primary/15 text-primary ${SIZE_CLASSES[size]} ${className}`}
         >
-            {safeImageUrl ? (
+            {shouldLoadImage ? (
                 <img
                     key={safeImageUrl}
                     src={safeImageUrl}
                     alt=""
+                    width={IMAGE_SIZES[size]}
+                    height={IMAGE_SIZES[size]}
                     className="h-full w-full object-cover"
                     loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     referrerPolicy="no-referrer"
-                    onError={() => setImageIndex((current) => current + 1)}
+                    onError={() => setFailedImageUrl(safeImageUrl)}
                 />
             ) : fallback ? (
                 <span className="font-semibold">{fallback}</span>

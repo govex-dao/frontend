@@ -48,7 +48,11 @@ export function OrgCard(props: Props) {
                             <img
                                 src={iconUrl}
                                 alt={`${name} logo`}
+                                width={72}
+                                height={72}
                                 className="w-full h-full object-cover rounded-xl"
+                                loading="lazy"
+                                decoding="async"
                                 onError={() => setImgError(true)}
                             />
                         ) : (

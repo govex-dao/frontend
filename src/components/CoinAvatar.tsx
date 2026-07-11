@@ -15,6 +15,8 @@ const sizeClasses = {
     lg: "w-8 h-8",
 };
 
+const imageSizes = { sm: 16, md: 20, lg: 32 } as const;
+
 const textSizeClasses = {
     sm: "text-[7px]",
     md: "text-[9px]",
@@ -59,7 +61,12 @@ export function CoinAvatar({ coinType, symbol, iconUrl, size = "md" }: Props) {
                 <img
                     src={resolvedIcon}
                     alt={resolvedSymbol || "coin"}
+                    width={imageSizes[size]}
+                    height={imageSizes[size]}
                     className="h-full w-full rounded-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     onError={() =>
                         setFailedSrcs((prev) => (prev.includes(resolvedIcon!) ? prev : [...prev, resolvedIcon!]))
                     }

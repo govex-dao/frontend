@@ -316,15 +316,23 @@ export function Org() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [showLeftFade, setShowLeftFade] = useState(false);
     const [showRightFade, setShowRightFade] = useState(true);
+    const activeTab = (searchParams.get("tab") as TabType) || "overview";
+    const isOverviewTab = activeTab === "overview";
 
     const { data: daoRaw, isLoading: daoLoading, error: daoError } = useDAO(orgId);
     const dao = useMemo(() => (daoRaw ? toDAODisplay(daoRaw) : undefined), [daoRaw]);
     const effectiveOrgId = daoRaw?.id ?? orgId;
     const canonicalOrgId = daoRaw?.canonical_uuid ?? null;
-    const { data: proposals, isLoading: proposalsLoading } = useDAOProposalsDisplay(effectiveOrgId, canonicalOrgId);
+    const { data: proposals, isLoading: proposalsLoading } = useDAOProposalsDisplay(
+        effectiveOrgId,
+        canonicalOrgId,
+        activeTab === "proposals"
+    );
 
-    const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(effectiveOrgId);
-    const { data: backendCoins } = useCoins();
+    const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(effectiveOrgId, {
+        enabled: isOverviewTab,
+    });
+    const { data: backendCoins } = useCoins({ enabled: isOverviewTab });
     const vaultCoinTypes = useMemo(() => (vaultBalances ?? []).map((b) => b.coinType), [vaultBalances]);
     const coinMetadata = useMergedCoinMetadata(vaultCoinTypes, backendCoins);
     const [showDepositModal, setShowDepositModal] = useState(false);
@@ -336,10 +344,9 @@ export function Org() {
         setShowRightFade(true);
     }, [orgId]);
 
-    const { data: spotPrice } = useSpotPrice(daoRaw);
+    const { data: spotPrice } = useSpotPrice(daoRaw, isOverviewTab || activeTab === "trade");
     const protocolVersion = getProtocolVersionForDAO(daoRaw);
     const { isFavorited, toggleFavorite } = useFavorites();
-    const activeTab = (searchParams.get("tab") as TabType) || "overview";
     const setActiveTab = (tab: TabType) => setSearchParams({ tab });
     const handleNavItemClick = (id: string) => setActiveTab(id as TabType);
 

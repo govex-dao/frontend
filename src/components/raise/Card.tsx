@@ -59,7 +59,15 @@ export function RaiseCard(props: RaiseCardProps) {
                         className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden ${isActive ? "bg-primary/20" : "bg-white/10"}`}
                     >
                         {image ? (
-                            <img src={image} alt={name} className="w-full h-full object-cover" />
+                            <img
+                                src={image}
+                                alt={name}
+                                width={32}
+                                height={32}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                            />
                         ) : (
                             <span className={`text-sm font-semibold ${isActive ? "text-primary" : "text-text-light"}`}>
                                 {name[0]}

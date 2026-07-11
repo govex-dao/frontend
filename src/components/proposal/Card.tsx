@@ -87,6 +87,8 @@ export function ProposalCard(props: Props) {
                         src={proposal.daoIconUrl}
                         alt={`${proposal.daoName} logo`}
                         className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                         onError={() => setDaoIconError(true)}
                     />
                 ) : (

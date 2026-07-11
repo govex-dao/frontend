@@ -9,7 +9,6 @@ interface Props {
     accountId: string;
     accountName: string;
     imageUrl?: string | null;
-    fallbackImageUrl?: string | null;
     memberCount: number | null;
     pendingIntentCount?: number | null;
     balanceUsd?: string | null;
@@ -25,7 +24,6 @@ export function AccountCard(props: Props) {
         accountId,
         accountName,
         imageUrl,
-        fallbackImageUrl,
         memberCount,
         pendingIntentCount,
         balanceUsd,
@@ -74,7 +72,7 @@ export function AccountCard(props: Props) {
             )}
 
             <div className="flex items-center gap-3">
-                <MultisigAvatar name={displayName} imageUrl={imageUrl} fallbackImageUrl={fallbackImageUrl} />
+                <MultisigAvatar name={displayName} imageUrl={imageUrl} />
                 <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-white group-hover:text-primary transition-colors truncate">
                         {displayName}

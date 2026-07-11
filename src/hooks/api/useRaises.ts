@@ -2,7 +2,7 @@
  * React Query hooks for Raise/Launchpad data
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchRaises, fetchRaise, fetchUserContribution, fetchUserReservation } from "../../lib/api";
 import type { Raise } from "../../types";
 import { raiseListRefreshInterval, raiseRefreshInterval } from "./refresh";
@@ -32,10 +32,19 @@ export function useRaises(daoId?: string, options: { enabled?: boolean } = {}) {
  * Fetch a single raise by ID
  */
 export function useRaise(id: string | undefined) {
+    const queryClient = useQueryClient();
+
     return useQuery<Raise>({
         queryKey: raiseKeys.detail(id!),
         queryFn: ({ signal }) => fetchRaise(id!, { signal }),
         enabled: !!id,
+        initialData: () => {
+            for (const [, raises] of queryClient.getQueriesData<Raise[]>({ queryKey: [...raiseKeys.all, "list"] })) {
+                const raise = raises?.find((candidate) => candidate.id === id);
+                if (raise) return raise;
+            }
+            return undefined;
+        },
         refetchInterval: (query) => raiseRefreshInterval(query.state.data),
     });
 }

@@ -124,13 +124,13 @@ export function useMultisigVestings(accountId: string | undefined) {
 /**
  * Fetch all coin balances across all vaults on an account (live RPC data)
  */
-export function useMultisigVaultBalances(accountId: string | undefined) {
+export function useMultisigVaultBalances(accountId: string | undefined, options: { enabled?: boolean } = {}) {
     const client = useSuiClient();
 
     return useQuery<VaultCoinBalance[]>({
         queryKey: multisigRpcKeys.vaultBalances(accountId!),
         queryFn: () => fetchAccountVaultBalances(client, accountId!),
-        enabled: !!accountId,
+        enabled: !!accountId && (options.enabled ?? true),
         staleTime: 30_000,
         refetchInterval: REFRESH_INTERVALS.LIVE,
     });

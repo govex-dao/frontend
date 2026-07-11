@@ -1,5 +1,3 @@
-import { backendUrl } from "@/lib/config";
-
 const MAX_IMAGE_URL_LENGTH = 512;
 const REMOTE_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 const LOCAL_IMAGE_EXTENSIONS = [...REMOTE_IMAGE_EXTENSIONS, ".svg"];
@@ -58,19 +56,5 @@ export function validateLinkedImageUrl(
         return { normalized: url.toString() };
     } catch {
         return { normalized: null, error: "Enter a valid image URL" };
-    }
-}
-
-/** Resolve an API-owned cache path without changing ordinary frontend assets. */
-export function resolveBackendImageUrl(value: string | null | undefined): string | null {
-    if (!value) return null;
-    const validated = validateLinkedImageUrl(value, { allowRelative: true }).normalized;
-    if (!validated) return null;
-    if (!validated.startsWith("/")) return validated;
-
-    try {
-        return new URL(validated, `${backendUrl.replace(/\/+$/, "")}/`).toString();
-    } catch {
-        return null;
     }
 }

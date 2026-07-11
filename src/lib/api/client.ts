@@ -4,6 +4,8 @@
 
 import { backendUrl } from "../config";
 
+const API_TIMEOUT_MS = 8_000;
+
 export interface ApiRequestOptions {
     signal?: AbortSignal;
 }
@@ -42,7 +44,26 @@ function normalizeAddresses(obj: unknown): unknown {
 
 async function fetchApi<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
     const url = `${backendUrl}${endpoint}`;
-    const response = await fetch(url, { signal: options.signal });
+    const timeoutController = new AbortController();
+    const timeoutId = globalThis.setTimeout(
+        () => timeoutController.abort(new DOMException("API request timed out", "TimeoutError")),
+        API_TIMEOUT_MS
+    );
+    const signal = options.signal
+        ? AbortSignal.any([options.signal, timeoutController.signal])
+        : timeoutController.signal;
+
+    let response: Response;
+    try {
+        response = await fetch(url, { signal });
+    } catch (error) {
+        if (timeoutController.signal.aborted && !options.signal?.aborted) {
+            throw new ApiError(0, "The Govex API did not respond in time");
+        }
+        throw error;
+    } finally {
+        globalThis.clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
         const body = await response.text();

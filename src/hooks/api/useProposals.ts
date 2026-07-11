@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchProposals, fetchProposal } from "../../lib/api";
 import type { Proposal } from "../../types";
 import { toProposalDisplay } from "../../types";
@@ -43,10 +43,19 @@ export function useProposalsDisplay(daoIndex?: number) {
  * Fetch a single proposal by ID (raw backend type)
  */
 export function useProposal(id: string | undefined) {
+    const queryClient = useQueryClient();
+
     return useQuery<Proposal>({
         queryKey: proposalKeys.detail(id!),
         queryFn: ({ signal }) => fetchProposal(id!, { signal }),
         enabled: !!id,
+        initialData: () => {
+            for (const [, proposals] of queryClient.getQueriesData<Proposal[]>({ queryKey: proposalKeys.lists() })) {
+                const proposal = proposals?.find((candidate) => candidate.id === id);
+                if (proposal) return proposal;
+            }
+            return undefined;
+        },
         refetchInterval: (query) => proposalRefreshInterval(query.state.data),
     });
 }
@@ -81,9 +90,9 @@ export function useDAOProposals(daoId: string | undefined, canonicalDaoId?: stri
 /**
  * Get proposals for a specific DAO transformed for display
  */
-export function useDAOProposalsDisplay(daoId: string | undefined, canonicalDaoId?: string | null) {
+export function useDAOProposalsDisplay(daoId: string | undefined, canonicalDaoId?: string | null, enabled = true) {
     void canonicalDaoId;
-    const { data: proposals, ...rest } = useProposals(daoId ? { daoId } : {}, !!daoId);
+    const { data: proposals, ...rest } = useProposals(daoId ? { daoId } : {}, !!daoId && enabled);
     const daoProposals = useMemo(() => {
         if (!proposals) return undefined;
         return proposals.map(toProposalDisplay);

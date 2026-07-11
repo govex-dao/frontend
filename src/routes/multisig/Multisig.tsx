@@ -51,7 +51,6 @@ import {
 import { useCoins } from "@/hooks/api/useCoins";
 import { useMultisigDetail } from "@/hooks/api";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
-import { resolveBackendImageUrl } from "@/lib/imageUrl";
 import {
     approvalPolicyLabel,
     canAddressCancel,
@@ -427,9 +426,7 @@ export function Multisig() {
     const currentMember = config?.members.find((m) => normalizeSuiAddress(m.address) === normalizedCurrentUserAddress);
     const currentUserPermissions = config ? memberPermissionsForAddress(config, account?.address) : 0;
     const canPropose = config && canAddressPropose(config, account?.address);
-    const cachedMultisigImageUrl = resolveBackendImageUrl(indexedDetail?.image_cache_path);
-    const sourceMultisigImageUrl = indexedDetail?.image_url || config?.imageUrl || null;
-    const multisigImageUrl = cachedMultisigImageUrl || sourceMultisigImageUrl;
+    const multisigImageUrl = config?.imageUrl || indexedDetail?.image_url || null;
     const currentUserGroups = useMemo<string[]>(() => {
         if (!config || !normalizedCurrentUserAddress) return [];
         return config.groups
@@ -593,12 +590,7 @@ export function Multisig() {
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-3">
-                    <MultisigAvatar
-                        name={config?.name || "Multisig Account"}
-                        imageUrl={multisigImageUrl}
-                        fallbackImageUrl={cachedMultisigImageUrl ? sourceMultisigImageUrl : null}
-                        size="lg"
-                    />
+                    <MultisigAvatar name={config?.name || "Multisig Account"} imageUrl={multisigImageUrl} size="lg" />
                     <div className="min-w-0">
                         <h1 className="truncate">{config?.name || "Multisig Account"}</h1>
                         {accountId && (
