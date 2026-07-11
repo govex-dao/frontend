@@ -102,7 +102,9 @@ export function Multisigs() {
     const account = useCurrentAccount();
     const { data: multisigs, isLoading } = useMyMultisigs();
     const { ids: savedIds, removeId } = useSavedMultisigIds();
-    const { data: linkedAccounts = [], isLoading: linkedAccountsLoading } = useMyLinkedMultisigAccounts();
+    const { data: linkedAccounts = [], isLoading: linkedAccountsLoading } = useMyLinkedMultisigAccounts({
+        enabled: !!account && !isLoading,
+    });
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [msPage, setMsPage] = useState(0);
 
@@ -227,11 +229,10 @@ export function Multisigs() {
                                     .slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE)
                                     .map((item) =>
                                         item.type === "backend" ? (
-                                            <AccountCard
+                                            <ResolvedAccountCard
                                                 key={item.ms.account_id}
                                                 accountId={item.ms.account_id}
                                                 accountName={item.ms.name}
-                                                imageUrl={item.ms.image_url}
                                                 memberCount={item.ms.member_count}
                                             />
                                         ) : item.type === "saved" ? (

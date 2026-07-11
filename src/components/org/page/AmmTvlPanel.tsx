@@ -1,10 +1,13 @@
 import { Loader2 } from "lucide-react";
-import { useAmmTvl, type AmmTvlData } from "@/hooks/useAmmTvl";
+import type { AmmTvlData } from "@/hooks/useAmmTvl";
 import { formatUnits } from "@/lib/units";
 import type { DAO } from "@/types";
 
 interface AmmTvlPanelProps {
     dao: DAO;
+    data?: AmmTvlData;
+    isLoading: boolean;
+    isError: boolean;
 }
 
 interface TvlTableRow {
@@ -17,8 +20,7 @@ interface TvlTableRow {
     emphasis?: boolean;
 }
 
-export function AmmTvlPanel({ dao }: AmmTvlPanelProps) {
-    const { data, isLoading, isError } = useAmmTvl(dao);
+export function AmmTvlPanel({ dao, data, isLoading, isError }: AmmTvlPanelProps) {
     const assetSymbol = dao.asset_symbol || "Asset";
     const stableSymbol = dao.stable_symbol || "USDC";
 

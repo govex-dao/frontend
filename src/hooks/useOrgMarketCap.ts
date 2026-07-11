@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 import type { DAODisplay } from "@/types";
 
-export function useOrgMarketCap(dao: DAODisplay | undefined) {
-    const enabled = !!dao?.spotPoolId && isSupportedProtocolDAO(dao);
+export function useOrgMarketCap(dao: DAODisplay | undefined, queryEnabled = true) {
+    const enabled = queryEnabled && !!dao?.spotPoolId && isSupportedProtocolDAO(dao);
 
     return useQuery({
         queryKey: [

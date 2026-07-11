@@ -28,7 +28,7 @@ export interface AmmTvlData {
     };
 }
 
-export function useAmmTvl(dao: DAO | undefined) {
+export function useAmmTvl(dao: DAO | undefined, queryEnabled = true) {
     const poolId = dao?.spot_pool_id;
     const isSupportedProtocol = isSupportedProtocolDAO(dao);
 
@@ -85,7 +85,7 @@ export function useAmmTvl(dao: DAO | undefined) {
                 },
             };
         },
-        enabled: !!poolId && isSupportedProtocol,
+        enabled: queryEnabled && !!poolId && isSupportedProtocol,
         staleTime: 15_000,
         refetchInterval: 30_000,
     });

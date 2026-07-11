@@ -3,26 +3,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
-
-async function getAllDynamicFields(
-    client: SuiClient,
-    parentId: string
-): Promise<Array<{ name: unknown; objectType?: string }>> {
-    const all: Array<{ name: unknown; objectType?: string }> = [];
-    let cursor: string | null | undefined = null;
-
-    while (true) {
-        const page = await client.getDynamicFields({
-            parentId,
-            ...(cursor ? { cursor } : {}),
-        });
-        all.push(...(page.data as Array<{ name: unknown; objectType?: string }>));
-        if (!page.hasNextPage || !page.nextCursor) break;
-        cursor = page.nextCursor;
-    }
-
-    return all;
-}
+import { getAllDynamicFields } from "@/lib/sui/batchedReads";
 
 async function resolveAccountConfigType(client: SuiClient, accountId: string): Promise<string> {
     const sdk = getSDK();

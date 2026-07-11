@@ -49,7 +49,6 @@ import {
     multisigRpcKeys,
 } from "@/hooks/useMultisig";
 import { useCoins } from "@/hooks/api/useCoins";
-import { useMultisigDetail } from "@/hooks/api";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import {
     approvalPolicyLabel,
@@ -388,10 +387,9 @@ export function Multisig() {
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
     const { executeTransaction, isLoading: cleanupLoading } = useSuiTransaction();
-    const { data: indexedDetail } = useMultisigDetail(accountId);
     const { data: config, isLoading: configLoading } = useMultisigConfig(accountId);
     const { data: intents, isLoading: intentsLoading } = useMultisigIntents(accountId);
-    const secondaryAccountId = config && !intentsLoading ? accountId : undefined;
+    const secondaryAccountId = config ? accountId : undefined;
     const { data: streams, isLoading: streamsLoading } = useMultisigStreams(secondaryAccountId);
     const { data: accountVestings = [], isLoading: vestingsLoading } = useMultisigVestings(secondaryAccountId);
     const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(secondaryAccountId);
@@ -427,7 +425,7 @@ export function Multisig() {
     const currentMember = config?.members.find((m) => normalizeSuiAddress(m.address) === normalizedCurrentUserAddress);
     const currentUserPermissions = config ? memberPermissionsForAddress(config, account?.address) : 0;
     const canPropose = config && canAddressPropose(config, account?.address);
-    const multisigImageUrl = config?.imageUrl || indexedDetail?.image_url || null;
+    const multisigImageUrl = config?.imageUrl || null;
     const currentUserGroups = useMemo<string[]>(() => {
         if (!config || !normalizedCurrentUserAddress) return [];
         return config.groups

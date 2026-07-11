@@ -8,6 +8,13 @@ import type { SuiClient, SuiObjectResponse } from "@govex/futarchy-sdk";
 import { useSuiClient, useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { getSDK } from "@/lib/sdk";
 import type { VaultStreamInfo } from "@/lib/sui/multisig";
+import {
+    getAllDynamicFields,
+    getAllOwnedObjects,
+    getDynamicFieldObjects,
+    getObjectsByIds,
+    mapWithConcurrency,
+} from "@/lib/sui/batchedReads";
 import { normalizeMoveCoinType as normalizeCoinType, unwrapMoveFields } from "@/lib/sui/response";
 import { REFRESH_INTERVALS } from "./api/refresh";
 
@@ -140,25 +147,6 @@ function get(obj: any, path: string, defaultValue: any = null): any {
     return result ?? defaultValue;
 }
 
-async function getAllOwnedObjects(client: SuiClient, owner: string, structType?: string): Promise<SuiObjectResponse[]> {
-    const all: SuiObjectResponse[] = [];
-    let cursor: string | null | undefined = null;
-
-    while (true) {
-        const page = await client.getOwnedObjects({
-            owner,
-            options: { showContent: true, showType: true },
-            ...(structType ? { filter: { StructType: structType } } : {}),
-            ...(cursor ? { cursor } : {}),
-        });
-        all.push(...page.data);
-        if (!page.hasNextPage || !page.nextCursor) break;
-        cursor = page.nextCursor;
-    }
-
-    return all;
-}
-
 function objectTypeHasStructSuffix(objectType: string | null | undefined, suffix: string): boolean {
     if (!objectType) return false;
     const baseType = objectType.split("<")[0] ?? objectType;
@@ -191,58 +179,62 @@ async function fetchMyVestings(client: SuiClient, owner: string, actionsPackageI
 
     if (caps.length === 0) return [];
 
-    // 2. Parse cap fields and fetch associated Vesting objects in parallel
-    const vestings = await Promise.all(
-        caps.map(async (capObj) => {
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const capFields = (capObj.data?.content as any)?.fields;
-                if (!capFields) return null;
-
-                const capId = capObj.data?.objectId ?? "";
-                const vestingId = normalizeIdValue(capFields.vesting_id);
-                const accountId = normalizeIdValue(capFields.account_id);
-                const daoAddress = normalizeIdValue(capFields.dao_address);
-
-                if (!vestingId) return null;
-
-                // Fetch the Vesting shared object
-                const vestingObj = await client.getObject({
-                    id: vestingId,
-                    options: { showContent: true, showType: true },
-                });
-
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const fields = (vestingObj.data?.content as any)?.fields;
-                if (!fields) return null;
-
-                // Extract CoinType from the object type: "...::vesting::Vesting<CoinType>"
-                const objectType = vestingObj.data?.type ?? "";
-                const coinType = normalizeCoinType(
-                    parseTypeName(fields.coin_type) ?? extractCoinTypeFromObjectType(objectType)
-                );
-
-                return {
-                    capId,
-                    vestingId,
-                    accountId,
-                    daoAddress,
-                    coinType,
-                    balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
-                    amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
-                    claimedAmount: BigInt(fields.claimed_amount ?? 0),
-                    firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
-                    partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
-                    startTimeMs: Number(fields.start_time ?? 0),
-                    iterationsTotal: Number(fields.iterations_total ?? 0),
-                    iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
-                    isCancellable: Boolean(fields.is_cancellable),
-                } satisfies MyVestingInfo;
-            } catch {
-                return null;
-            }
-        })
+    const capRecords = caps.map((capObj) => {
+        const content = capObj.data?.content;
+        const capFields = content?.dataType === "moveObject" ? (content.fields as Record<string, unknown>) : undefined;
+        return {
+            capObj,
+            capFields,
+            vestingId: normalizeIdValue(capFields?.vesting_id),
+        };
+    });
+    const validCapRecords = capRecords.filter(
+        (record): record is typeof record & { capFields: Record<string, unknown>; vestingId: string } =>
+            !!record.capFields && !!record.vestingId
     );
+    const vestingObjects = await getObjectsByIds(
+        client,
+        validCapRecords.map((record) => record.vestingId)
+    );
+
+    // 2. Parse cap fields and associated Vesting objects from one gRPC batch.
+    const vestings = validCapRecords.map(({ capObj, capFields, vestingId }, index) => {
+        try {
+            const capId = capObj.data?.objectId ?? "";
+            const accountId = normalizeIdValue(capFields.account_id);
+            const daoAddress = normalizeIdValue(capFields.dao_address);
+            const vestingObj = vestingObjects[index];
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fields = (vestingObj.data?.content as any)?.fields;
+            if (!fields) return null;
+
+            // Extract CoinType from the object type: "...::vesting::Vesting<CoinType>"
+            const objectType = vestingObj.data?.type ?? "";
+            const coinType = normalizeCoinType(
+                parseTypeName(fields.coin_type) ?? extractCoinTypeFromObjectType(objectType)
+            );
+
+            return {
+                capId,
+                vestingId,
+                accountId,
+                daoAddress,
+                coinType,
+                balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
+                amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
+                claimedAmount: BigInt(fields.claimed_amount ?? 0),
+                firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
+                partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
+                startTimeMs: Number(fields.start_time ?? 0),
+                iterationsTotal: Number(fields.iterations_total ?? 0),
+                iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
+                isCancellable: Boolean(fields.is_cancellable),
+            } satisfies MyVestingInfo;
+        } catch {
+            return null;
+        }
+    });
 
     return vestings.filter((v): v is MyVestingInfo => v !== null);
 }
@@ -368,17 +360,7 @@ function createStreamsTableResolver(client: SuiClient) {
 
         try {
             // List dynamic fields on account to find VaultKey
-            const dynFields: Array<{ name: unknown }> = [];
-            let cursor: string | null | undefined = null;
-            while (true) {
-                const page = await client.getDynamicFields({
-                    parentId: accountId,
-                    ...(cursor ? { cursor } : {}),
-                });
-                dynFields.push(...(page.data as Array<{ name: unknown }>));
-                if (!page.hasNextPage || !page.nextCursor) break;
-                cursor = page.nextCursor;
-            }
+            const dynFields = await getAllDynamicFields(client, accountId);
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const vaultField = dynFields.find((df: any) => {
@@ -397,11 +379,7 @@ function createStreamsTableResolver(client: SuiClient) {
                 return null;
             }
 
-            const vaultObj = await client.getDynamicFieldObject({
-                parentId: accountId,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                name: vaultField.name as any,
-            });
+            const [vaultObj] = await getDynamicFieldObjects(client, accountId, [vaultField]);
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const fields = unwrapMoveFields((vaultObj.data?.content as any)?.fields?.value);
@@ -428,6 +406,16 @@ async function getVaultStreamDynamicField(
     streamsTableId: string,
     streamId: string
 ): Promise<SuiObjectResponse | null> {
+    const dynamicFields = await getAllDynamicFields(client, streamsTableId);
+    const matchingField = dynamicFields.find((field) => {
+        const rawValue = (field.name as { value?: unknown } | undefined)?.value;
+        return normalizeIdValue(rawValue) === normalizeIdValue(streamId);
+    });
+    if (matchingField) {
+        const [streamObject] = await getDynamicFieldObjects(client, streamsTableId, [matchingField]);
+        return streamObject ?? null;
+    }
+
     const names = [
         { type: "0x2::object::ID", value: streamId },
         { type: "address", value: streamId },
@@ -453,47 +441,45 @@ async function fetchOwnedVaultStreamDetails(
     if (capInfos.length === 0) return [];
     const getStreamsTableId = createStreamsTableResolver(client);
 
-    const streams: Array<OwnedVaultStreamDetails | null> = await Promise.all(
-        capInfos.map(async (cap) => {
-            try {
-                const streamsTableId = await getStreamsTableId(cap.accountId, cap.vaultName);
-                if (!streamsTableId) return null;
+    const streams: Array<OwnedVaultStreamDetails | null> = await mapWithConcurrency(capInfos, 4, async (cap) => {
+        try {
+            const streamsTableId = await getStreamsTableId(cap.accountId, cap.vaultName);
+            if (!streamsTableId) return null;
 
-                const streamObj = await getVaultStreamDynamicField(client, streamsTableId, cap.streamId);
-                if (!streamObj) return null;
+            const streamObj = await getVaultStreamDynamicField(client, streamsTableId, cap.streamId);
+            if (!streamObj) return null;
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const streamFields = unwrapMoveFields((streamObj.data?.content as any)?.fields?.value);
-                if (!streamFields) return null;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const streamFields = unwrapMoveFields((streamObj.data?.content as any)?.fields?.value);
+            if (!streamFields) return null;
 
-                const coinType = normalizeCoinType(parseTypeName(streamFields.coin_type) ?? "unknown");
+            const coinType = normalizeCoinType(parseTypeName(streamFields.coin_type) ?? "unknown");
 
-                return {
-                    id: normalizeIdValue(streamFields.id) || cap.streamId,
-                    vaultName: cap.vaultName,
-                    coinType,
-                    capHolder: cap.capHolder,
-                    amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
-                    claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
-                    firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
-                    partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
-                    startTimeMs: Number(streamFields.start_time ?? 0),
-                    iterationsTotal: Number(streamFields.iterations_total ?? 0),
-                    iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),
-                    claimWindowMs: parseOptionU64(streamFields.claim_window_ms),
-                    expiryMs: parseOptionU64(streamFields.expiry_ms),
-                    whitelistedRecipients: parseAddressVector(streamFields.whitelisted_recipients),
-                    isSpendingLimit: cap.isSpendingLimit,
-                    capId: cap.capId,
-                    streamId: cap.streamId,
-                    accountId: cap.accountId,
-                    accountAddr: cap.accountAddr,
-                } satisfies OwnedVaultStreamDetails;
-            } catch {
-                return null;
-            }
-        })
-    );
+            return {
+                id: normalizeIdValue(streamFields.id) || cap.streamId,
+                vaultName: cap.vaultName,
+                coinType,
+                capHolder: cap.capHolder,
+                amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
+                claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
+                firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
+                partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
+                startTimeMs: Number(streamFields.start_time ?? 0),
+                iterationsTotal: Number(streamFields.iterations_total ?? 0),
+                iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),
+                claimWindowMs: parseOptionU64(streamFields.claim_window_ms),
+                expiryMs: parseOptionU64(streamFields.expiry_ms),
+                whitelistedRecipients: parseAddressVector(streamFields.whitelisted_recipients),
+                isSpendingLimit: cap.isSpendingLimit,
+                capId: cap.capId,
+                streamId: cap.streamId,
+                accountId: cap.accountId,
+                accountAddr: cap.accountAddr,
+            } satisfies OwnedVaultStreamDetails;
+        } catch {
+            return null;
+        }
+    });
 
     return streams.filter((s): s is OwnedVaultStreamDetails => s !== null);
 }
@@ -564,7 +550,7 @@ export function useMySpendingLimits() {
     });
 }
 
-export function useMyLinkedMultisigAccounts() {
+export function useMyLinkedMultisigAccounts(options: { enabled?: boolean } = {}) {
     const client = useSuiClient();
     const account = useCurrentAccount();
     const owner = account?.address;
@@ -577,7 +563,7 @@ export function useMyLinkedMultisigAccounts() {
             if (!actionsPackageId) throw new Error("accountActions package not configured");
             return fetchMyLinkedMultisigAccounts(client, owner!, actionsPackageId);
         },
-        enabled: !!owner,
+        enabled: !!owner && (options.enabled ?? true),
         staleTime: REFRESH_INTERVALS.STATIC,
         refetchInterval: false,
     });

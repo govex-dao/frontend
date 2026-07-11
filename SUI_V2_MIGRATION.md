@@ -21,6 +21,13 @@ Do not add direct JSON-shape parsing in routes or components. Put transport
 normalization in the SDK and consume its typed result. gRPC and GraphQL can
 flatten nested Move structs that JSON-RPC represented as `{ fields: ... }`.
 
+For frontend object discovery, use `src/lib/sui/batchedReads.ts` instead of
+open-coding RPC loops in components. It provides paginated dynamic/owned-object
+reads, `multiGetObjects` batching, short-lived duplicate-read coalescing, and
+bounded concurrency. Keep modal, tab, and viewport queries disabled until their
+UI is active; never issue an unbounded `Promise.all` over wallet objects, coin
+types, vaults, or Move datatypes.
+
 Public GraphQL endpoints may retain only a bounded event window. Methods backed
 by global event filters therefore return recent discoverable data, not a
 canonical all-time list. Product list/history screens must continue to use the

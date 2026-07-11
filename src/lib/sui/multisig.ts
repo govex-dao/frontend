@@ -7,6 +7,15 @@
 import type { SuiClient } from "@govex/futarchy-sdk";
 import { parseStructTag } from "@mysten/sui/utils";
 import { getSDK } from "@/lib/sdk";
+import {
+    coalesceChainRead,
+    dynamicFieldReadKey,
+    getAllDynamicFields,
+    getAllOwnedObjects as getOwnedObjects,
+    getDynamicFieldObjects,
+    getObjectsByIds,
+    mapWithConcurrency,
+} from "@/lib/sui/batchedReads";
 
 // --- Types ---
 
@@ -865,58 +874,6 @@ function parsePackageUpgradeExpectedCapId(actionData: any): string | null {
     );
 }
 
-const inFlightChainReads = new WeakMap<object, Map<string, Promise<unknown>>>();
-
-interface DynamicFieldInfo {
-    name: unknown;
-    objectId?: string;
-    objectType?: string;
-}
-
-function coalesceChainRead<T>(client: SuiClient, key: string, load: () => Promise<T>): Promise<T> {
-    let clientReads = inFlightChainReads.get(client as object);
-    if (!clientReads) {
-        clientReads = new Map();
-        inFlightChainReads.set(client as object, clientReads);
-    }
-
-    const existing = clientReads.get(key) as Promise<T> | undefined;
-    if (existing) return existing;
-
-    const request = load();
-    clientReads.set(key, request);
-    const clearRequest = () => {
-        if (clientReads?.get(key) === request) clientReads.delete(key);
-    };
-    void request.then(clearRequest, clearRequest);
-    return request;
-}
-
-function dynamicFieldKey(parentId: string, name: unknown): string {
-    try {
-        return `dynamic-field:${parentId}:${JSON.stringify(name)}`;
-    } catch {
-        return `dynamic-field:${parentId}:${String(name)}`;
-    }
-}
-
-function getDynamicFieldObject(client: SuiClient, parentId: string, name: unknown) {
-    return coalesceChainRead(client, dynamicFieldKey(parentId, name), () =>
-        client.getDynamicFieldObject({ parentId, name: name as any })
-    );
-}
-
-async function getDynamicFieldObjects(client: SuiClient, parentId: string, fields: DynamicFieldInfo[]): Promise<any[]> {
-    if (fields.length === 0) return [];
-    if (fields.every((field) => field.objectId)) {
-        return client.multiGetObjects({
-            ids: fields.map((field) => field.objectId!),
-            options: { showContent: true, showType: true },
-        });
-    }
-    return Promise.all(fields.map((field) => getDynamicFieldObject(client, parentId, field.name)));
-}
-
 function getAccountObject(client: SuiClient, accountId: string) {
     return coalesceChainRead(client, `account-object:${accountId}`, () =>
         client.getObject({
@@ -926,23 +883,9 @@ function getAccountObject(client: SuiClient, accountId: string) {
     );
 }
 
-function getAllDynamicFields(client: SuiClient, parentId: string): Promise<DynamicFieldInfo[]> {
-    return coalesceChainRead(client, `dynamic-fields:${parentId}`, async () => {
-        const all: DynamicFieldInfo[] = [];
-        let cursor: string | null | undefined = null;
-
-        while (true) {
-            const page = await client.getDynamicFields({
-                parentId,
-                ...(cursor ? { cursor } : {}),
-            });
-            all.push(...(page.data as DynamicFieldInfo[]));
-            if (!page.hasNextPage || !page.nextCursor) break;
-            cursor = page.nextCursor;
-        }
-
-        return all;
-    });
+async function getDynamicFieldObject(client: SuiClient, parentId: string, name: unknown) {
+    const [object] = await getDynamicFieldObjects(client, parentId, [{ name }]);
+    return object;
 }
 
 // --- RPC Fetchers ---
@@ -1239,77 +1182,69 @@ export async function fetchAccountStreams(client: SuiClient, accountId: string):
 
         if (vaultFields.length === 0) return [];
 
-        // 2. Fetch all vaults in parallel
-        const vaultResults = await Promise.all(
-            vaultFields.map(async (vf) => {
-                try {
-                    const vaultNameRaw = (vf.name as any)?.value ?? "";
-                    const vaultName =
-                        typeof vaultNameRaw === "string"
-                            ? vaultNameRaw
-                            : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
-                    const vaultObj = await getDynamicFieldObject(client, accountId, vf.name);
-                    const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
-                    if (!fields) return null;
-                    const streamsTableId =
-                        normalizeIdString(fields.streams) ||
-                        get(fields, "streams.fields.id.id") ||
-                        get(fields, "streams.fields.id");
-                    if (!streamsTableId) return null;
-                    return { vaultName: typeof vaultName === "string" ? vaultName : String(vaultName), streamsTableId };
-                } catch {
-                    return null;
-                }
-            })
-        );
+        // 2. Fetch all vaults in one gRPC batch.
+        const vaultObjects = await getDynamicFieldObjects(client, accountId, vaultFields);
+        const vaultResults = vaultFields.map((vf, index) => {
+            try {
+                const vaultNameRaw = (vf.name as any)?.value ?? "";
+                const vaultName =
+                    typeof vaultNameRaw === "string"
+                        ? vaultNameRaw
+                        : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
+                const fields = fieldsOf((vaultObjects[index].data?.content as any)?.fields?.value);
+                if (!fields) return null;
+                const streamsTableId =
+                    normalizeIdString(fields.streams) ||
+                    get(fields, "streams.fields.id.id") ||
+                    get(fields, "streams.fields.id");
+                if (!streamsTableId) return null;
+                return { vaultName: typeof vaultName === "string" ? vaultName : String(vaultName), streamsTableId };
+            } catch {
+                return null;
+            }
+        });
 
         const vaults = vaultResults.filter((v): v is NonNullable<typeof v> => v !== null);
         if (vaults.length === 0) return [];
 
         // 3. List stream entries for each vault in parallel
-        const streamListResults = await Promise.all(
-            vaults.map(async ({ vaultName, streamsTableId }) => {
-                const streamDynFields = await getAllDynamicFields(client, streamsTableId);
-                return { vaultName, streamsTableId, streamDynFields };
-            })
-        );
+        const streamListResults = await mapWithConcurrency(vaults, 4, async ({ vaultName, streamsTableId }) => {
+            const streamDynFields = await getAllDynamicFields(client, streamsTableId);
+            const streamObjects = await getDynamicFieldObjects(client, streamsTableId, streamDynFields);
+            return { vaultName, streamDynFields, streamObjects };
+        });
 
-        // 4. Fetch all individual streams in parallel
-        const streamFetches: Promise<VaultStreamInfo | null>[] = [];
-        for (const { vaultName, streamsTableId, streamDynFields } of streamListResults) {
-            for (const sf of streamDynFields) {
-                streamFetches.push(
-                    getDynamicFieldObject(client, streamsTableId, sf.name)
-                        .then((streamObj) => {
-                            const streamFields = fieldsOf((streamObj.data?.content as any)?.fields?.value);
-                            if (!streamFields) return null;
-                            const whitelistedRecipients = parseAddressVector(streamFields.whitelisted_recipients);
-                            return {
-                                id:
-                                    normalizeIdString(streamFields.id) ??
-                                    normalizeIdString((sf.name as any)?.value) ??
-                                    "",
-                                vaultName,
-                                coinType: normalizeCoinType(parseTypeName(streamFields.coin_type) || "unknown"),
-                                amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
-                                claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
-                                firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
-                                partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
-                                startTimeMs: Number(streamFields.start_time ?? 0),
-                                iterationsTotal: Number(streamFields.iterations_total ?? 0),
-                                iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),
-                                claimWindowMs: parseOptionU64(streamFields.claim_window_ms),
-                                expiryMs: parseOptionU64(streamFields.expiry_ms),
-                                whitelistedRecipients,
-                                isSpendingLimit: whitelistedRecipients.length > 0,
-                            };
-                        })
-                        .catch(() => null)
-                );
+        // 4. Parse the batched stream objects.
+        const results: Array<VaultStreamInfo | null> = [];
+        for (const { vaultName, streamDynFields, streamObjects } of streamListResults) {
+            for (let index = 0; index < streamDynFields.length; index += 1) {
+                try {
+                    const sf = streamDynFields[index];
+                    const streamFields = fieldsOf((streamObjects[index].data?.content as any)?.fields?.value);
+                    if (!streamFields) continue;
+                    const whitelistedRecipients = parseAddressVector(streamFields.whitelisted_recipients);
+                    results.push({
+                        id: normalizeIdString(streamFields.id) ?? normalizeIdString((sf.name as any)?.value) ?? "",
+                        vaultName,
+                        coinType: normalizeCoinType(parseTypeName(streamFields.coin_type) || "unknown"),
+                        amountPerIteration: BigInt(streamFields.amount_per_iteration ?? 0),
+                        claimedAmount: BigInt(streamFields.claimed_amount ?? 0),
+                        firstUnclaimedIteration: BigInt(streamFields.first_unclaimed_iteration ?? 0),
+                        partialClaimedInIteration: BigInt(streamFields.partial_claimed_in_iteration ?? 0),
+                        startTimeMs: Number(streamFields.start_time ?? 0),
+                        iterationsTotal: Number(streamFields.iterations_total ?? 0),
+                        iterationPeriodMs: Number(streamFields.iteration_period_ms ?? 0),
+                        claimWindowMs: parseOptionU64(streamFields.claim_window_ms),
+                        expiryMs: parseOptionU64(streamFields.expiry_ms),
+                        whitelistedRecipients,
+                        isSpendingLimit: whitelistedRecipients.length > 0,
+                    });
+                } catch {
+                    results.push(null);
+                }
             }
         }
 
-        const results = await Promise.all(streamFetches);
         return results.filter((s): s is VaultStreamInfo => s !== null);
     } catch (error) {
         console.error(`[fetchAccountStreams] Error for ${accountId}:`, error);
@@ -1357,65 +1292,55 @@ export async function fetchAccountVaultBalances(client: SuiClient, accountId: st
 
         if (vaultFields.length === 0) return [];
 
-        // Fetch all vaults in parallel to get balance bag IDs
-        const vaultResults = await Promise.all(
-            vaultFields.map(async (vf) => {
-                try {
-                    const vaultNameRaw = (vf.name as any)?.value ?? "";
-                    const vaultName =
-                        typeof vaultNameRaw === "string"
-                            ? vaultNameRaw
-                            : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
+        // Fetch all vaults in one gRPC batch to get balance bag IDs.
+        const vaultObjects = await getDynamicFieldObjects(client, accountId, vaultFields);
+        const vaultResults = vaultFields.map((vf, index) => {
+            try {
+                const vaultNameRaw = (vf.name as any)?.value ?? "";
+                const vaultName =
+                    typeof vaultNameRaw === "string"
+                        ? vaultNameRaw
+                        : (vaultNameRaw?.pos0 ?? vaultNameRaw?.name ?? String(vaultNameRaw));
 
-                    const vaultObj = await getDynamicFieldObject(client, accountId, vf.name);
-                    const fields = fieldsOf((vaultObj.data?.content as any)?.fields?.value);
-                    if (!fields) return null;
+                const fields = fieldsOf((vaultObjects[index].data?.content as any)?.fields?.value);
+                if (!fields) return null;
 
-                    const balancesBagId =
-                        normalizeIdString(fields.bag ?? fields.balances) ||
-                        get(fields, "bag.fields.id.id") ||
-                        get(fields, "bag.fields.id") ||
-                        get(fields, "balances.fields.id.id") ||
-                        get(fields, "balances.fields.id");
-                    if (!balancesBagId) return null;
+                const balancesBagId =
+                    normalizeIdString(fields.bag ?? fields.balances) ||
+                    get(fields, "bag.fields.id.id") ||
+                    get(fields, "bag.fields.id") ||
+                    get(fields, "balances.fields.id.id") ||
+                    get(fields, "balances.fields.id");
+                if (!balancesBagId) return null;
 
-                    return { vaultName, balancesBagId };
-                } catch {
-                    return null;
-                }
-            })
-        );
+                return { vaultName, balancesBagId };
+            } catch {
+                return null;
+            }
+        });
 
         const vaults = vaultResults.filter((v): v is NonNullable<typeof v> => v !== null);
         if (vaults.length === 0) return [];
 
         // Fetch balance entries for each vault in parallel
-        const balanceFetches: Promise<VaultCoinBalance | null>[] = [];
-
-        for (const { vaultName, balancesBagId } of vaults) {
+        const balanceGroups = await mapWithConcurrency(vaults, 4, async ({ vaultName, balancesBagId }) => {
             const balanceDynFields = await getAllDynamicFields(client, balancesBagId);
-
-            for (const bf of balanceDynFields) {
-                balanceFetches.push(
-                    getDynamicFieldObject(client, balancesBagId, bf.name)
-                        .then((balanceObj) => {
-                            const balanceFields = (balanceObj.data?.content as any)?.fields;
-                            // The coin type is the key (TypeName value)
-                            // TypeName dynamic field key: { value: { name: "addr::module::TYPE" } } or { value: "addr::module::TYPE" }
-                            const rawValue = (bf.name as any)?.value;
-                            const coinType = typeof rawValue === "string" ? rawValue : (rawValue?.name ?? "");
-                            // The balance value is in fields.value (for Balance<T>) or fields.value
-                            const rawBalanceValue = balanceFields?.value;
-                            const amount = BigInt(fieldsOf(rawBalanceValue).value ?? rawBalanceValue ?? "0");
-                            if (amount <= 0n) return null;
-                            return { vaultName, coinType: normalizeCoinType(coinType), amount };
-                        })
-                        .catch(() => null)
-                );
-            }
-        }
-
-        const results = await Promise.all(balanceFetches);
+            const balanceObjects = await getDynamicFieldObjects(client, balancesBagId, balanceDynFields);
+            return balanceDynFields.map((bf, index): VaultCoinBalance | null => {
+                try {
+                    const balanceFields = (balanceObjects[index].data?.content as any)?.fields;
+                    const rawValue = (bf.name as any)?.value;
+                    const coinType = typeof rawValue === "string" ? rawValue : (rawValue?.name ?? "");
+                    const rawBalanceValue = balanceFields?.value;
+                    const amount = BigInt(fieldsOf(rawBalanceValue).value ?? rawBalanceValue ?? "0");
+                    if (amount <= 0n) return null;
+                    return { vaultName, coinType: normalizeCoinType(coinType), amount };
+                } catch {
+                    return null;
+                }
+            });
+        });
+        const results = balanceGroups.flat();
         return results.filter((b): b is VaultCoinBalance => b !== null);
     } catch (error) {
         console.error(`[fetchAccountVaultBalances] Error for ${accountId}:`, error);
@@ -1458,41 +1383,38 @@ export async function fetchAccountVestings(client: SuiClient, accountId: string)
                 (entry): entry is { vestingId: string; coinType: string; isCancellable: boolean } => entry !== null
             );
 
-        const vestings = await Promise.all(
-            registryEntries.map(async (entry) => {
-                try {
-                    const vestingObj = await client.getObject({
-                        id: entry.vestingId,
-                        options: { showContent: true, showType: true },
-                    });
-                    const fields = (vestingObj.data?.content as any)?.fields;
-                    const objectType = vestingObj.data?.type ?? "";
-                    if (!fields) return null;
-
-                    return {
-                        vestingId: entry.vestingId,
-                        accountId,
-                        daoAddress: normalizeIdString(fields.dao_address) ?? accountId,
-                        coinType: normalizeCoinType(
-                            parseTypeName(fields.coin_type) ??
-                                extractCoinTypeFromObjectType(objectType) ??
-                                entry.coinType
-                        ),
-                        balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
-                        amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
-                        claimedAmount: BigInt(fields.claimed_amount ?? 0),
-                        firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
-                        partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
-                        startTimeMs: Number(fields.start_time ?? 0),
-                        iterationsTotal: Number(fields.iterations_total ?? 0),
-                        iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
-                        isCancellable: Boolean(fields.is_cancellable ?? entry.isCancellable),
-                    } satisfies AccountVestingInfo;
-                } catch {
-                    return null;
-                }
-            })
+        const vestingObjects = await getObjectsByIds(
+            client,
+            registryEntries.map((entry) => entry.vestingId)
         );
+        const vestings = registryEntries.map((entry, index) => {
+            try {
+                const vestingObj = vestingObjects[index];
+                const fields = (vestingObj.data?.content as any)?.fields;
+                const objectType = vestingObj.data?.type ?? "";
+                if (!fields) return null;
+
+                return {
+                    vestingId: entry.vestingId,
+                    accountId,
+                    daoAddress: normalizeIdString(fields.dao_address) ?? accountId,
+                    coinType: normalizeCoinType(
+                        parseTypeName(fields.coin_type) ?? extractCoinTypeFromObjectType(objectType) ?? entry.coinType
+                    ),
+                    balance: BigInt(get(fields, "balance.fields.value", "0") || fields.balance?.value || "0"),
+                    amountPerIteration: BigInt(fields.amount_per_iteration ?? 0),
+                    claimedAmount: BigInt(fields.claimed_amount ?? 0),
+                    firstUnclaimedIteration: BigInt(fields.first_unclaimed_iteration ?? 0),
+                    partialClaimedInIteration: BigInt(fields.partial_claimed_in_iteration ?? 0),
+                    startTimeMs: Number(fields.start_time ?? 0),
+                    iterationsTotal: Number(fields.iterations_total ?? 0),
+                    iterationPeriodMs: Number(fields.iteration_period_ms ?? 0),
+                    isCancellable: Boolean(fields.is_cancellable ?? entry.isCancellable),
+                } satisfies AccountVestingInfo;
+            } catch {
+                return null;
+            }
+        });
 
         return vestings
             .filter((entry): entry is AccountVestingInfo => entry !== null)
@@ -1645,7 +1567,7 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
         const packageFields = [...capFields, ...rulesFields];
         const packageObjects = await getDynamicFieldObjects(client, accountId, packageFields);
         const objectByFieldKey = new Map(
-            packageFields.map((field, index) => [dynamicFieldKey(accountId, field.name), packageObjects[index]])
+            packageFields.map((field, index) => [dynamicFieldReadKey(accountId, field.name), packageObjects[index]])
         );
 
         const results: LockedPackageInfo[] = [];
@@ -1660,7 +1582,8 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             let capObjectId = "";
             let policy = 0;
             try {
-                const capObj = objectByFieldKey.get(dynamicFieldKey(accountId, capField.name));
+                const capObj = objectByFieldKey.get(dynamicFieldReadKey(accountId, capField.name));
+                if (!capObj) throw new Error("UpgradeCap field object unavailable");
                 const fields = dynamicObjectFieldValue(capObj.data?.content).fields;
                 if (fields) {
                     packageAddress = fields.package ?? "";
@@ -1682,7 +1605,8 @@ export async function fetchAccountPackageInfo(client: SuiClient, accountId: stri
             });
             if (rulesField) {
                 try {
-                    const rulesObj = objectByFieldKey.get(dynamicFieldKey(accountId, rulesField.name));
+                    const rulesObj = objectByFieldKey.get(dynamicFieldReadKey(accountId, rulesField.name));
+                    if (!rulesObj) throw new Error("UpgradeRules field object unavailable");
                     const fields = fieldsOf((rulesObj.data?.content as any)?.fields?.value);
                     if (fields) {
                         delayMs = Number(fields.delay_ms ?? 0);
@@ -1895,31 +1819,12 @@ export interface OwnedObjectInfo {
  */
 export async function fetchAccountOwnedObjects(client: SuiClient, accountId: string): Promise<OwnedObjectInfo[]> {
     try {
-        const all: OwnedObjectInfo[] = [];
-        let cursor: string | null | undefined = null;
-
-        while (true) {
-            const page = await client.getOwnedObjects({
-                owner: accountId,
-                options: { showType: true },
-                ...(cursor ? { cursor } : {}),
-            });
-
-            for (const item of page.data) {
-                const data = item.data;
-                if (!data?.type || !data.objectId || !data.digest) continue;
-                all.push({
-                    objectId: data.objectId,
-                    objectType: data.type,
-                    digest: data.digest,
-                });
-            }
-
-            if (!page.hasNextPage || !page.nextCursor) break;
-            cursor = page.nextCursor;
-        }
-
-        return all;
+        const objects = await getOwnedObjects(client, accountId);
+        return objects.flatMap((item) => {
+            const data = item.data;
+            if (!data?.type || !data.objectId || !data.digest) return [];
+            return [{ objectId: data.objectId, objectType: data.type, digest: data.digest }];
+        });
     } catch (error) {
         console.error(`[fetchAccountOwnedObjects] Error for ${accountId}:`, error);
         return [];

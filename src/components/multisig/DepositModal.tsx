@@ -75,7 +75,7 @@ export function DepositModal({
     const { executeTransaction, isLoading } = useSuiTransaction();
     const submittingRef = useRef(false);
 
-    const { data: vaultNames } = useMultisigVaultNames(accountId);
+    const { data: vaultNames } = useMultisigVaultNames(accountId, { enabled: isOpen });
 
     const [vaultName, setVaultName] = useState("");
     const [coinType, setCoinType] = useState("");
@@ -88,7 +88,9 @@ export function DepositModal({
     const resolvedVaultName = hasVaults ? vaultName : "";
     const hasSelectedVault = resolvedVaultName.length > 0;
 
-    const { data: approvedCoinTypes } = useVaultApprovedCoinTypes(accountId, resolvedVaultName || undefined);
+    const { data: approvedCoinTypes } = useVaultApprovedCoinTypes(accountId, resolvedVaultName || undefined, {
+        enabled: isOpen,
+    });
     const approvedCoinTypesLoaded = !hasSelectedVault || approvedCoinTypes !== undefined;
     const selectedCoinIsApproved = approvedCoinTypes?.includes(coinType) ?? false;
     const isSupportedProtocol = isSupportedProtocolVersion(protocolVersion);

@@ -32,10 +32,14 @@ export function MigrateToMultisigModal({ isOpen, onClose, accountId, canStageLoc
     const submittingRef = useRef(false);
     const queryEnabled = isOpen;
 
-    const { data: vaultNames = [], isLoading: vaultNamesLoading } = useMultisigVaultNames(accountId);
+    const { data: vaultNames = [], isLoading: vaultNamesLoading } = useMultisigVaultNames(accountId, {
+        enabled: queryEnabled,
+    });
     const [vaultName, setVaultName] = useState("");
     const resolvedVaultName = vaultName || vaultNames[0] || "";
-    const { data: approvedCoinTypes = [] } = useVaultApprovedCoinTypes(accountId, resolvedVaultName || undefined);
+    const { data: approvedCoinTypes = [] } = useVaultApprovedCoinTypes(accountId, resolvedVaultName || undefined, {
+        enabled: queryEnabled,
+    });
 
     const coins = useMigrationCoins({
         owner: account?.address,

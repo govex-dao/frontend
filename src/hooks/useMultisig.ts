@@ -79,13 +79,13 @@ export function useMultisigIntents(accountId: string | undefined) {
 /**
  * Fetch vault names on an account (live RPC data)
  */
-export function useMultisigVaultNames(accountId: string | undefined) {
+export function useMultisigVaultNames(accountId: string | undefined, options: { enabled?: boolean } = {}) {
     const client = useSuiClient();
 
     return useQuery<string[]>({
         queryKey: multisigRpcKeys.vaultNames(accountId!),
         queryFn: () => fetchAccountVaultNames(client, accountId!),
-        enabled: !!accountId,
+        enabled: !!accountId && (options.enabled ?? true),
         staleTime: 30_000,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
@@ -102,7 +102,7 @@ export function useMultisigStreams(accountId: string | undefined) {
         queryFn: () => fetchAccountStreams(client, accountId!),
         enabled: !!accountId,
         staleTime: 30_000,
-        refetchInterval: REFRESH_INTERVALS.LIVE,
+        refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
 }
 
@@ -132,20 +132,24 @@ export function useMultisigVaultBalances(accountId: string | undefined, options:
         queryFn: () => fetchAccountVaultBalances(client, accountId!),
         enabled: !!accountId && (options.enabled ?? true),
         staleTime: 30_000,
-        refetchInterval: REFRESH_INTERVALS.LIVE,
+        refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });
 }
 
 /**
  * Fetch approved coin types for a specific vault (live RPC data)
  */
-export function useVaultApprovedCoinTypes(accountId: string | undefined, vaultName: string | undefined) {
+export function useVaultApprovedCoinTypes(
+    accountId: string | undefined,
+    vaultName: string | undefined,
+    options: { enabled?: boolean } = {}
+) {
     const client = useSuiClient();
 
     return useQuery<string[]>({
         queryKey: multisigRpcKeys.vaultApprovedCoins(accountId!, vaultName!),
         queryFn: () => fetchVaultApprovedCoinTypes(client, accountId!, vaultName!),
-        enabled: !!accountId && !!vaultName,
+        enabled: !!accountId && !!vaultName && (options.enabled ?? true),
         staleTime: 30_000,
         refetchInterval: REFRESH_INTERVALS.DISCOVERY,
     });

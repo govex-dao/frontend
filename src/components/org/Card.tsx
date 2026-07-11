@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { StarIcon } from "lucide-react";
+import { useOrgMarketCap } from "@/hooks/useOrgMarketCap";
 import type { DAODisplay } from "@/types";
 import { VerifiedBadge } from "../badges/VerifiedBadge";
-import { useOrgMarketCap } from "@/hooks/useOrgMarketCap";
 
 interface Props {
     dao: DAODisplay;
@@ -16,7 +16,29 @@ export function OrgCard(props: Props) {
     const { dao, isFavorited, onToggleFavorite } = props;
     const { id, name, description, iconUrl, verified, proposalCount, createdAt } = dao;
     const [imgError, setImgError] = useState(false);
-    const { data: marketCap } = useOrgMarketCap(dao);
+    const [hasBeenVisible, setHasBeenVisible] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const { data: marketCap } = useOrgMarketCap(dao, hasBeenVisible);
+
+    useEffect(() => {
+        if (hasBeenVisible) return;
+        const element = cardRef.current;
+        if (!element || typeof IntersectionObserver === "undefined") {
+            setHasBeenVisible(true);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry?.isIntersecting) return;
+                setHasBeenVisible(true);
+                observer.disconnect();
+            },
+            { rootMargin: "240px" }
+        );
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [hasBeenVisible]);
 
     const onFavoriteClick = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -36,7 +58,7 @@ export function OrgCard(props: Props) {
         : "N/A";
 
     return (
-        <motion.div layout>
+        <motion.div ref={cardRef} layout>
             <Link
                 to={`/orgs/${id}`}
                 className="group glass-flow-panel rounded-xl p-5 transition-all flex flex-col gap-2 items-start h-full"

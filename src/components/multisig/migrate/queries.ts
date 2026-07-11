@@ -3,6 +3,7 @@ import type { CoinStruct, SuiClient } from "@govex/futarchy-sdk";
 import { parseStructTag } from "@mysten/sui/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
+import { coalesceChainRead, getObjectsByIds, mapWithConcurrency } from "@/lib/sui/batchedReads";
 import { COIN_OBJECT_PAGE_LIMIT, MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";
 import type { CoinObjectScan, ObjectTransferAbility, WalletBalance } from "./types";
 import { extractUpgradeCapPackageId, normalizeAddressInput, objectTypeAbilityKey } from "./utils";
@@ -86,18 +87,16 @@ export function useSelectedCoinObjectScans(owner: string | undefined, coinTypes:
     return useQuery<CoinObjectScan[]>({
         queryKey: ["wallet-selected-coin-object-scans", owner, ...coinTypes],
         queryFn: async () =>
-            Promise.all(
-                coinTypes.map(async (coinType) => {
-                    const result = await fetchCoinObjectsForAmount(client, owner!, coinType);
-                    return {
-                        coinType,
-                        objectBalance: result.objectBalance.toString(),
-                        coinObjectCount: result.coinObjects.length,
-                        isComplete: result.isComplete,
-                        hitObjectLimit: result.hitObjectLimit,
-                    };
-                })
-            ),
+            mapWithConcurrency(coinTypes, 4, async (coinType) => {
+                const result = await fetchCoinObjectsForAmount(client, owner!, coinType);
+                return {
+                    coinType,
+                    objectBalance: result.objectBalance.toString(),
+                    coinObjectCount: result.coinObjects.length,
+                    isComplete: result.isComplete,
+                    hitObjectLimit: result.hitObjectLimit,
+                };
+            }),
         enabled: enabled && !!owner && coinTypes.length > 0,
         staleTime: 30_000,
     });
@@ -108,10 +107,7 @@ export function useUpgradeCapPackageIds(upgradeCapIds: string[], enabled: boolea
     return useQuery<Record<string, string>>({
         queryKey: ["wallet-upgrade-cap-packages", ...upgradeCapIds],
         queryFn: async () => {
-            const responses = await client.multiGetObjects({
-                ids: upgradeCapIds,
-                options: { showContent: true },
-            });
+            const responses = await getObjectsByIds(client, upgradeCapIds);
             const next: Record<string, string> = {};
             responses.forEach((response, index) => {
                 const packageId = extractUpgradeCapPackageId(response.data?.content);
@@ -132,8 +128,10 @@ export function useObjectTransferAbilities(objectTypes: string[], enabled: boole
     return useQuery<Record<string, ObjectTransferAbility>>({
         queryKey: ["wallet-object-transfer-abilities", ...typeKey],
         queryFn: async () => {
-            const entries = await Promise.all(
-                typeKey.map(async (objectType): Promise<[string, ObjectTransferAbility]> => {
+            const entries = await mapWithConcurrency(
+                typeKey,
+                4,
+                async (objectType): Promise<[string, ObjectTransferAbility]> => {
                     const key = objectTypeAbilityKey(objectType);
                     try {
                         const tag = parseStructTag(objectType);
@@ -154,19 +152,23 @@ export function useObjectTransferAbilities(objectTypes: string[], enabled: boole
 
                         let canKeep = false;
                         if (legacyClient.getNormalizedMoveStruct) {
-                            const normalized = await legacyClient.getNormalizedMoveStruct({
-                                package: normalizeAddressInput(tag.address),
-                                module: tag.module,
-                                struct: tag.name,
-                            });
+                            const normalized = await coalesceChainRead(client, `move-struct:${key}`, () =>
+                                legacyClient.getNormalizedMoveStruct!({
+                                    package: normalizeAddressInput(tag.address),
+                                    module: tag.module,
+                                    struct: tag.name,
+                                })
+                            );
                             const abilities = normalized.abilities.abilities.map((ability) => ability.toLowerCase());
                             canKeep = abilities.includes("key") && abilities.includes("store");
                         } else {
-                            const result = await legacyClient.movePackageService?.getDatatype({
-                                packageId: normalizeAddressInput(tag.address),
-                                moduleName: tag.module,
-                                name: tag.name,
-                            });
+                            const result = await coalesceChainRead(client, `move-datatype:${key}`, () =>
+                                legacyClient.movePackageService!.getDatatype({
+                                    packageId: normalizeAddressInput(tag.address),
+                                    moduleName: tag.module,
+                                    name: tag.name,
+                                })
+                            );
                             const abilities = result?.response.datatype?.abilities ?? [];
                             canKeep = abilities.includes(4) && abilities.includes(3); // KEY + STORE
                         }
@@ -174,7 +176,7 @@ export function useObjectTransferAbilities(objectTypes: string[], enabled: boole
                     } catch {
                         return [key, { canKeep: false, checked: true, error: true }];
                     }
-                })
+                }
             );
             return Object.fromEntries(entries);
         },

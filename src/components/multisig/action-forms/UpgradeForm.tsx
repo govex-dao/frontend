@@ -8,6 +8,7 @@ import { Textarea } from "@/components/inputs/Textarea";
 import { Select } from "@/components/inputs/Select";
 import { useMultisigPackageInfo } from "@/hooks/useMultisig";
 import { cacheUpgradeBuildOutput, digestBytesToHex, parseUpgradeBuildOutput } from "@/lib/upgradeBuildCache";
+import { getAllOwnedObjects } from "@/lib/sui/batchedReads";
 import {
     addProvideObjectSpec,
     addUpgradeAndCommitSpecs,
@@ -72,25 +73,15 @@ function useWalletUpgradeCaps() {
         queryFn: async () => {
             if (!address) return [];
             const caps: UpgradeCapInfo[] = [];
-            let cursor: string | null | undefined = null;
-            while (true) {
-                const page = await client.getOwnedObjects({
-                    owner: address,
-                    filter: { StructType: "0x2::package::UpgradeCap" },
-                    options: { showContent: true },
-                    ...(cursor ? { cursor } : {}),
+            const objects = await getAllOwnedObjects(client, address, "0x2::package::UpgradeCap");
+            for (const item of objects) {
+                const content = item.data?.content;
+                if (content?.dataType !== "moveObject" || !item.data?.objectId) continue;
+                const fields = content.fields as UpgradeCapFields;
+                caps.push({
+                    objectId: item.data.objectId,
+                    packageId: fields?.package ?? "",
                 });
-                for (const item of page.data) {
-                    const content = item.data?.content;
-                    if (content?.dataType !== "moveObject" || !item.data?.objectId) continue;
-                    const fields = content.fields as UpgradeCapFields;
-                    caps.push({
-                        objectId: item.data.objectId,
-                        packageId: fields?.package ?? "",
-                    });
-                }
-                if (!page.hasNextPage || !page.nextCursor) break;
-                cursor = page.nextCursor;
             }
             return caps;
         },

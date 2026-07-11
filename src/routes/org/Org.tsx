@@ -14,6 +14,7 @@ import { Button } from "@/components/inputs/Button";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useSpotPrice } from "@/hooks/useSpotPrice";
+import { useAmmTvl } from "@/hooks/useAmmTvl";
 import { useDAO, useDAOProposalsDisplay, useCoins } from "@/hooks/api";
 import { useMultisigVaultBalances } from "@/hooks/useMultisig";
 import { DepositModal } from "@/components/multisig/DepositModal";
@@ -344,7 +345,8 @@ export function Org() {
         setShowRightFade(true);
     }, [orgId]);
 
-    const { data: spotPrice } = useSpotPrice(daoRaw, isOverviewTab || activeTab === "trade");
+    const { data: spotPrice } = useSpotPrice(daoRaw, activeTab === "trade");
+    const { data: ammTvl, isLoading: ammTvlLoading, isError: ammTvlError } = useAmmTvl(daoRaw, isOverviewTab);
     const protocolVersion = getProtocolVersionForDAO(daoRaw);
     const { isFavorited, toggleFavorite } = useFavorites();
     const setActiveTab = (tab: TabType) => setSearchParams({ tab });
@@ -450,9 +452,9 @@ export function Org() {
                 <div className="flex flex-col flex-1 gap-3 min-w-0 p-4 md:p-8 lg:p-5 xl:p-8 2xl:p-10 relative h-full overflow-y-auto">
                     {activeTab === "overview" && (
                         <div className="flex flex-col gap-6">
-                            <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={spotPrice?.formatted} />
+                            <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={ammTvl?.spotPriceFormatted} />
 
-                            <AmmTvlPanel dao={daoRaw} />
+                            <AmmTvlPanel dao={daoRaw} data={ammTvl} isLoading={ammTvlLoading} isError={ammTvlError} />
 
                             <OrgCreationActions daoRaw={daoRaw} />
 

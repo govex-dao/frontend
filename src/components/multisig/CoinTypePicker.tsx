@@ -7,6 +7,7 @@ import { Input } from "@/components/inputs/Input";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { useCoins } from "@/hooks/api/useCoins";
 import type { CoinMetadata } from "@/lib/api/coins";
+import { getCoinMetadata, mapWithConcurrency } from "@/lib/sui/batchedReads";
 
 interface Props {
     value: string;
@@ -87,20 +88,18 @@ export function CoinTypePicker({
         queryFn: async () => {
             const cachedTypes = new Set((coins ?? []).map((coin) => coin.coin_type));
             const missingTypes = allowedMetadataKey.filter((coinType) => !cachedTypes.has(coinType));
-            const results = await Promise.all(
-                missingTypes.map(async (coinType) => {
-                    const meta = await client.getCoinMetadata({ coinType });
-                    return {
-                        coin_type: coinType,
-                        name: meta?.name ?? coinType.split("::").pop() ?? coinType,
-                        symbol: meta?.symbol ?? coinType.split("::").pop() ?? "???",
-                        decimals: meta?.decimals ?? SUI_DECIMALS,
-                        description: meta?.description ?? "",
-                        icon_url: meta?.iconUrl ?? null,
-                        icon_cache_path: null,
-                    } satisfies CoinMetadata;
-                })
-            );
+            const results = await mapWithConcurrency(missingTypes, 4, async (coinType) => {
+                const meta = await getCoinMetadata(client, coinType);
+                return {
+                    coin_type: coinType,
+                    name: meta?.name ?? coinType.split("::").pop() ?? coinType,
+                    symbol: meta?.symbol ?? coinType.split("::").pop() ?? "???",
+                    decimals: meta?.decimals ?? SUI_DECIMALS,
+                    description: meta?.description ?? "",
+                    icon_url: meta?.iconUrl ?? null,
+                    icon_cache_path: null,
+                } satisfies CoinMetadata;
+            });
             return results;
         },
         enabled: allowedMetadataKey.length > 0,
@@ -180,7 +179,7 @@ export function CoinTypePicker({
         if (!customType.trim()) return;
         setResolving(true);
         try {
-            const meta = await client.getCoinMetadata({ coinType: customType.trim() });
+            const meta = await getCoinMetadata(client, customType.trim());
             onChange(customType.trim(), meta?.decimals ?? SUI_DECIMALS);
             setIsCustom(false);
         } catch {

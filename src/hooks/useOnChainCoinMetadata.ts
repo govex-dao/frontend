@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import type { CoinMetadata } from "@/lib/api/coins";
+import { getCoinMetadata, mapWithConcurrency } from "@/lib/sui/batchedReads";
 
 /**
  * Fetch coin metadata directly through the Sui gRPC Core API.
@@ -19,30 +20,28 @@ export function useOnChainCoinMetadata(coinTypes: string[], backendCoins?: CoinM
     return useQuery({
         queryKey: ["onchain-coin-metadata", ...missingKey],
         queryFn: async (): Promise<CoinMetadata[]> => {
-            const results = await Promise.all(
-                missingKey.map(async (coinType): Promise<CoinMetadata | null> => {
-                    try {
-                        const meta = await client.getCoinMetadata({ coinType });
-                        if (!meta) {
-                            return null;
-                        }
-
-                        const coinMetadata: CoinMetadata = {
-                            coin_type: coinType,
-                            name: meta.name || coinType.split("::").pop() || "Unknown",
-                            symbol: meta.symbol || coinType.split("::").pop() || "???",
-                            decimals: meta.decimals ?? 9,
-                            description: meta.description || "",
-                            icon_url: meta.iconUrl || null,
-                            icon_cache_path: null,
-                        };
-
-                        return coinMetadata;
-                    } catch {
+            const results = await mapWithConcurrency(missingKey, 4, async (coinType): Promise<CoinMetadata | null> => {
+                try {
+                    const meta = await getCoinMetadata(client, coinType);
+                    if (!meta) {
                         return null;
                     }
-                })
-            );
+
+                    const coinMetadata: CoinMetadata = {
+                        coin_type: coinType,
+                        name: meta.name || coinType.split("::").pop() || "Unknown",
+                        symbol: meta.symbol || coinType.split("::").pop() || "???",
+                        decimals: meta.decimals ?? 9,
+                        description: meta.description || "",
+                        icon_url: meta.iconUrl || null,
+                        icon_cache_path: null,
+                    };
+
+                    return coinMetadata;
+                } catch {
+                    return null;
+                }
+            });
 
             return results.filter((result): result is CoinMetadata => result !== null);
         },
