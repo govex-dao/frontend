@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID, SUI_TYPE_ARG } from "@mysten/sui/utils";
@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import type { DAO, Token } from "@/types";
 import { useCoins } from "@/hooks/api";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/inputs/Button";
 import { TokenInput } from "@/components/inputs/TokenInput";
@@ -15,58 +16,18 @@ import { TradeDirectionSwapButton, TradeDirectionToggle } from "@/components/pro
 import { SlippageSelector } from "@/components/proposal/trade/swap/SlippageSelector";
 import { getProtocolVersionForDAO, getSDKForDAO, isSupportedProtocolDAO } from "@/lib/sdk";
 import { resolveCoinIcon } from "@/lib/coin/icons";
-import { parseAmountToBigInt } from "@/lib/parseAmount";
+import { safeParseAmountToBigInt } from "@/lib/parseAmount";
+import { formatUnits } from "@/lib/units";
 import { selectCoinObjectsForAmount } from "@/lib/sui/selectCoins";
+import { withConfirmedBalanceDelta } from "@/lib/sui/confirmedEffects";
 
 const SUI_COIN_TYPE = SUI_TYPE_ARG;
 const DEFAULT_SLIPPAGE_BPS = 30n; // 0.3%
 const QUOTE_DEBOUNCE_MS = 700;
 const MIN_SUI_GAS_RESERVE = 10_000_000n; // 0.01 SUI
 
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(timer);
-    }, [value, delay]);
-    return debounced;
-}
-
 function formatWithCommas(intPart: string): string {
     return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function formatUnits(
-    amount: bigint,
-    decimals: number,
-    opts?: { maxFractionDigits?: number; trimTrailingZeros?: boolean; useGrouping?: boolean }
-): string {
-    if (decimals <= 0) {
-        const raw = amount.toString();
-        return opts?.useGrouping === false ? raw : formatWithCommas(raw);
-    }
-    const raw = amount.toString();
-    const padded = raw.padStart(decimals + 1, "0");
-    const intPart = padded.slice(0, -decimals) || "0";
-    let fracPart = padded.slice(-decimals);
-
-    const maxFractionDigits = opts?.maxFractionDigits ?? decimals;
-    fracPart = fracPart.slice(0, Math.max(0, maxFractionDigits));
-
-    if (opts?.trimTrailingZeros !== false) {
-        fracPart = fracPart.replace(/0+$/, "");
-    }
-
-    const intWithCommas = opts?.useGrouping === false ? intPart : formatWithCommas(intPart);
-    return fracPart ? `${intWithCommas}.${fracPart}` : intWithCommas;
-}
-
-function safeParseAmountToBigInt(amount: string, decimals: number): bigint {
-    try {
-        return parseAmountToBigInt(amount, decimals);
-    } catch {
-        return 0n;
-    }
 }
 
 function leavesInsufficientSuiForGas(amount: bigint, balance: bigint, coinType: string): boolean {
@@ -103,7 +64,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
     const account = useCurrentAccount();
     const suiClient = useSuiClient();
     const queryClient = useQueryClient();
-    const { executeTransaction, isLoading: txLoading } = useSuiTransaction();
+    const { executeTransaction, isLoading: txLoading, isReconciling } = useSuiTransaction();
     const { data: coinMetadata } = useCoins();
 
     const [isBuy, setIsBuy] = useState(true); // true = stable -> asset, false = asset -> stable
@@ -134,7 +95,13 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         queryFn: async () => {
             if (!account) return 0n;
             const result = await suiClient.getBalance({ owner: account.address, coinType: dao.asset_type });
-            return BigInt(result.totalBalance);
+            return withConfirmedBalanceDelta(
+                queryClient,
+                account.address,
+                dao.asset_type,
+                BigInt(result.totalBalance),
+                queryClient.getQueryData<bigint>(["coin-balance", account.address, dao.asset_type])
+            );
         },
         enabled: !!account,
         refetchInterval: 10_000,
@@ -145,7 +112,13 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         queryFn: async () => {
             if (!account) return 0n;
             const result = await suiClient.getBalance({ owner: account.address, coinType: dao.stable_type });
-            return BigInt(result.totalBalance);
+            return withConfirmedBalanceDelta(
+                queryClient,
+                account.address,
+                dao.stable_type,
+                BigInt(result.totalBalance),
+                queryClient.getQueryData<bigint>(["coin-balance", account.address, dao.stable_type])
+            );
         },
         enabled: !!account,
         refetchInterval: 10_000,
@@ -271,7 +244,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         return { toAmountDisplay, priceDisplay };
     }, [quote, isBuy, dao.asset_decimals, dao.stable_decimals, outputDecimals]);
 
-    const isLoading = txLoading || (quoteLoading && quoteEnabled);
+    const isLoading = txLoading || isReconciling || (quoteLoading && quoteEnabled);
 
     const { isButtonDisabled, buttonText } = useMemo(() => {
         if (!poolReady) {
@@ -279,6 +252,9 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         }
         if (!account) {
             return { isButtonDisabled: true, buttonText: "Connect Wallet" };
+        }
+        if (isReconciling) {
+            return { isButtonDisabled: true, buttonText: "Syncing Balances..." };
         }
         if (fromAmountRaw === 0n) {
             return { isButtonDisabled: true, buttonText: "Enter Amount" };
@@ -307,6 +283,7 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
         inputType,
         isBuy,
         isDebouncing,
+        isReconciling,
         poolReady,
         quote,
         quoteEnabled,
@@ -441,11 +418,17 @@ export function SpotSwapCard({ dao }: { dao: DAO }) {
             await executeTransaction(
                 tx,
                 {
-                    onSuccess: () => {
-                        setFromAmountStr("");
-                        queryClient.invalidateQueries({ queryKey: ["spot-quote"] });
-                        queryClient.invalidateQueries({ queryKey: ["coin-balance", account.address] });
-                        queryClient.invalidateQueries({ queryKey: ["spot-price", poolId] });
+                    onSuccess: () => setFromAmountStr(""),
+                    onReconciled: async (_result, reconciliation) => {
+                        if (reconciliation.status === "deferred") return;
+                        await Promise.all([
+                            queryClient.invalidateQueries({ queryKey: ["spot-quote"] }),
+                            queryClient.refetchQueries({
+                                queryKey: ["coin-balance", account.address],
+                                type: "active",
+                            }),
+                            queryClient.invalidateQueries({ queryKey: ["spot-price", poolId] }),
+                        ]);
                     },
                 },
                 {

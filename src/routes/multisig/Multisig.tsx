@@ -19,37 +19,12 @@ import {
     Archive,
     ArrowRightLeft,
     KeyRound,
+    AlertTriangle,
 } from "lucide-react";
 import { formatAddress, parseStructTag } from "@mysten/sui/utils";
-import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
-import { MemberRow } from "@/components/multisig/MemberRow";
-import { GroupsSection } from "@/components/multisig/GroupsSection";
-import { CopyableAddress } from "@/components/multisig/CopyableAddress";
-import { IntentCard } from "@/components/multisig/IntentCard";
-import { StreamCard } from "@/components/multisig/StreamCard";
-import { VestingCard } from "@/components/VestingCard";
-import { CoinAvatar } from "@/components/CoinAvatar";
-import { ProposeIntentModal } from "@/components/multisig/ProposeIntentModal";
-import { DepositModal } from "@/components/multisig/DepositModal";
-import { MigrateToMultisigModal } from "@/components/multisig/MigrateToMultisigModal";
-import { MultisigAvatar } from "@/components/multisig/MultisigAvatar";
-import {
-    useMultisigConfig,
-    useMultisigIntents,
-    useMultisigStreams,
-    useMultisigVaultBalances,
-    useMultisigVaultNames,
-    useMultisigPackageInfo,
-    useMultisigLockedCaps,
-    useMultisigVestings,
-    multisigRpcKeys,
-} from "@/hooks/useMultisig";
-import { useCoins } from "@/hooks/api/useCoins";
-import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import {
     approvalPolicyLabel,
     canAddressCancel,
@@ -63,8 +38,34 @@ import {
     normalizeSuiAddress,
     permissionLabels,
     policyLabel,
-} from "@/lib/sui/multisig";
-import type { IntentSummary, LockedCapInfo, VaultCoinBalance } from "@/lib/sui/multisig";
+} from "@govex/futarchy-sdk/multisig/reads";
+import type { IntentSummary, LockedCapInfo, VaultCoinBalance } from "@govex/futarchy-sdk/multisig/reads";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
+import { MemberRow } from "@/components/multisig/MemberRow";
+import { GroupsSection } from "@/components/multisig/GroupsSection";
+import { CopyableAddress } from "@/components/multisig/CopyableAddress";
+import { IntentCard } from "@/components/multisig/IntentCard";
+import { StreamCard } from "@/components/multisig/StreamCard";
+import { VestingCard } from "@/components/VestingCard";
+import { CoinAvatar } from "@/components/CoinAvatar";
+import { ProposeIntentModal } from "@/components/multisig/ProposeIntentModal";
+import { DepositModal } from "@/components/multisig/DepositModal";
+import { MigrateToMultisigModal } from "@/components/multisig/MigrateToMultisigModal";
+import { MultisigAvatar } from "@/components/multisig/MultisigAvatar";
+import {
+    multisigRpcKeys,
+    useMultisigConfig,
+    useMultisigIntents,
+    useMultisigLockedCaps,
+    useMultisigPackageInfo,
+    useMultisigStreams,
+    useMultisigVaultBalances,
+    useMultisigVaultNames,
+    useMultisigVestings,
+} from "@/hooks/useMultisig";
+import { useCoins } from "@/hooks/api/useCoins";
+import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import {
     cancelExpiredActions,
     cancelExpiredConfigChange,
@@ -387,15 +388,43 @@ export function Multisig() {
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
     const { executeTransaction, isLoading: cleanupLoading } = useSuiTransaction();
-    const { data: config, isLoading: configLoading } = useMultisigConfig(accountId);
-    const { data: intents, isLoading: intentsLoading } = useMultisigIntents(accountId);
-    const secondaryAccountId = config ? accountId : undefined;
-    const { data: streams, isLoading: streamsLoading } = useMultisigStreams(secondaryAccountId);
-    const { data: accountVestings = [], isLoading: vestingsLoading } = useMultisigVestings(secondaryAccountId);
-    const { data: vaultBalances, isLoading: vaultBalancesLoading } = useMultisigVaultBalances(secondaryAccountId);
-    const { data: vaultNames, isLoading: vaultNamesLoading } = useMultisigVaultNames(secondaryAccountId);
-    const { data: packageInfos, isLoading: packagesLoading } = useMultisigPackageInfo(secondaryAccountId);
-    const { data: lockedCaps, isLoading: lockedCapsLoading } = useMultisigLockedCaps(secondaryAccountId);
+    const configQuery = useMultisigConfig(accountId);
+    const intentsQuery = useMultisigIntents(accountId);
+    const streamsQuery = useMultisigStreams(accountId);
+    const vestingsQuery = useMultisigVestings(accountId);
+    const vaultBalancesQuery = useMultisigVaultBalances(accountId);
+    const vaultNamesQuery = useMultisigVaultNames(accountId);
+    const packageInfoQuery = useMultisigPackageInfo(accountId);
+    const lockedCapsQuery = useMultisigLockedCaps(accountId);
+    const config = configQuery.data;
+    const intents = intentsQuery.data;
+    const streams = streamsQuery.data;
+    const accountVestings = vestingsQuery.data ?? [];
+    const vaultBalances = vaultBalancesQuery.data;
+    const vaultNames = vaultNamesQuery.data;
+    const packageInfos = packageInfoQuery.data;
+    const lockedCaps = lockedCapsQuery.data;
+    const isLoading = configQuery.isLoading;
+    const overviewError = configQuery.isError;
+    const overviewReadError = configQuery.error;
+    const overviewSectionErrors = [
+        ["intents", intentsQuery.error],
+        ["streams", streamsQuery.error],
+        ["vestings", vestingsQuery.error],
+        ["vault balances", vaultBalancesQuery.error],
+        ["vault names", vaultNamesQuery.error],
+        ["package info", packageInfoQuery.error],
+        ["locked caps", lockedCapsQuery.error],
+    ]
+        .filter((entry): entry is [string, Error] => entry[1] instanceof Error)
+        .map(([operation, error]) => ({ operation, error }));
+    const intentsLoading = intentsQuery.isLoading;
+    const streamsLoading = streamsQuery.isLoading;
+    const vestingsLoading = vestingsQuery.isLoading;
+    const vaultBalancesLoading = vaultBalancesQuery.isLoading;
+    const vaultNamesLoading = vaultNamesQuery.isLoading;
+    const packagesLoading = packageInfoQuery.isLoading;
+    const lockedCapsLoading = lockedCapsQuery.isLoading;
     const { data: backendCoins } = useCoins();
     const vaultCoinTypes = useMemo(() => (vaultBalances ?? []).map((b) => b.coinType), [vaultBalances]);
     const coins = useMergedCoinMetadata(vaultCoinTypes, backendCoins);
@@ -418,14 +447,12 @@ export function Multisig() {
     const CLOSED_INTENTS_LIMIT = 8;
     const CLOSED_INTENTS_WARNING_THRESHOLD = 50;
 
-    const isLoading = configLoading || intentsLoading;
-
     const normalizedCurrentUserAddress = normalizeSuiAddress(account?.address);
     const isSinglePlainGroup = config?.groups.length === 1 && config.groups[0]?.timeBands.length === 0;
     const currentMember = config?.members.find((m) => normalizeSuiAddress(m.address) === normalizedCurrentUserAddress);
     const currentUserPermissions = config ? memberPermissionsForAddress(config, account?.address) : 0;
     const canPropose = config && canAddressPropose(config, account?.address);
-    const multisigImageUrl = config?.imageUrl || null;
+    const multisigImageUrl = config?.imageThumbnailUrl || config?.imageUrl || null;
     const currentUserGroups = useMemo<string[]>(() => {
         if (!config || !normalizedCurrentUserAddress) return [];
         return config.groups
@@ -536,7 +563,7 @@ export function Multisig() {
             const count = cleanupBatch.length;
             await executeTransaction(
                 tx,
-                { onSuccess: handleIntentAction },
+                { onReconciled: handleIntentAction },
                 {
                     loadingMessage: `Removing ${count} old intent${count === 1 ? "" : "s"}...`,
                     successMessage: `Removed ${count} old intent${count === 1 ? "" : "s"}`,
@@ -552,11 +579,7 @@ export function Multisig() {
 
     const handleIntentCreated = useCallback(() => {
         handleIntentAction();
-        if (!accountId) return;
-        setTimeout(() => {
-            queryClient.invalidateQueries({ queryKey: multisigRpcKeys.intents(accountId) });
-        }, 3000);
-    }, [accountId, queryClient, handleIntentAction]);
+    }, [handleIntentAction]);
 
     const copyAccountId = useCallback(async () => {
         if (!accountId) return;
@@ -659,9 +682,32 @@ export function Multisig() {
                 </div>
             )}
 
+            {config && overviewSectionErrors.length > 0 && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                    <div>
+                        <p className="font-medium text-amber-100">Some account sections could not be refreshed.</p>
+                        <p className="mt-1 text-amber-100/70">
+                            {overviewSectionErrors.map((error) => error.operation).join(", ")}. Available account data
+                            is still shown below.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {isLoading ? (
                 <div className="flex items-center justify-center py-24">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            ) : overviewError ? (
+                <div className="flex flex-col items-center justify-center py-24">
+                    <Shield className="w-10 h-10 text-red-400 mb-6" />
+                    <h3 className="mb-2">Unable to load multisig</h3>
+                    <p className="text-text-muted text-center max-w-md">
+                        {overviewReadError instanceof Error
+                            ? overviewReadError.message
+                            : "The on-chain multisig data could not be fetched."}
+                    </p>
                 </div>
             ) : !config ? (
                 <div className="flex flex-col items-center justify-center py-24">
@@ -670,7 +716,7 @@ export function Multisig() {
                     </div>
                     <h3 className="mb-2">No Multisig Config</h3>
                     <p className="text-text-muted text-center max-w-md">
-                        This account does not have a MultisigConfig, or it could not be fetched from chain.
+                        This account does not have an on-chain MultisigConfig.
                     </p>
                 </div>
             ) : (

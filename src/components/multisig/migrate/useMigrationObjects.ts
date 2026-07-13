@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatAddress } from "@mysten/sui/utils";
+import type { OwnedObjectInfo } from "@govex/futarchy-sdk/multisig/reads";
 import { useMultisigOwnedObjects } from "@/hooks/useMultisig";
-import type { OwnedObjectInfo } from "@/lib/sui/multisig";
 import { CAP_MODE_OPTIONS, DEFAULT_UPGRADE_DELAY_DAYS } from "./constants";
 import { useObjectTransferAbilities, useUpgradeCapPackageIds } from "./queries";
 import type { CapMigrationMode, MigrationCapLockEntry } from "./types";

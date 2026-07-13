@@ -82,7 +82,7 @@ function UserInvestmentCard(props: {
             await executeTransaction(
                 transaction,
                 {
-                    onSuccess: () => {
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: ["raises"] });
                         queryClient.invalidateQueries({ queryKey: ["balances"] });
                     },
@@ -108,7 +108,7 @@ function UserInvestmentCard(props: {
             await executeTransaction(
                 transaction,
                 {
-                    onSuccess: () => {
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: ["raises"] });
                         queryClient.invalidateQueries({ queryKey: ["balances"] });
                     },

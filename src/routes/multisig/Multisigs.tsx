@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Shield, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { normalizeSuiAddress, type MultisigConfig } from "@govex/futarchy-sdk/multisig/reads";
 import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { AccountCard } from "@/components/multisig/AccountCard";
@@ -8,9 +9,8 @@ import { CreateMultisigModal } from "@/components/multisig/CreateMultisigModal";
 import { useMyMultisigs } from "@/hooks/api";
 import { useSavedMultisigIds } from "@/hooks/useMultisigIds";
 import { useMyLinkedMultisigAccounts } from "@/hooks/useMyVestingsAndStreams";
-import { useMultisigConfig } from "@/hooks/useMultisig";
+import { useMultisigConfigs } from "@/hooks/useMultisig";
 import type { MultisigListItem } from "@/lib/api";
-import { normalizeSuiAddress } from "@/lib/sui/multisig";
 
 const ITEMS_PER_PAGE = 6;
 const EXAMPLE_MULTISIG = {
@@ -34,17 +34,18 @@ function ResolvedAccountCard({
     accountName: fallbackName,
     imageUrl: fallbackImageUrl,
     memberCount,
+    config,
     onRemove,
 }: {
     accountId: string;
     accountName: string;
     imageUrl?: string | null;
     memberCount: number;
+    config?: MultisigConfig | null;
     onRemove?: () => void;
 }) {
-    const { data: config } = useMultisigConfig(accountId);
     const accountName = config?.name?.trim() || fallbackName;
-    const imageUrl = config?.imageUrl || fallbackImageUrl || null;
+    const imageUrl = config?.imageThumbnailUrl || config?.imageUrl || fallbackImageUrl || null;
     const resolvedMemberCount = config?.members.length ?? (memberCount > 0 ? memberCount : null);
 
     return (
@@ -129,6 +130,15 @@ export function Multisigs() {
     const isMemberListLoading = isLoading;
     const totalPages = Math.max(1, Math.ceil(multisigItems.length / ITEMS_PER_PAGE));
     const currentPage = Math.min(msPage, totalPages - 1);
+    const currentPageItems = useMemo(
+        () => multisigItems.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE),
+        [currentPage, multisigItems]
+    );
+    const currentPageAccountIds = useMemo(
+        () => currentPageItems.map((item) => (item.type === "backend" ? item.ms.account_id : item.id)),
+        [currentPageItems]
+    );
+    const { data: configBatch } = useMultisigConfigs(currentPageAccountIds);
     const showExampleMultisig =
         !account || (!isMemberListLoading && !linkedAccountsLoading && multisigItems.length === 0);
 
@@ -182,7 +192,7 @@ export function Multisigs() {
                     </div>
                 </section>
             ) : (
-                <section className="glass-flow-panel home-tier-panel flex flex-col gap-4 rounded-xl p-4 md:p-6 lg:p-8">
+                <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h1 className="text-2xl font-bold">Multisigs</h1>
@@ -225,33 +235,34 @@ export function Multisigs() {
                     ) : (
                         <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                                {multisigItems
-                                    .slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE)
-                                    .map((item) =>
-                                        item.type === "backend" ? (
-                                            <ResolvedAccountCard
-                                                key={item.ms.account_id}
-                                                accountId={item.ms.account_id}
-                                                accountName={item.ms.name}
-                                                memberCount={item.ms.member_count}
-                                            />
-                                        ) : item.type === "saved" ? (
-                                            <ResolvedAccountCard
-                                                key={item.id}
-                                                accountId={item.id}
-                                                accountName="Saved Multisig"
-                                                memberCount={0}
-                                                onRemove={() => removeId(item.id)}
-                                            />
-                                        ) : (
-                                            <ResolvedAccountCard
-                                                key={item.id}
-                                                accountId={item.id}
-                                                accountName="Linked Multisig"
-                                                memberCount={0}
-                                            />
-                                        )
-                                    )}
+                                {currentPageItems.map((item) =>
+                                    item.type === "backend" ? (
+                                        <ResolvedAccountCard
+                                            key={item.ms.account_id}
+                                            accountId={item.ms.account_id}
+                                            accountName={item.ms.name}
+                                            memberCount={item.ms.member_count}
+                                            config={configBatch?.configs[item.ms.account_id]}
+                                        />
+                                    ) : item.type === "saved" ? (
+                                        <ResolvedAccountCard
+                                            key={item.id}
+                                            accountId={item.id}
+                                            accountName="Saved Multisig"
+                                            memberCount={0}
+                                            config={configBatch?.configs[item.id]}
+                                            onRemove={() => removeId(item.id)}
+                                        />
+                                    ) : (
+                                        <ResolvedAccountCard
+                                            key={item.id}
+                                            accountId={item.id}
+                                            accountName="Linked Multisig"
+                                            memberCount={0}
+                                            config={configBatch?.configs[item.id]}
+                                        />
+                                    )
+                                )}
 
                                 {multisigItems.length === 0 && !linkedAccountsLoading && (
                                     <div className="col-span-full flex flex-col items-center justify-center py-16">

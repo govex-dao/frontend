@@ -1,9 +1,9 @@
 import { calculateStreamAvailableWithTracking } from "@govex/futarchy-sdk";
 import { formatAddress } from "@mysten/sui/utils";
 import { Download, Loader2, Timer, User, Coins, WalletCards, Users } from "lucide-react";
+import type { VaultStreamInfo } from "@govex/futarchy-sdk/multisig/reads";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
 import { formatCompactBigInt } from "@/lib/units";
-import type { VaultStreamInfo } from "@/lib/sui/multisig";
 
 interface Props {
     stream: VaultStreamInfo;

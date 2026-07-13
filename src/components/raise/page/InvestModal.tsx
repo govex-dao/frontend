@@ -11,6 +11,8 @@ import { parseAmountToBigInt } from "@/lib/parseAmount";
 import { formatUnitsForInput } from "@/lib/units";
 import { useCoins } from "@/hooks/api";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
+import { withConfirmedBalanceDelta } from "@/lib/sui/confirmedEffects";
+import { captureRaiseProjectionBaseline } from "@/lib/raise/pendingRaiseEffects";
 import { getSDK } from "@/lib/sdk";
 import { selectCoinObjectsForAmount } from "@/lib/sui/selectCoins";
 import type { RaiseUiStatus } from "@/lib/raiseStatus";
@@ -64,10 +66,22 @@ export function InvestModal(props: Props) {
                 owner: account!.address,
                 coinType: rawRaise.stable_type,
             });
-            const raw = BigInt(balance.totalBalance);
+            const raw = withConfirmedBalanceDelta(
+                queryClient,
+                account!.address,
+                rawRaise.stable_type,
+                BigInt(balance.totalBalance),
+                queryClient.getQueryData<{ raw: bigint }>([
+                    "balances",
+                    "wallet",
+                    account!.address,
+                    rawRaise.stable_type,
+                ])?.raw
+            );
             return {
                 raw,
                 display: formatUnitsForInput(raw, decimals),
+                decimals,
             };
         },
         enabled: !!account?.address && isOpen,
@@ -148,14 +162,18 @@ export function InvestModal(props: Props) {
             });
 
             const hasReservation = reservationRaw > 0n && amountRaw >= reservationRaw;
+            const raiseBaseline = captureRaiseProjectionBaseline(queryClient, rawRaise.id, account.address);
             await executeTransaction(
                 transaction,
                 {
+                    projections: { raiseBaselines: [raiseBaseline] },
                     onSuccess: () => {
                         setAmountStr("");
+                        onClose();
+                    },
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: ["raises"] });
                         queryClient.invalidateQueries({ queryKey: ["balances"] });
-                        onClose();
                     },
                 },
                 {

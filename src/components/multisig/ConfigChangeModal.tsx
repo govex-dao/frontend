@@ -3,6 +3,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress } from "@mysten/sui/utils";
 import { Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import type { MultisigConfig, MultisigMember } from "@govex/futarchy-sdk/multisig/reads";
 import { Modal } from "@/components/overlays/Modal";
 import { Button } from "@/components/inputs/Button";
 import { Input } from "@/components/inputs/Input";
@@ -11,9 +12,12 @@ import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTra
 import { getSDK } from "@/lib/sdk";
 import {
     buildSimpleMultisigConfigInput,
+    PERMISSION_CANCEL,
+    PERMISSION_EXECUTE,
+    PERMISSION_PROPOSE,
+    PERMISSION_VOTE,
     validateAndParseMultisigConfigDraft,
 } from "@/lib/sui/multisigConfigValidation";
-import type { MultisigConfig, MultisigMember } from "@/lib/sui/multisig";
 
 interface Props {
     isOpen: boolean;
@@ -29,6 +33,7 @@ interface MemberDraft {
     propose: boolean;
     vote: boolean;
     execute: boolean;
+    cancel: boolean;
 }
 
 const PERMISSION_LABELS = {
@@ -37,17 +42,23 @@ const PERMISSION_LABELS = {
     execute: "Execute",
 } as const;
 
-function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean }): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 | 8 : 0);
+function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean; cancel: boolean }): number {
+    return (
+        (m.propose ? PERMISSION_PROPOSE : 0) |
+        (m.vote ? PERMISSION_VOTE : 0) |
+        (m.execute ? PERMISSION_EXECUTE : 0) |
+        (m.cancel ? PERMISSION_CANCEL : 0)
+    );
 }
 
 function memberFromConfig(m: MultisigMember): MemberDraft {
     return {
         address: m.address,
         weight: String(m.weight),
-        propose: (m.permissions & 1) !== 0,
-        vote: (m.permissions & 2) !== 0,
-        execute: (m.permissions & (4 | 8)) !== 0,
+        propose: (m.permissions & PERMISSION_PROPOSE) !== 0,
+        vote: (m.permissions & PERMISSION_VOTE) !== 0,
+        execute: (m.permissions & PERMISSION_EXECUTE) !== 0,
+        cancel: (m.permissions & PERMISSION_CANCEL) !== 0,
     };
 }
 
@@ -58,25 +69,6 @@ function formatDurationMs(ms: number): string {
     if (days > 0) return `${days}d ${hours % 24}h`;
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
     return `${minutes}m`;
-}
-
-type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
-type MultisigTx = Parameters<MultisigService["proposeConfigChange"]>[0];
-type SimpleConfigInput = ReturnType<typeof buildSimpleMultisigConfigInput>;
-type FrontendMultisigService = Omit<MultisigService, "proposeConfigChange"> & {
-    proposeConfigChange: (
-        tx: MultisigTx,
-        params: SimpleConfigInput & {
-            accountId: string;
-            key: string;
-            description: string;
-            executionTimeMs?: bigint | number;
-        }
-    ) => MultisigTx;
-};
-
-function asMultisigTx(tx: Transaction): MultisigTx {
-    return tx as unknown as MultisigTx;
 }
 
 export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSuccess }: Props) {
@@ -96,7 +88,10 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
     }, [isOpen, config]);
 
     const addMember = () =>
-        setMembers((prev) => [...prev, { address: "", weight: "1", propose: true, vote: true, execute: true }]);
+        setMembers((prev) => [
+            ...prev,
+            { address: "", weight: "1", propose: true, vote: true, execute: true, cancel: true },
+        ]);
 
     const removeMember = (idx: number) => setMembers((prev) => prev.filter((_, i) => i !== idx));
 
@@ -124,13 +119,12 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
         try {
             const sdk = getSDK();
             if (!sdk.multisig) throw new Error("Multisig service not available");
-            const multisig = sdk.multisig as unknown as FrontendMultisigService;
 
             const tx = new Transaction();
             const key = `config-${Date.now()}`;
             const executionTimeMs = executionDate ? BigInt(new Date(executionDate).getTime()) : 0n;
 
-            multisig.proposeConfigChange(asMultisigTx(tx), {
+            sdk.multisig.proposeConfigChange(tx, {
                 accountId,
                 key,
                 description: "Config change from UI",
@@ -142,9 +136,9 @@ export function ConfigChangeModal({ isOpen, onClose, accountId, config, onSucces
                 tx,
                 {
                     onSuccess: () => {
-                        onSuccess?.();
                         onClose();
                     },
+                    onReconciled: () => onSuccess?.(),
                 },
                 {
                     loadingMessage: "Proposing config change...",

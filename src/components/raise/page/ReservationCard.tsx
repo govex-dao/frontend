@@ -11,6 +11,7 @@ import { getSDK } from "@/lib/sdk";
 import { selectCoinObjectsForAmount } from "@/lib/sui/selectCoins";
 import type { RaiseView } from "@/types/RaiseView";
 import type { RaiseUiStatus } from "@/lib/raiseStatus";
+import { captureRaiseProjectionBaseline } from "@/lib/raise/pendingRaiseEffects";
 
 const DEFAULT_PROTOCOL_FEE = 100_000_000n; // 0.1 SUI in MIST
 
@@ -70,11 +71,15 @@ export function ReservationCard({ raise, reservationAmount, accepted, status }: 
                 stableCoins: selectedCoins.coins.map((c) => c.coinObjectId),
             });
 
+            const raiseBaseline = captureRaiseProjectionBaseline(queryClient, rawRaise.id, account.address);
             await executeTransaction(
                 transaction,
                 {
+                    projections: { raiseBaselines: [raiseBaseline] },
                     onSuccess: () => {
                         setJustAccepted(true);
+                    },
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: ["raises"] });
                         queryClient.invalidateQueries({ queryKey: ["balances"] });
                     },

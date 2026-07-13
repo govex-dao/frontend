@@ -1,13 +1,13 @@
 import { useMemo } from "react";
-import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import type { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress, formatAddress, parseStructTag } from "@mysten/sui/utils";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Input } from "@/components/inputs/Input";
 import { Select } from "@/components/inputs/Select";
 import { TokenInput } from "@/components/inputs/TokenInput";
 import { CoinTypePicker } from "@/components/multisig/CoinTypePicker";
 import { VaultNamePicker } from "@/components/multisig/VaultNamePicker";
-import { useMultisigLockedCurrencies, useMultisigOwnedObjects } from "@/hooks/useMultisig";
+import { useMultisigLockedCaps, useMultisigLockedCurrencies, useMultisigOwnedObjects } from "@/hooks/useMultisig";
 import {
     addApproveCoinTypeSpec,
     addBurnSpec,
@@ -77,6 +77,7 @@ function shortCoinType(coinType: string): string {
 export function MintTransferForm({ accountId, data, onChange }: Props) {
     const account = useCurrentAccount();
     const { data: lockedCurrencies = [] } = useMultisigLockedCurrencies(accountId);
+    const { data: lockedCaps = [] } = useMultisigLockedCaps(accountId);
     // Lock modes: caps are in the proposer's WALLET (they get locked into the account at execution).
     // Other modes: show objects from the multisig account.
     const isLockMode = data.mode === "lock_treasury_cap" || data.mode === "lock_metadata_cap";
@@ -124,6 +125,16 @@ export function MintTransferForm({ accountId, data, onChange }: Props) {
             .filter((c) => (data.mode === "transfer_treasury_cap" ? c.hasTreasuryCap : c.hasMetadataCap))
             .map((c) => c.coinType);
     }, [lockedCurrencies, isTransferMode, data.mode]);
+
+    const selectedTransferCap = useMemo(
+        () =>
+            lockedCaps.find(
+                (cap) =>
+                    cap.coinType === data.coinType &&
+                    cap.kind === (data.mode === "transfer_treasury_cap" ? "treasury" : "metadata")
+            ),
+        [data.coinType, data.mode, lockedCaps]
+    );
 
     const lockedInfo = data.coinType ? lockedCurrencies.find((c) => c.coinType === data.coinType) : null;
 
@@ -184,7 +195,14 @@ export function MintTransferForm({ accountId, data, onChange }: Props) {
             ) : isTransferMode ? (
                 <CoinTypePicker
                     value={data.coinType}
-                    onChange={(coinType, decimals) => onChange({ ...data, coinType, coinDecimals: decimals })}
+                    onChange={(coinType, decimals) => {
+                        const cap = lockedCaps.find(
+                            (entry) =>
+                                entry.coinType === coinType &&
+                                entry.kind === (data.mode === "transfer_treasury_cap" ? "treasury" : "metadata")
+                        );
+                        onChange({ ...data, coinType, coinDecimals: decimals, capObjectId: cap?.objectId });
+                    }}
                     allowedCoinTypes={transferableCoinTypes.length > 0 ? transferableCoinTypes : undefined}
                 />
             ) : (
@@ -201,6 +219,10 @@ export function MintTransferForm({ accountId, data, onChange }: Props) {
                     {lockedInfo.hasTreasuryCap && lockedInfo.hasMetadataCap ? " and" : ""}
                     {lockedInfo.hasMetadataCap ? " MetadataCap" : ""} locked in this account.
                 </p>
+            )}
+
+            {isTransferMode && data.coinType && !selectedTransferCap && (
+                <p className="text-[11px] text-red-400">Could not resolve the locked capability object ID.</p>
             )}
 
             {(mode === "mint_to_address" || mode === "mint_to_vault" || mode === "burn_from_vault") && (
@@ -300,12 +322,12 @@ export function addMintTransferSpecs(tx: Transaction, builder: ActionSpecBuilder
     }
 
     if (mode === "transfer_treasury_cap") {
-        addUnlockTreasuryCapToAddressSpec(tx, builder, data.coinType, data.recipient);
+        addUnlockTreasuryCapToAddressSpec(tx, builder, data.coinType, data.capObjectId ?? "", data.recipient);
         return;
     }
 
     if (mode === "transfer_metadata_cap") {
-        addUnlockMetadataCapToAddressSpec(tx, builder, data.coinType, data.recipient);
+        addUnlockMetadataCapToAddressSpec(tx, builder, data.coinType, data.capObjectId ?? "", data.recipient);
         return;
     }
 
@@ -336,7 +358,8 @@ export function validateMintTransfer(data: MintTransferData): boolean {
     const mode: CurrencyMode = data.mode ?? "mint_to_address";
     if (data.coinType.length === 0) return false;
     if (mode === "lock_treasury_cap" || mode === "lock_metadata_cap") return isValidSuiAddress(data.capObjectId ?? "");
-    if (mode === "transfer_treasury_cap" || mode === "transfer_metadata_cap") return isValidSuiAddress(data.recipient);
+    if (mode === "transfer_treasury_cap" || mode === "transfer_metadata_cap")
+        return isValidSuiAddress(data.recipient) && isValidSuiAddress(data.capObjectId ?? "");
     if (parseFloat(data.amount) <= 0) return false;
     if (mode === "mint_to_address") return isValidSuiAddress(data.recipient);
     return data.vaultName.trim().length > 0;

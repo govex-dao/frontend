@@ -1,6 +1,6 @@
 import { formatAddress, normalizeSuiAddress, parseStructTag, SUI_TYPE_ARG } from "@mysten/sui/utils";
+import type { OwnedObjectInfo } from "@govex/futarchy-sdk/multisig/reads";
 import { parseAmountToBigInt } from "@/lib/parseAmount";
-import type { OwnedObjectInfo } from "@/lib/sui/multisig";
 import {
     GAS_RESERVE_MIST,
     LOCKABLE_CAPS_PER_INTENT,

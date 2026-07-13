@@ -1,3 +1,4 @@
+import { PERMISSION_CANCEL, PERMISSION_EXECUTE, PERMISSION_PROPOSE, PERMISSION_VOTE } from "@govex/futarchy-sdk";
 import type { TransactionResult } from "@/hooks/useSuiTransaction";
 
 export interface MemberDraft {
@@ -14,7 +15,12 @@ export interface MemberDraft {
 // so making everyone a canceller is permissive but safe. Keep this synced with
 // `validateAndParseMultisigConfigDraft`, which requires hasCanceller=true.
 export function memberToPermissions(m: { propose: boolean; vote: boolean; execute: boolean }): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 : 0) | 8;
+    return (
+        (m.propose ? PERMISSION_PROPOSE : 0) |
+        (m.vote ? PERMISSION_VOTE : 0) |
+        (m.execute ? PERMISSION_EXECUTE : 0) |
+        PERMISSION_CANCEL
+    );
 }
 
 export const REQUIRED_ROLE_LABELS = [

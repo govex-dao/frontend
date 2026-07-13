@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import type { CoinStruct, SuiClient } from "@govex/futarchy-sdk";
 import { parseStructTag } from "@mysten/sui/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { coalesceChainRead, getObjectsByIds, mapWithConcurrency } from "@govex/futarchy-sdk/utils";
 import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
-import { coalesceChainRead, getObjectsByIds, mapWithConcurrency } from "@/lib/sui/batchedReads";
 import { COIN_OBJECT_PAGE_LIMIT, MAX_COIN_OBJECTS_PER_DEPOSIT } from "./constants";
 import type { CoinObjectScan, ObjectTransferAbility, WalletBalance } from "./types";
 import { extractUpgradeCapPackageId, normalizeAddressInput, objectTypeAbilityKey } from "./utils";
+import { withConfirmedAllBalances } from "@/lib/sui/confirmedEffects";
 
 interface CoinObjectFetchResult {
     coinObjects: CoinStruct[];
@@ -68,10 +69,16 @@ export async function fetchCoinObjectsForAmount(
 
 export function useWalletBalances(owner: string | undefined, enabled: boolean) {
     const client = useSuiClient();
+    const queryClient = useQueryClient();
     return useQuery<WalletBalance[]>({
         queryKey: ["wallet-balances", owner],
         queryFn: async () => {
-            const balances = await client.getAllBalances({ owner: owner! });
+            const balances = withConfirmedAllBalances(
+                queryClient,
+                owner!,
+                await client.getAllBalances({ owner: owner! }),
+                queryClient.getQueryData(["wallet-balances", owner])
+            );
             return balances.map((balance) => ({
                 coinType: balance.coinType,
                 totalBalance: balance.totalBalance,

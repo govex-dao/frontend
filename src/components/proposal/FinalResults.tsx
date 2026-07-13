@@ -155,7 +155,7 @@ export function ProposalFinalResults({ proposal, apiProposal }: ProposalFinalRes
             await executeTransaction(
                 transaction,
                 {
-                    onSuccess: () => {
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: balanceKeys.all });
                         queryClient.invalidateQueries({ queryKey: proposalKeys.all });
                     },

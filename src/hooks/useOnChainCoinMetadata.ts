@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { getCoinMetadata, mapWithConcurrency } from "@govex/futarchy-sdk/utils";
 import { useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import type { CoinMetadata } from "@/lib/api/coins";
-import { getCoinMetadata, mapWithConcurrency } from "@/lib/sui/batchedReads";
 
 /**
  * Fetch coin metadata directly through the Sui gRPC Core API.

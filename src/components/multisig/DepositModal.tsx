@@ -194,9 +194,9 @@ export function DepositModal({
                 tx,
                 {
                     onSuccess: () => {
-                        onSuccess?.();
                         onClose();
                     },
+                    onReconciled: () => onSuccess?.(),
                 },
                 {
                     loadingMessage: "Depositing to vault...",

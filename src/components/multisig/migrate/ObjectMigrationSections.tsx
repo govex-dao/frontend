@@ -1,8 +1,8 @@
 import { Box, Check, Loader2, Search } from "lucide-react";
 import { formatAddress } from "@mysten/sui/utils";
+import type { OwnedObjectInfo } from "@govex/futarchy-sdk/multisig/reads";
 import { Input } from "@/components/inputs/Input";
 import { Select, type SelectOption } from "@/components/inputs/Select";
-import type { OwnedObjectInfo } from "@/lib/sui/multisig";
 import { DEFAULT_UPGRADE_DELAY_DAYS, UPGRADE_CAP_TYPE } from "./constants";
 import type { CapMigrationMode } from "./types";
 import {

@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
-import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatAddress, parseStructTag, SUI_DECIMALS, SUI_TYPE_ARG } from "@mysten/sui/utils";
+import { getCoinMetadata, mapWithConcurrency } from "@govex/futarchy-sdk/utils";
+import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Select, type SelectOption } from "@/components/inputs/Select";
 import { Input } from "@/components/inputs/Input";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { useCoins } from "@/hooks/api/useCoins";
 import type { CoinMetadata } from "@/lib/api/coins";
-import { getCoinMetadata, mapWithConcurrency } from "@/lib/sui/batchedReads";
+import { withConfirmedAllBalances } from "@/lib/sui/confirmedEffects";
 
 interface Props {
     value: string;
@@ -66,6 +67,7 @@ export function CoinTypePicker({
     const { data: coins } = useCoins();
     const client = useSuiClient();
     const account = useCurrentAccount();
+    const queryClient = useQueryClient();
     const [isCustom, setIsCustom] = useState(false);
     const [customType, setCustomType] = useState("");
     const [resolving, setResolving] = useState(false);
@@ -73,7 +75,13 @@ export function CoinTypePicker({
     // Fetch user's wallet balances
     const { data: balances } = useQuery({
         queryKey: ["allBalances", account?.address],
-        queryFn: () => client.getAllBalances({ owner: account!.address }),
+        queryFn: async () =>
+            withConfirmedAllBalances(
+                queryClient,
+                account!.address,
+                await client.getAllBalances({ owner: account!.address }),
+                queryClient.getQueryData(["allBalances", account!.address])
+            ),
         enabled: !!account?.address,
         staleTime: 30_000,
     });

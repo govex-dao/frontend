@@ -1,13 +1,29 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSignAndExecuteTransaction, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Transaction } from "@mysten/sui/transactions";
+import type { GovexBalanceChange, GovexSuiClient, SuiEvent } from "@govex/futarchy-sdk/types";
+import { clearChainReadCache } from "@govex/futarchy-sdk/utils";
 import toast from "react-hot-toast";
 import { NETWORK } from "@/constants/network";
+import { getSDK } from "@/lib/sdk";
+import {
+    reconcileConfirmedEffects,
+    registerConfirmedEffects,
+    confirmedEffectsQueryKey,
+    type ConfirmedProjectionContext,
+    type ReconciliationResult,
+} from "@/lib/sui/confirmedEffects";
 
 const NOTIFIED_TRANSACTION_ERROR = "__govexNotifiedTransactionError";
 
 export interface TransactionCallbacks {
+    /** Domain baselines captured before submission for safe optimistic projections. */
+    projections?: ConfirmedProjectionContext;
     onSuccess?: (result: TransactionResult) => void;
+    /** Runs after reconciliation settles; inspect status when exact reads were deferred. */
+    onReconciled?: (result: TransactionResult, reconciliation: ReconciliationResult) => void | Promise<void>;
+    onReconcileError?: (error: Error, result: TransactionResult) => void;
     onError?: (error: Error) => void;
     onSettled?: () => void;
 }
@@ -25,16 +41,18 @@ export interface TransactionResult {
     digest: string;
     effects?: {
         status: {
-            status: string;
+            status: "success" | "failure";
             error?: string;
         };
     };
     objectChanges?: Array<{
-        type: string;
+        type: "created" | "mutated" | "deleted";
         objectType?: string;
-        objectId?: string;
+        objectId: string;
         owner?: { AddressOwner?: string };
     }>;
+    balanceChanges?: GovexBalanceChange[] | null;
+    events?: SuiEvent[] | null;
 }
 
 const defaultOptions: TransactionOptions = {
@@ -59,10 +77,20 @@ export function isNotifiedTransactionError(error: unknown): error is Error {
 
 export function useSuiTransaction() {
     const [isLoading, setIsLoading] = useState(false);
+    const [reconciliationCount, setReconciliationCount] = useState(0);
     const isMountedRef = useRef(true);
     const client = useSuiClient();
+    const queryClient = useQueryClient();
+    const { data: confirmedEffects = {} } = useQuery<Record<string, unknown>>({
+        queryKey: confirmedEffectsQueryKey,
+        queryFn: async () => ({}),
+        staleTime: Infinity,
+        gcTime: Infinity,
+    });
+    const isReconciling = reconciliationCount > 0 || Object.keys(confirmedEffects).length > 0;
 
     useEffect(() => {
+        isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
         };
@@ -77,6 +105,8 @@ export function useSuiTransaction() {
                     showRawEffects: true,
                     showEffects: true,
                     showObjectChanges: true,
+                    showBalanceChanges: true,
+                    showEvents: true,
                 },
             }),
     });
@@ -126,12 +156,77 @@ export function useSuiTransaction() {
                 signAndExecute(
                     { transaction },
                     {
-                        onSuccess: (result) => {
+                        onSuccess: async (result) => {
                             if (!claimResult()) return;
                             try {
                                 const txResult = result as TransactionResult;
 
                                 if (txResult.effects?.status.status === "success") {
+                                    try {
+                                        const sdkClient = getSDK().client;
+                                        clearChainReadCache(client as GovexSuiClient);
+                                        clearChainReadCache(sdkClient);
+                                        await registerConfirmedEffects(queryClient, txResult, callbacks?.projections);
+                                    } catch (overlayError) {
+                                        // The chain transaction is already successful. A cache/UI
+                                        // projection failure must never turn it into a failed tx.
+                                        console.error("Failed to apply confirmed transaction effects:", overlayError);
+                                    }
+                                    if (isMountedRef.current) {
+                                        setReconciliationCount((count) => count + 1);
+                                    }
+                                    let reconciliationFinished = false;
+                                    void reconcileConfirmedEffects({
+                                        queryClient,
+                                        client: client as GovexSuiClient,
+                                        sdkClient: getSDK().client,
+                                        result: txResult,
+                                    })
+                                        .then(async (reconciliation) => {
+                                            reconciliationFinished = reconciliation.status !== "deferred";
+                                            if (reconciliation.status === "deferred") {
+                                                const reconcileError = new Error(
+                                                    reconciliation.warnings.join("; ") ||
+                                                        "Transaction reconciliation was deferred"
+                                                );
+                                                console.error("Transaction reconciliation deferred:", reconcileError);
+                                                try {
+                                                    callbacks?.onReconcileError?.(reconcileError, txResult);
+                                                } catch (callbackError) {
+                                                    console.error("Error in onReconcileError callback:", callbackError);
+                                                }
+                                            }
+                                            try {
+                                                await callbacks?.onReconciled?.(txResult, reconciliation);
+                                            } catch (callbackError) {
+                                                console.error("Error in onReconciled callback:", callbackError);
+                                            }
+                                        })
+                                        .catch(async (error: unknown) => {
+                                            const reconcileError =
+                                                error instanceof Error ? error : new Error(String(error));
+                                            console.error("Transaction reconciliation failed:", reconcileError);
+                                            try {
+                                                callbacks?.onReconcileError?.(reconcileError, txResult);
+                                            } catch (callbackError) {
+                                                console.error("Error in onReconcileError callback:", callbackError);
+                                            }
+                                            try {
+                                                await callbacks?.onReconciled?.(txResult, {
+                                                    snapshots: [],
+                                                    usedGraphqlFallback: true,
+                                                    status: "deferred",
+                                                    warnings: [reconcileError.message],
+                                                });
+                                            } catch (callbackError) {
+                                                console.error("Error in onReconciled callback:", callbackError);
+                                            }
+                                        })
+                                        .finally(() => {
+                                            if (reconciliationFinished && isMountedRef.current) {
+                                                setReconciliationCount((count) => Math.max(0, count - 1));
+                                            }
+                                        });
                                     const successContent =
                                         typeof opts.successMessage === "function"
                                             ? opts.successMessage(txResult)
@@ -256,11 +351,14 @@ export function useSuiTransaction() {
                 );
             });
         },
-        [signAndExecute]
+        [client, queryClient, signAndExecute]
     );
 
     return {
         executeTransaction,
-        isLoading,
+        // All transaction controls stay guarded until object reads are safe.
+        // Confirmed balance/event projections still render immediately.
+        isLoading: isLoading || isReconciling,
+        isReconciling,
     };
 }

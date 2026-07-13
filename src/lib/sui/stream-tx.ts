@@ -1,9 +1,9 @@
 import type { SuiClient } from "@govex/futarchy-sdk";
 import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils";
+import type { VaultStreamInfo } from "@govex/futarchy-sdk/multisig/reads";
+import { getAllDynamicFields } from "@govex/futarchy-sdk/utils";
 import { getSDK } from "@/lib/sdk";
-import type { VaultStreamInfo } from "@/lib/sui/multisig";
-import { getAllDynamicFields } from "@/lib/sui/batchedReads";
 
 async function resolveAccountConfigType(client: SuiClient, accountId: string): Promise<string> {
     const sdk = getSDK();

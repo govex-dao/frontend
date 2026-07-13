@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from "react-router";
 import { Helmet } from "react-helmet-async";
 import { StarIcon, Loader2, Wallet, Coins } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { VaultCoinBalance } from "@govex/futarchy-sdk/multisig/reads";
 import { NotFound } from "@/components/navigation/NotFound";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { SidebarNav, type SidebarNavItem } from "@/components/navigation/SidebarNav";
@@ -24,7 +25,6 @@ import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import { getProtocolVersionForDAO } from "@/lib/sdk";
 import { formatUnits, normalizeUnitsForSort } from "@/lib/units";
 import { toDAODisplay, type DAO, type DAODisplay } from "@/types";
-import type { VaultCoinBalance } from "@/lib/sui/multisig";
 import type { CoinMetadata } from "@/lib/api/coins";
 
 interface OrgHeaderProps {

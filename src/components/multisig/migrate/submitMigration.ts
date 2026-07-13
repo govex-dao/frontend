@@ -63,6 +63,9 @@ export async function submitMigration({
         tx,
         {
             onSuccess: () => {
+                onClose();
+            },
+            onReconciled: () => {
                 queryClient.invalidateQueries({ queryKey: ["wallet-balances", accountAddress] });
                 queryClient.invalidateQueries({ queryKey: ["wallet-selected-coin-object-scans", accountAddress] });
                 queryClient.invalidateQueries({ queryKey: ["wallet-upgrade-cap-packages"] });
@@ -74,7 +77,6 @@ export async function submitMigration({
                 queryClient.invalidateQueries({ queryKey: multisigRpcKeys.packageNames(accountId) });
                 queryClient.invalidateQueries({ queryKey: multisigRpcKeys.lockedCurrencies(accountId) });
                 onSuccess?.();
-                onClose();
             },
         },
         {

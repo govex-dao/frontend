@@ -1,6 +1,6 @@
+import { permissionLabels } from "@govex/futarchy-sdk/multisig/reads";
+import type { MultisigMember } from "@govex/futarchy-sdk/multisig/reads";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
-import { permissionLabels } from "@/lib/sui/multisig";
-import type { MultisigMember } from "@/lib/sui/multisig";
 
 interface Props {
     member: MultisigMember;

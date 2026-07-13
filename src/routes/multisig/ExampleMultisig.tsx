@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router";
 import { ArrowLeft, ChevronDown, ChevronUp, Coins, Hourglass, Shield, WalletCards } from "lucide-react";
+import {
+    MULTISIG_INTENT_STATUS,
+    PERMISSION_CANCEL,
+    PERMISSION_EXECUTE,
+    PERMISSION_PROPOSE,
+    PERMISSION_VOTE,
+} from "@govex/futarchy-sdk/multisig/reads";
+import type {
+    IntentSummary,
+    MultisigConfig,
+    VaultCoinBalance,
+    VaultStreamInfo,
+} from "@govex/futarchy-sdk/multisig/reads";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { CoinAvatar } from "@/components/CoinAvatar";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
@@ -10,14 +23,6 @@ import { MemberRow } from "@/components/multisig/MemberRow";
 import { StreamCard } from "@/components/multisig/StreamCard";
 import { VestingCard } from "@/components/VestingCard";
 import { formatNumberWithCommas } from "@/lib/formatNumber";
-import {
-    MULTISIG_INTENT_STATUS,
-    PERMISSION_CANCEL,
-    PERMISSION_EXECUTE,
-    PERMISSION_PROPOSE,
-    PERMISSION_VOTE,
-} from "@/lib/sui/multisig";
-import type { IntentSummary, MultisigConfig, VaultCoinBalance, VaultStreamInfo } from "@/lib/sui/multisig";
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;

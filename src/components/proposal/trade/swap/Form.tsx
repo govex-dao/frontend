@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -11,8 +11,9 @@ import { swapKeys } from "@/hooks/api/useSwaps";
 import { tradeKeys } from "@/hooks/api/useTrades";
 import { twapHistoryKeys } from "@/hooks/api/useTwapHistory";
 import { useSuiTransaction, isNotifiedTransactionError } from "@/hooks/useSuiTransaction";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getProtocolVersionForProposal, getSDKForProposal, isSupportedProtocolProposal } from "@/lib/sdk";
-import { parseAmountToBigInt } from "@/lib/parseAmount";
+import { safeParseAmountToBigInt } from "@/lib/parseAmount";
 import { formatUnits, formatUnitsForInput } from "@/lib/units";
 import { resolveCoinIcon } from "@/lib/coin/icons";
 import type { Proposal } from "@/types/Proposal";
@@ -26,6 +27,8 @@ import { TradeDetails } from "./Details";
 import { SlippageSelector } from "./SlippageSelector";
 import { Button } from "../../../inputs/Button";
 import { Card } from "../../../Card";
+import { registerPendingTrades } from "@/lib/trade/pendingTrades";
+import { confirmedTradesFromResult } from "@/lib/trade/confirmedTrades";
 
 interface TradeFormProps {
     proposal?: Proposal;
@@ -50,21 +53,12 @@ interface OutcomeConditionalRow {
 
 const DEFAULT_SLIPPAGE_BPS = 30n; // 0.3%
 const QUOTE_DEBOUNCE_MS = 1000; // 1 second — reset on each keystroke
-
 function formatRawAmount(raw: bigint, decimals: number): string {
     return formatUnits(raw, decimals, {
         maxFractionDigits: 4,
         trimTrailingZeros: true,
         useGrouping: true,
     });
-}
-
-function safeParseAmountToBigInt(amount: string, decimals: number): bigint {
-    try {
-        return parseAmountToBigInt(amount, decimals);
-    } catch {
-        return 0n;
-    }
 }
 
 function bpsToPercentNumber(bps: bigint | number | string): number {
@@ -100,15 +94,6 @@ function priceStablePerAssetNumber(config: {
     return Number.parseFloat(asString || "0");
 }
 
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(timer);
-    }, [value, delay]);
-    return debounced;
-}
-
 export function TradeForm({
     proposal,
     selectedOutcome: controlledOutcome,
@@ -119,7 +104,7 @@ export function TradeForm({
     const { data: coins } = useCoins();
     const account = useCurrentAccount();
     const queryClient = useQueryClient();
-    const { executeTransaction, isLoading: txLoading } = useSuiTransaction();
+    const { executeTransaction, isLoading: txLoading, isReconciling } = useSuiTransaction();
     const isSupportedProtocol = isSupportedProtocolProposal(proposal);
     const { data: balances } = useProposalBalances(proposal);
 
@@ -504,16 +489,26 @@ export function TradeForm({
             await executeTransaction(
                 transaction,
                 {
-                    onSuccess: () => {
+                    onSuccess: (result) => {
                         setFromAmountStr("");
-                        queryClient.invalidateQueries({ queryKey: balanceKeys.all });
-                        queryClient.invalidateQueries({ queryKey: proposalKeys.all });
-                        queryClient.invalidateQueries({ queryKey: tradeKeys.all });
-                        queryClient.invalidateQueries({ queryKey: priceHistoryKeys.all });
-                        queryClient.invalidateQueries({ queryKey: twapHistoryKeys.all });
-                        queryClient.invalidateQueries({ queryKey: swapKeys.all });
-                        queryClient.invalidateQueries({ queryKey: ["quote"] });
-                        queryClient.invalidateQueries({ queryKey: ["spot-price", proposal.spot_pool_id] });
+                        registerPendingTrades(
+                            queryClient,
+                            String(proposal.id),
+                            confirmedTradesFromResult(result, proposal)
+                        );
+                    },
+                    onReconciled: async (_result, reconciliation) => {
+                        if (reconciliation.status === "deferred") return;
+                        await Promise.all([
+                            queryClient.refetchQueries({ queryKey: balanceKeys.all, type: "active" }),
+                            queryClient.invalidateQueries({ queryKey: proposalKeys.all }),
+                            queryClient.invalidateQueries({ queryKey: tradeKeys.all }),
+                            queryClient.invalidateQueries({ queryKey: priceHistoryKeys.all }),
+                            queryClient.invalidateQueries({ queryKey: twapHistoryKeys.all }),
+                            queryClient.invalidateQueries({ queryKey: swapKeys.all }),
+                            queryClient.invalidateQueries({ queryKey: ["quote"] }),
+                            queryClient.invalidateQueries({ queryKey: ["spot-price", proposal.spot_pool_id] }),
+                        ]);
                     },
                 },
                 {
@@ -560,7 +555,7 @@ export function TradeForm({
         setFromAmountStr(value);
     }, []);
 
-    const isLoading = txLoading || (quoteLoading && quoteEnabled);
+    const isLoading = txLoading || isReconciling || (quoteLoading && quoteEnabled);
 
     // Determine button state and text
     const { isButtonDisabled, buttonText } = useMemo(() => {
@@ -571,6 +566,9 @@ export function TradeForm({
         }
         if (!isSupportedProtocol) {
             return { isButtonDisabled: true, buttonText: "Unavailable" };
+        }
+        if (isReconciling) {
+            return { isButtonDisabled: true, buttonText: "Syncing Balances..." };
         }
         if (fromAmountRaw === 0n) {
             return { isButtonDisabled: true, buttonText: "Enter Amount" };
@@ -607,6 +605,7 @@ export function TradeForm({
         balanceSnapshot.availableForBuyRaw,
         balanceSnapshot.availableForSellRaw,
         txLoading,
+        isReconciling,
     ]);
 
     const quoteStatusText = useMemo(() => {

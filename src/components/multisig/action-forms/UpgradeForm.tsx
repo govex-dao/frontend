@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress, formatAddress } from "@mysten/sui/utils";
+import { getAllOwnedObjects } from "@govex/futarchy-sdk/utils";
 import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { Input } from "@/components/inputs/Input";
 import { Textarea } from "@/components/inputs/Textarea";
 import { Select } from "@/components/inputs/Select";
 import { useMultisigPackageInfo } from "@/hooks/useMultisig";
 import { cacheUpgradeBuildOutput, digestBytesToHex, parseUpgradeBuildOutput } from "@/lib/upgradeBuildCache";
-import { getAllOwnedObjects } from "@/lib/sui/batchedReads";
 import {
     addProvideObjectSpec,
     addUpgradeAndCommitSpecs,

@@ -21,7 +21,7 @@ import {
     Wallet,
     type LucideIcon,
 } from "lucide-react";
-import type { IntentSummary, MultisigConfig } from "@/lib/sui/multisig";
+import type { IntentSummary, MultisigConfig } from "@govex/futarchy-sdk/multisig/reads";
 import {
     MULTISIG_INTENT_STATUS,
     formatExpiration,
@@ -35,15 +35,17 @@ import {
     nextMaturingTimeBand,
     policyLabel,
     rejectionProgressFor,
-} from "@/lib/sui/multisig";
+} from "@govex/futarchy-sdk/multisig/reads";
+import {
+    extractMoveTypeArgs as extractTypeArgs,
+    normalizeMoveTypeAddresses as normalizeTypeAddresses,
+} from "@govex/futarchy-sdk";
 import { useMultisigPackageInfo } from "@/hooks/useMultisig";
 import {
     buildActionsExecution,
     getActionExecInfo,
     getActionExecutionRequirements,
     getUnsupportedActions,
-    extractTypeArgs,
-    normalizeTypeAddresses,
     type UpgradeExecutionInput,
 } from "@/lib/sui/multisig-tx";
 import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTransaction";
@@ -449,9 +451,6 @@ function VoteProgressMeter({
     );
 }
 
-type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
-type MultisigTx = Parameters<MultisigService["approveIntent"]>[0];
-
 export function IntentCard({
     intent,
     config,
@@ -487,10 +486,6 @@ export function IntentCard({
     });
     const hasUpgradeAction = intent.actionTypes.some((t) => extractModuleType(t) === "package_upgrade::PackageUpgrade");
     const { data: packageInfoList = [] } = useMultisigPackageInfo(hasPackageAction ? accountId : undefined);
-
-    // Frontend and linked SDK can resolve distinct Transaction class instances.
-    // Cast through unknown to keep TS compatibility across package boundaries.
-    const asMultisigTx = useCallback((tx: Transaction): MultisigTx => tx as unknown as MultisigTx, []);
 
     const nowMs = Date.now();
     const elapsedMs = Math.max(0, nowMs - intent.createdAtMs);
@@ -1138,7 +1133,7 @@ export function IntentCard({
                 buildTx(tx);
                 await executeTransaction(
                     tx,
-                    { onSuccess: () => onActionComplete?.() },
+                    { onReconciled: () => onActionComplete?.() },
                     {
                         loadingMessage: `${label}...`,
                         successMessage: label,
@@ -1161,7 +1156,7 @@ export function IntentCard({
             if (isConfig) {
                 const sdk = getSDK();
                 if (!sdk.multisig) throw new Error("accountMultisig package not configured");
-                sdk.multisig.executeConfigChange(asMultisigTx(tx), accountId, intent.key);
+                sdk.multisig.executeConfigChange(tx, accountId, intent.key);
                 return;
             }
 
@@ -1174,7 +1169,6 @@ export function IntentCard({
         },
         [
             accountId,
-            asMultisigTx,
             executeCoinType,
             executeObjectIds,
             executeObjectTypes,
@@ -1192,27 +1186,27 @@ export function IntentCard({
         if (shouldApproveAndExecute) {
             runAction(
                 (tx) => {
-                    sdk.multisig!.approveIntent(asMultisigTx(tx), accountId, intent.key);
+                    sdk.multisig!.approveIntent(tx, accountId, intent.key);
                     appendExecution(tx);
                 },
                 isConfig ? "Config change approved and executed" : "Intent approved and executed"
             );
             return;
         }
-        runAction((tx) => sdk.multisig!.approveIntent(asMultisigTx(tx), accountId, intent.key), "Intent approved");
-    }, [accountId, appendExecution, asMultisigTx, intent.key, isConfig, runAction, shouldApproveAndExecute]);
+        runAction((tx) => sdk.multisig!.approveIntent(tx, accountId, intent.key), "Intent approved");
+    }, [accountId, appendExecution, intent.key, isConfig, runAction, shouldApproveAndExecute]);
 
     const handleDisapprove = useCallback(() => {
         const sdk = getSDK();
         if (!sdk.multisig) return;
-        runAction((tx) => sdk.multisig!.disapproveIntent(asMultisigTx(tx), accountId, intent.key), "Approval removed");
-    }, [accountId, asMultisigTx, intent.key, runAction]);
+        runAction((tx) => sdk.multisig!.disapproveIntent(tx, accountId, intent.key), "Approval removed");
+    }, [accountId, intent.key, runAction]);
 
     const handleReject = useCallback(() => {
         const sdk = getSDK();
         if (!sdk.multisig) return;
-        runAction((tx) => sdk.multisig!.rejectIntent(asMultisigTx(tx), accountId, intent.key), "Intent rejected");
-    }, [accountId, asMultisigTx, intent.key, runAction]);
+        runAction((tx) => sdk.multisig!.rejectIntent(tx, accountId, intent.key), "Intent rejected");
+    }, [accountId, intent.key, runAction]);
 
     const handleEvaluate = useCallback(() => {
         const sdk = getSDK();
@@ -1220,8 +1214,8 @@ export function IntentCard({
         // evaluate_intent can transition ACTIVE -> APPROVED (approve path satisfied
         // via time-band maturity) or ACTIVE -> REJECTED (reject path satisfied
         // first). Neutral toast because the winning path decides the outcome.
-        runAction((tx) => sdk.multisig!.evaluateIntent(asMultisigTx(tx), accountId, intent.key), "Intent re-evaluated");
-    }, [accountId, asMultisigTx, intent.key, runAction]);
+        runAction((tx) => sdk.multisig!.evaluateIntent(tx, accountId, intent.key), "Intent re-evaluated");
+    }, [accountId, intent.key, runAction]);
 
     const handleExecute = useCallback(() => {
         runAction(appendExecution, isConfig ? "Config change executed" : "Intent executed");
@@ -1233,11 +1227,11 @@ export function IntentCard({
         runAction(
             (tx) =>
                 isConfig
-                    ? sdk.multisig!.cancelPendingConfigChange(asMultisigTx(tx), accountId, intent.key)
-                    : sdk.multisig!.cancelPendingActions(asMultisigTx(tx), accountId, intent.key),
+                    ? sdk.multisig!.cancelPendingConfigChange(tx, accountId, intent.key)
+                    : sdk.multisig!.cancelPendingActions(tx, accountId, intent.key),
             "Intent cancelled"
         );
-    }, [accountId, asMultisigTx, intent.key, isConfig, runAction]);
+    }, [accountId, intent.key, isConfig, runAction]);
 
     const handlePreviewAction = useCallback((action: string) => {
         toast.success(`${action} preview only`);

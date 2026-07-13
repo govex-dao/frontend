@@ -2,12 +2,13 @@
  * React Query hooks for wallet balances via SDK
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
-import { buildBalanceWrapperType } from "@govex/futarchy-sdk";
+import { buildBalanceWrapperType, type ProposalBalances } from "@govex/futarchy-sdk";
 import { getProtocolVersionForProposal, getSDKForProposal, isSupportedProtocolProposal } from "../../lib/sdk";
 import type { Proposal } from "../../types";
 import { parseConditionalTypes, parseOutcomeMessages } from "../../types";
+import { withConfirmedProposalBalances } from "@/lib/sui/confirmedEffects";
 
 export const balanceKeys = {
     all: ["balances"] as const,
@@ -20,6 +21,7 @@ export const balanceKeys = {
  * Includes coin names for display
  */
 export function useProposalBalances(proposal?: Proposal) {
+    const queryClient = useQueryClient();
     const account = useCurrentAccount();
     const address = account?.address;
 
@@ -29,9 +31,10 @@ export function useProposalBalances(proposal?: Proposal) {
     const outcomeMessages = proposal ? parseOutcomeMessages(proposal) : [];
     const protocolVersion = getProtocolVersionForProposal(proposal);
     const isSupportedProtocol = isSupportedProtocolProposal(proposal);
+    const queryKey = balanceKeys.proposal(address || "", String(proposal?.id ?? ""), protocolVersion);
 
     return useQuery({
-        queryKey: balanceKeys.proposal(address || "", String(proposal?.id ?? ""), protocolVersion),
+        queryKey,
         queryFn: async () => {
             const sdk = getSDKForProposal(proposal);
 
@@ -45,7 +48,7 @@ export function useProposalBalances(proposal?: Proposal) {
                   )
                 : undefined;
 
-            return sdk.utils.queryHelper.getProposalBalances(
+            const balances = await sdk.utils.queryHelper.getProposalBalances(
                 address!,
                 proposal!.asset_type,
                 proposal!.stable_type,
@@ -56,6 +59,12 @@ export function useProposalBalances(proposal?: Proposal) {
                 outcomeMessages,
                 marketStateId || undefined,
                 balanceWrapperType
+            );
+            return withConfirmedProposalBalances(
+                queryClient,
+                address!,
+                balances,
+                queryClient.getQueryData<ProposalBalances>(queryKey)
             );
         },
         enabled: !!address && !!proposal && isSupportedProtocol && assetTypes.length > 0,

@@ -12,6 +12,7 @@
         "build": "tsc -b && node -r ./scripts/crypto-hash-polyfill.cjs ./node_modules/vite/bin/vite.js build && node -e \"require('node:fs').copyFileSync('serve.json', 'dist/serve.json')\" && node scripts/precompress.mjs",
         "start": "node scripts/serve-dist.mjs",
         "preview": "vite preview",
+        "test": "vitest run",
         "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
         "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
         "lint": "eslint .",
@@ -20,7 +21,7 @@
         "prepare": "husky"
     },
     "dependencies": {
-        "@govex/futarchy-sdk": "file:vendor/govex-sdk-v3-0.3.0.tgz",
+        "@govex/futarchy-sdk": "file:vendor/govex-sdk-v3-0.4.0.tgz",
         "@mysten/dapp-kit-core": "^1.6.5",
         "@mysten/dapp-kit-react": "^2.1.7",
         "@mysten/sui": "^2.20.3",
@@ -58,7 +59,8 @@
         "prettier": "^3.6.2",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.45.0",
-        "vite": "npm:rolldown-vite@7.1.14"
+        "vite": "npm:rolldown-vite@7.1.14",
+        "vitest": "^4.1.10"
     },
     "pnpm": {
         "onlyBuiltDependencies": [

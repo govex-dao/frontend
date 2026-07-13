@@ -20,6 +20,7 @@ import {
     ChevronUp,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import type { MultisigConfig, MultisigMember } from "@govex/futarchy-sdk/multisig/reads";
 import { Modal } from "@/components/overlays/Modal";
 import { Button } from "@/components/inputs/Button";
 import { Input } from "@/components/inputs/Input";
@@ -28,10 +29,12 @@ import { isNotifiedTransactionError, useSuiTransaction } from "@/hooks/useSuiTra
 import { getSDK } from "@/lib/sdk";
 import {
     buildSimpleMultisigConfigInput,
+    PERMISSION_CANCEL,
+    PERMISSION_EXECUTE,
+    PERMISSION_PROPOSE,
+    PERMISSION_VOTE,
     validateAndParseMultisigConfigDraft,
 } from "@/lib/sui/multisigConfigValidation";
-import type { MultisigConfig, MultisigMember } from "@/lib/sui/multisig";
-import type { ActionSpecBuilder } from "@/lib/sui/multisig-tx";
 
 import { MintTransferForm, addMintTransferSpecs, validateMintTransfer } from "./action-forms/MintTransferForm";
 import type { MintTransferData } from "./action-forms/MintTransferForm";
@@ -49,14 +52,7 @@ import { TransferObjectForm, addTransferObjectSpecs, validateTransferObject } fr
 import type { TransferObjectData } from "./action-forms/TransferObjectForm";
 
 type ActionType =
-    | "mint_transfer"
-    | "vault_ops"
-    | "memo"
-    | "stream"
-    | "vesting"
-    | "upgrade"
-    | "owned_object"
-    | "config_change";
+    "mint_transfer" | "vault_ops" | "memo" | "stream" | "vesting" | "upgrade" | "owned_object" | "config_change";
 type Step = "pick_type" | "form" | "review";
 type ActionGroup = "core" | "account" | "advanced";
 
@@ -66,6 +62,7 @@ interface MemberDraft {
     propose: boolean;
     vote: boolean;
     execute: boolean;
+    cancel: boolean;
 }
 
 const CONFIG_PERMISSION_LABELS = {
@@ -83,14 +80,20 @@ function memberFromConfig(m: MultisigMember): MemberDraft {
     return {
         address: m.address,
         weight: String(m.weight),
-        propose: (m.permissions & 1) !== 0,
-        vote: (m.permissions & 2) !== 0,
-        execute: (m.permissions & (4 | 8)) !== 0,
+        propose: (m.permissions & PERMISSION_PROPOSE) !== 0,
+        vote: (m.permissions & PERMISSION_VOTE) !== 0,
+        execute: (m.permissions & PERMISSION_EXECUTE) !== 0,
+        cancel: (m.permissions & PERMISSION_CANCEL) !== 0,
     };
 }
 
 function memberToPermissions(m: MemberDraft): number {
-    return (m.propose ? 1 : 0) | (m.vote ? 2 : 0) | (m.execute ? 4 | 8 : 0);
+    return (
+        (m.propose ? PERMISSION_PROPOSE : 0) |
+        (m.vote ? PERMISSION_VOTE : 0) |
+        (m.execute ? PERMISSION_EXECUTE : 0) |
+        (m.cancel ? PERMISSION_CANCEL : 0)
+    );
 }
 
 function validateConfigChange(data: ConfigChangeData): boolean {
@@ -279,7 +282,7 @@ function getDefaultData(type: ActionType, config?: MultisigConfig): ActionData {
             return {
                 members: config
                     ? config.members.map(memberFromConfig)
-                    : [{ address: "", weight: "1", propose: true, vote: true, execute: true }],
+                    : [{ address: "", weight: "1", propose: true, vote: true, execute: true, cancel: true }],
                 globalThreshold: config ? String(config.globalThreshold) : "1",
             };
     }
@@ -405,35 +408,6 @@ function buildDescription(actionType: ActionType, data: ActionData): string {
     }
 }
 
-type MultisigService = NonNullable<ReturnType<typeof getSDK>["multisig"]>;
-type SimpleConfigInput = ReturnType<typeof buildSimpleMultisigConfigInput>;
-type FrontendMultisigService = Omit<MultisigService, "proposeConfigChange"> & {
-    proposeConfigChange: (
-        tx: MultisigTx,
-        params: SimpleConfigInput & {
-            accountId: string;
-            key: string;
-            description: string;
-            executionTimeMs?: bigint | number;
-        }
-    ) => MultisigTx;
-    proposeActionsIntent: (
-        tx: MultisigTx,
-        params: {
-            accountId: string;
-            key: string;
-            description: string;
-            executionTimeMs?: bigint | number;
-            builderSetup: (tx: Transaction, builder: ActionSpecBuilder) => void;
-        }
-    ) => MultisigTx;
-};
-type MultisigTx = Parameters<MultisigService["proposeActionsIntent"]>[0];
-
-function asMultisigTx(tx: Transaction): MultisigTx {
-    return tx as unknown as MultisigTx;
-}
-
 export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSuccess }: Props) {
     const { executeTransaction, isLoading } = useSuiTransaction();
     const submittingRef = useRef(false);
@@ -501,7 +475,6 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
             const executionTimeMs = 0n;
             const sdk = getSDK();
             if (!sdk.multisig) throw new Error("Multisig service not available");
-            const multisig = sdk.multisig as unknown as FrontendMultisigService;
 
             const autoKey = `${actionType}-${Date.now()}`;
             const autoDescription = buildDescription(actionType, actionData);
@@ -512,7 +485,7 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                     if (!parsedConfigChange) {
                         throw new Error("Invalid multisig configuration");
                     }
-                    multisig.proposeConfigChange(asMultisigTx(tx), {
+                    sdk.multisig.proposeConfigChange(tx, {
                         accountId,
                         key: autoKey,
                         description: autoDescription,
@@ -520,13 +493,12 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                         ...buildSimpleMultisigConfigInput(parsedConfigChange, intentExpiryMs),
                     });
                 } else {
-                    multisig.proposeActionsIntent(asMultisigTx(tx), {
+                    sdk.multisig.proposeActionsIntent(tx, {
                         accountId,
                         key: autoKey,
                         description: autoDescription,
                         executionTimeMs,
-                        builderSetup: (sdkTx, builder) => {
-                            const tx = sdkTx as unknown as Transaction;
+                        builderSetup: (tx, builder) => {
                             switch (actionType) {
                                 case "mint_transfer":
                                     addMintTransferSpecs(tx, builder, actionData as MintTransferData);
@@ -567,9 +539,9 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                 tx,
                 {
                     onSuccess: () => {
-                        onSuccess?.();
                         handleClose();
                     },
+                    onReconciled: () => onSuccess?.(),
                 },
                 {
                     loadingMessage: "Proposing intent...",
@@ -727,6 +699,7 @@ export function ProposeIntentModal({ isOpen, onClose, accountId, config, onSucce
                                                             propose: true,
                                                             vote: true,
                                                             execute: true,
+                                                            cancel: true,
                                                         },
                                                     ])
                                                 }

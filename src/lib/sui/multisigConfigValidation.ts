@@ -1,11 +1,14 @@
 import { isValidSuiAddress } from "@mysten/sui/utils";
+import {
+    MAX_MULTISIG_MEMBERS,
+    PERMISSION_CANCEL,
+    PERMISSION_EXECUTE,
+    PERMISSION_PROPOSE,
+    PERMISSION_VOTE,
+} from "@govex/futarchy-sdk/multisig/reads";
 
-export const MAX_MULTISIG_MEMBERS = 200;
+export { MAX_MULTISIG_MEMBERS, PERMISSION_CANCEL, PERMISSION_EXECUTE, PERMISSION_PROPOSE, PERMISSION_VOTE };
 const MAX_U64 = (1n << 64n) - 1n;
-export const PERMISSION_PROPOSE = 1;
-export const PERMISSION_VOTE = 2;
-export const PERMISSION_EXECUTE = 4;
-export const PERMISSION_CANCEL = 8;
 
 export interface MultisigConfigDraftMember {
     address: string;
@@ -39,26 +42,6 @@ export interface SimpleMultisigConfigInput {
     proposeGroups: number[];
     executeGroups: number[];
     cancelGroups: number[];
-    intentExpiryMs: bigint;
-}
-
-export interface FlattenedMultisigConfigInput {
-    groupNames: string[];
-    groupMemberCounts: bigint[];
-    allMemberAddresses: string[];
-    allMemberWeights: bigint[];
-    timeBandCounts: bigint[];
-    allTimeBandAfters: bigint[];
-    allTimeBandWeights: bigint[];
-    approvePathReqCounts: bigint[];
-    allApproveGroupIndices: bigint[];
-    allApproveThresholds: bigint[];
-    cancelPathReqCounts: bigint[];
-    allCancelGroupIndices: bigint[];
-    allCancelThresholds: bigint[];
-    proposeGroups: bigint[];
-    executeGroups: bigint[];
-    cancelGroups: bigint[];
     intentExpiryMs: bigint;
 }
 
@@ -166,74 +149,5 @@ export function buildSimpleMultisigConfigInput(
         executeGroups: [executeGroup],
         cancelGroups: [cancelGroup],
         intentExpiryMs: expiry,
-    };
-}
-
-function flattenPolicy(policy: SimpleMultisigConfigInput["approvePolicy"]): {
-    pathReqCounts: bigint[];
-    allGroupIndices: bigint[];
-    allThresholds: bigint[];
-} {
-    const pathReqCounts: bigint[] = [];
-    const allGroupIndices: bigint[] = [];
-    const allThresholds: bigint[] = [];
-
-    for (const path of policy.paths) {
-        pathReqCounts.push(BigInt(path.requirements.length));
-        for (const requirement of path.requirements) {
-            allGroupIndices.push(BigInt(requirement.groupIndex));
-            allThresholds.push(requirement.threshold);
-        }
-    }
-
-    return { pathReqCounts, allGroupIndices, allThresholds };
-}
-
-export function flattenMultisigConfigInput(input: SimpleMultisigConfigInput): FlattenedMultisigConfigInput {
-    const groupNames: string[] = [];
-    const groupMemberCounts: bigint[] = [];
-    const allMemberAddresses: string[] = [];
-    const allMemberWeights: bigint[] = [];
-    const timeBandCounts: bigint[] = [];
-    const allTimeBandAfters: bigint[] = [];
-    const allTimeBandWeights: bigint[] = [];
-
-    for (const group of input.groups) {
-        groupNames.push(group.name);
-        groupMemberCounts.push(BigInt(group.members.length));
-        for (const member of group.members) {
-            allMemberAddresses.push(member.address);
-            allMemberWeights.push(member.weight);
-        }
-
-        const timeBands = group.timeBands ?? [];
-        timeBandCounts.push(BigInt(timeBands.length));
-        for (const timeBand of timeBands) {
-            allTimeBandAfters.push(timeBand.afterMs);
-            allTimeBandWeights.push(timeBand.weight);
-        }
-    }
-
-    const approvePolicy = flattenPolicy(input.approvePolicy);
-    const cancelPolicy = flattenPolicy(input.cancelPolicy);
-
-    return {
-        groupNames,
-        groupMemberCounts,
-        allMemberAddresses,
-        allMemberWeights,
-        timeBandCounts,
-        allTimeBandAfters,
-        allTimeBandWeights,
-        approvePathReqCounts: approvePolicy.pathReqCounts,
-        allApproveGroupIndices: approvePolicy.allGroupIndices,
-        allApproveThresholds: approvePolicy.allThresholds,
-        cancelPathReqCounts: cancelPolicy.pathReqCounts,
-        allCancelGroupIndices: cancelPolicy.allGroupIndices,
-        allCancelThresholds: cancelPolicy.allThresholds,
-        proposeGroups: input.proposeGroups.map(BigInt),
-        executeGroups: input.executeGroups.map(BigInt),
-        cancelGroups: input.cancelGroups.map(BigInt),
-        intentExpiryMs: input.intentExpiryMs,
     };
 }

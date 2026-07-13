@@ -27,3 +27,11 @@ export function parseAmountToBigInt(amount: string, decimals: number): bigint {
 
     return BigInt(cleaned);
 }
+
+export function safeParseAmountToBigInt(amount: string, decimals: number): bigint {
+    try {
+        return parseAmountToBigInt(amount, decimals);
+    } catch {
+        return 0n;
+    }
+}

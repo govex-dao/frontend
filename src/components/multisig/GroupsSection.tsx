@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock, Edit3, Play } from "lucide-react";
+import { type MultisigConfig, type MultisigGroup, normalizeSuiAddress } from "@govex/futarchy-sdk/multisig/reads";
 import { CopyableAddress } from "@/components/multisig/CopyableAddress";
-import { type MultisigConfig, type MultisigGroup, normalizeSuiAddress } from "@/lib/sui/multisig";
 
 interface Props {
     config: MultisigConfig;

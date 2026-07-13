@@ -1,4 +1,4 @@
-import type { OwnedObjectInfo } from "@/lib/sui/multisig";
+import type { OwnedObjectInfo } from "@govex/futarchy-sdk/multisig/reads";
 
 export interface MigrationCoinRow {
     coinType: string;

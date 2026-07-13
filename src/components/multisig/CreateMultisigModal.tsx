@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useCurrentAccount, useSuiClient } from "@/lib/sui/dapp-kit-compat";
 import { useQueryClient } from "@tanstack/react-query";
 import { Transaction } from "@mysten/sui/transactions";
 import { isValidSuiAddress } from "@mysten/sui/utils";
 import { Copy, ImageIcon, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useCurrentAccount } from "@/lib/sui/dapp-kit-compat";
 import { Modal } from "@/components/overlays/Modal";
 import { Button } from "@/components/inputs/Button";
 import { Input } from "@/components/inputs/Input";
@@ -18,7 +18,7 @@ import {
     parseU64Input,
     validateAndParseMultisigConfigDraft,
 } from "@/lib/sui/multisigConfigValidation";
-import { appendCreateMultisigAccount, fetchMultisigCreationFeeMist, formatSuiFee } from "@/lib/sui/multisigCreation";
+import { formatSuiFee } from "@/lib/sui/multisigCreation";
 import { multisigKeys } from "@/hooks/api/useMultisigs";
 import { AdvancedMultisigConfig } from "./AdvancedMultisigConfig";
 import { MiddleEllipsizedAddress } from "./CopyableAddress";
@@ -43,7 +43,6 @@ interface Props {
 
 export function CreateMultisigModal({ isOpen, onClose }: Props) {
     const account = useCurrentAccount();
-    const suiClient = useSuiClient();
     const queryClient = useQueryClient();
     const { addId } = useSavedMultisigIds();
     const { executeTransaction, isLoading } = useSuiTransaction();
@@ -83,7 +82,8 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
         const loadCreationFee = async () => {
             try {
                 const sdk = getSDK();
-                const fee = await fetchMultisigCreationFeeMist(sdk, suiClient);
+                if (!sdk.multisig) throw new Error("multisig service not configured");
+                const fee = await sdk.multisig.getCreationFeeMist();
                 if (!cancelled) setCreationFeeMist(fee);
             } catch (error) {
                 console.error("Failed to fetch multisig creation fee:", error);
@@ -98,7 +98,7 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
         return () => {
             cancelled = true;
         };
-    }, [isOpen, suiClient]);
+    }, [isOpen]);
 
     const addMember = () =>
         setMembers((prev) => [...prev, { address: "", weight: "1", propose: true, vote: true, execute: true }]);
@@ -182,13 +182,17 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
             const metadata: Record<string, string> = {};
             const trimmedName = accountName.trim();
             if (trimmedName) metadata.name = trimmedName;
-            if (normalizedImageUrl) metadata.image = normalizedImageUrl;
+            if (normalizedImageUrl) {
+                metadata.image = normalizedImageUrl;
+                metadata.image_thumbnail = normalizedImageUrl;
+            }
 
-            appendCreateMultisigAccount(tx, sdk, {
-                configInput,
+            const createParams = {
+                ...configInput,
                 metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-                paymentCoin,
-            });
+            };
+            if (paymentCoin) sdk.multisig.createAccount(tx, paymentCoin, createParams);
+            else sdk.multisig.createAccount(tx, createParams);
 
             await executeTransaction(
                 tx,
@@ -197,14 +201,14 @@ export function CreateMultisigModal({ isOpen, onClose }: Props) {
                         const createdAccountId = extractCreatedMultisigAccountId(result);
                         if (createdAccountId) addId(createdAccountId);
                         setSuccessAccountId(createdAccountId ?? "");
+                    },
+                    onReconciled: () => {
                         queryClient.invalidateQueries({ queryKey: multisigKeys.all });
                         queryClient.invalidateQueries({ queryKey: ["multisig-rpc"] });
-                        window.setTimeout(() => {
-                            void queryClient.refetchQueries({
-                                queryKey: multisigKeys.list(account.address),
-                                type: "all",
-                            });
-                        }, 5000);
+                        void queryClient.refetchQueries({
+                            queryKey: multisigKeys.list(account.address),
+                            type: "all",
+                        });
                     },
                 },
                 {
