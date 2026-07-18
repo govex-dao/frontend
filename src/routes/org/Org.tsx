@@ -20,7 +20,6 @@ import { useDAO, useDAOProposalsDisplay, useCoins } from "@/hooks/api";
 import { useMultisigVaultBalances } from "@/hooks/useMultisig";
 import { DepositModal } from "@/components/multisig/DepositModal";
 import { CoinAvatar } from "@/components/CoinAvatar";
-import { RaiseActionSections } from "@/components/raise/ActionSections";
 import { useMergedCoinMetadata } from "@/hooks/useOnChainCoinMetadata";
 import { getProtocolVersionForDAO } from "@/lib/sdk";
 import { formatUnits, normalizeUnitsForSort } from "@/lib/units";
@@ -287,31 +286,6 @@ function OrgVaultHoldings({
     );
 }
 
-function OrgCreationActions({ daoRaw }: { daoRaw: DAO }) {
-    const actionContext = {
-        assetType: daoRaw.asset_type,
-        stableType: daoRaw.stable_type,
-        assetSymbol: daoRaw.asset_symbol,
-        stableSymbol: daoRaw.stable_symbol,
-        assetDecimals: daoRaw.asset_decimals,
-        stableDecimals: daoRaw.stable_decimals,
-    };
-
-    return (
-        <RaiseActionSections
-            title="DAO creation actions"
-            sections={[
-                {
-                    title: "Launch actions",
-                    caption: daoRaw.init_execution_at ? "Executed" : "Staged at creation",
-                    actions: daoRaw.init_actions,
-                },
-            ]}
-            context={actionContext}
-        />
-    );
-}
-
 export function Org() {
     const { orgId } = useParams<{ orgId: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -455,8 +429,6 @@ export function Org() {
                             <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={ammTvl?.spotPriceFormatted} />
 
                             <AmmTvlPanel dao={daoRaw} data={ammTvl} isLoading={ammTvlLoading} isError={ammTvlError} />
-
-                            <OrgCreationActions daoRaw={daoRaw} />
 
                             {/* Vault Holdings */}
                             <div>
