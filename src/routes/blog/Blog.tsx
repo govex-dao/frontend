@@ -94,7 +94,11 @@ export function Blog() {
                                         <div className="overflow-hidden rounded-md border border-border-subtle bg-black/20">
                                             <img
                                                 src={post.image.src}
+                                                srcSet={post.image.srcSet}
+                                                sizes="(min-width: 640px) 184px, calc(100vw - 2rem)"
                                                 alt={post.image.alt}
+                                                width={1200}
+                                                height={675}
                                                 className="aspect-[16/10] h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                                                 loading="lazy"
                                                 decoding="async"

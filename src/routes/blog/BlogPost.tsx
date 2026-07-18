@@ -67,8 +67,13 @@ export function BlogPost() {
                         <div className="border-b border-border-light p-3 sm:p-4">
                             <img
                                 src={post.image.src}
+                                srcSet={post.image.srcSet}
+                                sizes="(min-width: 768px) 704px, calc(100vw - 3rem)"
                                 alt={post.image.alt}
+                                width={1200}
+                                height={675}
                                 className="aspect-[16/9] w-full rounded-md border border-border-subtle object-cover"
+                                decoding="async"
                             />
                         </div>
                     )}

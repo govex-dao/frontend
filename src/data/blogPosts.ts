@@ -8,6 +8,7 @@ export interface BlogPost {
     date: string;
     image?: {
         src: string;
+        srcSet?: string;
         alt: string;
     };
     content: string;
@@ -30,7 +31,8 @@ export const blogPosts: BlogPost[] = [
         tags: ["orgs", "governance"],
         date: "2026-07-09",
         image: {
-            src: "/images/blog/financial-os-for-agent-first-companies.png",
+            src: "/images/blog/financial-os-for-agent-first-companies.webp",
+            srcSet: "/images/blog/financial-os-for-agent-first-companies-480.webp 480w, /images/blog/financial-os-for-agent-first-companies-800.webp 800w, /images/blog/financial-os-for-agent-first-companies.webp 1200w",
             alt: "A translucent agent figure containing a three-person organization chart within its chest",
         },
         content: `
@@ -98,7 +100,8 @@ If your problem is not "I need a blockchain app" but "I need to safely give soft
         tags: ["multisig", "governance"],
         date: "2026-07-02",
         image: {
-            src: "/images/blog/govex-multisig-vs-sui-multisig.png",
+            src: "/images/blog/govex-multisig-vs-sui-multisig.webp",
+            srcSet: "/images/blog/govex-multisig-vs-sui-multisig-480.webp 480w, /images/blog/govex-multisig-vs-sui-multisig-800.webp 800w, /images/blog/govex-multisig-vs-sui-multisig.webp 1200w",
             alt: "Abstract comparison between simple threshold signing and a programmable Govex account control surface",
         },
         content: `
@@ -153,7 +156,8 @@ If all you need is threshold signatures, use the default Sui multisig. If your t
         tags: ["multisig"],
         date: "2026-04-03",
         image: {
-            src: "/images/blog/multisig-security-after-drift.png",
+            src: "/images/blog/multisig-security-after-drift.webp",
+            srcSet: "/images/blog/multisig-security-after-drift-480.webp 480w, /images/blog/multisig-security-after-drift-800.webp 800w, /images/blog/multisig-security-after-drift.webp 1200w",
             alt: "Shadowy laptop screen showing a glowing question mark for multisig transaction security review",
         },
         content: `
