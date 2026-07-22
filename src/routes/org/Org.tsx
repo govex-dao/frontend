@@ -9,6 +9,7 @@ import { SidebarNav, type SidebarNavItem } from "@/components/navigation/Sidebar
 import { AmmTvlPanel } from "@/components/org/page/AmmTvlPanel";
 import { ProposalsTab } from "@/components/org/page/ProposalsTab";
 import { SpotSwapCard } from "@/components/org/page/SpotSwapCard";
+import { GovexRedemptionBanner } from "@/components/org/page/GovexRedemptionBanner";
 import { OrdersTab } from "@/components/org/page/OrdersTab";
 import { VerifiedBadge } from "@/components/badges/VerifiedBadge";
 import { Button } from "@/components/inputs/Button";
@@ -424,6 +425,8 @@ export function Org() {
                 </div>
 
                 <div className="flex flex-col flex-1 gap-3 min-w-0 p-4 md:p-8 lg:p-5 xl:p-8 2xl:p-10 relative h-full overflow-y-auto">
+                    <GovexRedemptionBanner dao={daoRaw} />
+
                     {activeTab === "overview" && (
                         <div className="flex flex-col gap-6">
                             <OrgInfo dao={dao} daoRaw={daoRaw} spotPriceFormatted={ammTvl?.spotPriceFormatted} />
