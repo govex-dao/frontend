@@ -297,7 +297,7 @@ export function GovexRedemptionBanner({ dao }: { dao: DAO }) {
             : `Redeem ${walletBalanceDisplay} GOVEX`;
 
     return (
-        <section className="relative flex min-h-[28rem] flex-col overflow-hidden rounded-2xl border border-emerald-300/25 bg-linear-to-br from-emerald-500/20 via-cyan-500/10 to-card p-5 shadow-[0_20px_60px_rgba(16,185,129,0.10)] md:min-h-[24rem] md:p-6">
+        <section className="relative flex min-h-[36rem] flex-col overflow-hidden rounded-2xl border border-emerald-300/25 bg-linear-to-br from-emerald-500/20 via-cyan-500/10 to-card p-5 shadow-[0_20px_60px_rgba(16,185,129,0.10)] md:min-h-[24rem] md:p-6">
             <div className="pointer-events-none absolute -right-16 -top-24 size-64 rounded-full bg-emerald-300/10 blur-3xl" />
             <div className="relative grid min-h-0 flex-1 gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.8fr)] xl:items-center">
                 <div>
