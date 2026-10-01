@@ -54,3 +54,7 @@ provider token.
 
 See [SUI_V2_MIGRATION.md](./SUI_V2_MIGRATION.md) for the transport and
 deployment notes.
+
+---
+
+Use and interact with this software at your own risk. This code has not been independently audited and may contain bugs, vulnerabilities, or other defects. It is provided “as is,” without warranties of any kind. You are responsible for reviewing, testing, and determining its suitability for your intended use.
